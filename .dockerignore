@@ -1,0 +1,50 @@
+# Version control
+.git
+.gitignore
+
+# Python
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.egg-info
+dist/
+build/
+.eggs/
+
+# Virtual environments
+.venv
+venv/
+env/
+
+# Development / test
+.env
+tests/
+*.test.py
+pytest.ini
+.pytest_cache/
+.coverage
+htmlcov/
+.mypy_cache/
+
+# Editors
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Documentation (included in README but not needed in image)
+docs/
+*.md
+
+# Data / backups (mounted as volumes at runtime)
+data/
+backups/
+
+# CI
+.github/

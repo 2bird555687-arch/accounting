@@ -34,6 +34,10 @@ aiofiles==24.1.0
 pillow==11.0.0
 babel==2.16.0             # Thai number/date formatting
 pytz==2024.2
+python-dateutil==2.9.0    # Recurring entries (relativedelta)
+pymupdf==1.24.14          # PDF page extraction for OCR
+pillow-heif==0.20.0       # HEIC image support for OCR
+bcrypt==4.2.1             # Password hashing (Python 3.13 compat)
 
 # Testing
 pytest==8.3.4
