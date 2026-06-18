@@ -338,6 +338,29 @@ class AccountBalance(Base):
         )
 
 
+# ── BudgetItem ────────────────────────────────────────────────────────────────
+
+class BudgetItem(Base):
+    """งบประมาณต่อบัญชีต่องวด."""
+
+    __tablename__ = "budget_items"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    fiscal_year: Mapped[int] = mapped_column(Integer, nullable=False)
+    month: Mapped[Optional[int]] = mapped_column(Integer)
+    account_id: Mapped[int] = mapped_column(Integer, ForeignKey("chart_of_accounts.id"), nullable=False)
+    branch_id: Mapped[int] = mapped_column(Integer, nullable=False)
+    budget_amount: Mapped[Decimal] = mapped_column(Numeric(18, 2), nullable=False, default=Decimal(0))
+    created_by: Mapped[int] = mapped_column(Integer, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+    __table_args__ = (
+        UniqueConstraint("fiscal_year", "month", "account_id", "branch_id", name="uq_budget_item"),
+    )
+
+    account: Mapped[ChartOfAccount] = relationship("ChartOfAccount")
+
+
 # ── RecurringTemplate ─────────────────────────────────────────────────────────
 
 class RecurringTemplate(Base):
