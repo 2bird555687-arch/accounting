@@ -8,13 +8,16 @@ from typing import Optional
 
 from sqlalchemy import (
     Boolean,
+    Date,
     DateTime,
     Integer,
     Numeric,
     String,
     Text,
+    UniqueConstraint,
     func,
 )
+from datetime import date
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 
@@ -134,3 +137,36 @@ class BankAccount(Base):
             f"<BankAccount {self.bank_name} {self.account_number!r} "
             f"type={self.account_type!r}>"
         )
+
+
+# ── TaxDeadline ───────────────────────────────────────────────────────────────
+
+class TaxDeadline(Base):
+    """ติดตามกำหนดการยื่นภาษีและปิดงวดรายบริษัท."""
+
+    __tablename__ = "tax_deadlines"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    firm_id: Mapped[int] = mapped_column(Integer, nullable=False, index=True)
+    company_id: Mapped[int] = mapped_column(Integer, nullable=False)
+    year_month: Mapped[str] = mapped_column(String(7), nullable=False)  # YYYY-MM
+    deadline_type: Mapped[str] = mapped_column(String(20), nullable=False)
+    # pp30 | pnd1 | pnd3 | pnd53 | sso | period_close
+    due_date: Mapped[date] = mapped_column(Date, nullable=False)
+    filed_date: Mapped[Optional[date]] = mapped_column(Date)
+    status: Mapped[str] = mapped_column(String(20), nullable=False, server_default="pending")
+    # pending | filed | overdue | waived
+    notes: Mapped[Optional[str]] = mapped_column(String(500))
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+    __table_args__ = (
+        UniqueConstraint("firm_id", "company_id", "year_month", "deadline_type", name="uq_tax_deadline"),
+    )
+
+    def __repr__(self) -> str:
+        return f"<TaxDeadline {self.year_month} {self.deadline_type} status={self.status!r}>"

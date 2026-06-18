@@ -368,6 +368,9 @@ class RecurringTemplate(Base):
         CheckConstraint("day_of_month BETWEEN 1 AND 31", name="ck_recurring_day"),
     )
 
+    end_date: Mapped[Optional[date]] = mapped_column(Date)
+    company_id: Mapped[Optional[int]] = mapped_column(Integer)
+
     lines: Mapped[list[RecurringLine]] = relationship(
         "RecurringLine", back_populates="template", cascade="all, delete-orphan"
     )
@@ -402,3 +405,44 @@ class RecurringLine(Base):
 
     def __repr__(self) -> str:
         return f"<RecurringLine tmpl={self.template_id} line={self.line_no}>"
+
+
+# ── PeriodCloseLog ────────────────────────────────────────────────────────────
+
+class PeriodCloseLog(Base):
+    """Audit log สำหรับการปิด/เปิดงวดบัญชี."""
+
+    __tablename__ = "period_close_logs"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    period_id: Mapped[int] = mapped_column(Integer, ForeignKey("periods.id"), nullable=False)
+    action: Mapped[str] = mapped_column(String(20), nullable=False)  # closed | reopened
+    user_id: Mapped[int] = mapped_column(Integer, nullable=False)
+    user_role: Mapped[str] = mapped_column(String(30), nullable=False)
+    reason: Mapped[Optional[str]] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+
+# ── AdjustingEntry ────────────────────────────────────────────────────────────
+
+class AdjustingEntry(Base):
+    """ติดตาม adjusting entries ที่ต้องทำในแต่ละงวด."""
+
+    __tablename__ = "adjusting_entries"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    period_id: Mapped[int] = mapped_column(Integer, ForeignKey("periods.id"), nullable=False)
+    item_type: Mapped[str] = mapped_column(String(30), nullable=False)
+    # depreciation | accrual | prepaid | deferred_revenue | allowance
+    description: Mapped[str] = mapped_column(String(500), nullable=False)
+    amount: Mapped[Decimal] = mapped_column(Numeric(18, 2), nullable=False, server_default="0")
+    status: Mapped[str] = mapped_column(String(20), nullable=False, server_default="pending")
+    # pending | posted | skipped
+    journal_no: Mapped[Optional[str]] = mapped_column(String(30))
+    source_id: Mapped[Optional[int]] = mapped_column(Integer)
+    created_by: Mapped[int] = mapped_column(Integer, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )

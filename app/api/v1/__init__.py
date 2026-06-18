@@ -12,7 +12,9 @@ from app.api.v1.inv_routes import router as inv_router
 from app.api.v1.journal_routes import router as journal_router
 from app.api.v1.ledger_routes import router as ledger_router
 from app.api.v1.payroll_routes import router as payroll_router
+from app.api.v1.automation_routes import router as automation_router
 from app.api.v1.bank_routes import router as bank_router
+from app.api.v1.deadline_routes import router as deadline_router
 from app.api.v1.ocr_routes import router as ocr_router
 from app.api.v1.petty_routes import router as petty_router
 from app.api.v1.platform_routes import router as platform_router
@@ -41,3 +43,5 @@ router.include_router(payroll_router)
 router.include_router(petty_router)
 router.include_router(ocr_router)
 router.include_router(bank_router)
+router.include_router(automation_router)
+router.include_router(deadline_router)
