@@ -94,7 +94,7 @@ async def confirm_document(data: OCRConfirmIn, ctx: CTX, db: CompanyDB):
     """ยืนยันข้อมูล OCR และบันทึกรายการ journal entry."""
     from sqlalchemy import select
     from app.core.engine import PostingEngine, JournalEntryInput, JournalLineInput
-    from app.context import DrCr
+    from app.context import DrCr, JournalType
 
     history = await db.scalar(
         select(OCRHistory).where(
@@ -138,9 +138,12 @@ async def confirm_document(data: OCRConfirmIn, ctx: CTX, db: CompanyDB):
         doc_date = ctx.period
 
     entry = JournalEntryInput(
-        date=doc_date,
+        journal_type=JournalType.GJ,
+        entry_date=doc_date,
         description=f"OCR {data.document_type} {data.doc_number or ''} {data.vendor_name or ''}".strip(),
         lines=lines,
+        source_module="ocr",
+        source_id=data.ocr_history_id,
     )
 
     try:

@@ -128,6 +128,7 @@ async def init_company_db(firm_id: int, company_id: int) -> None:
     from app.modules.tax.models import Base as TAXBase
     from app.master.models import Base as MasterBase
     from app.ocr.models import Base as OCRBase
+    from app.modules.bank.models import Base as BankBase
 
     db_url = settings.get_company_db_url(firm_id, company_id)
     engine = get_engine(db_url)
@@ -140,3 +141,4 @@ async def init_company_db(firm_id: int, company_id: int) -> None:
         await conn.run_sync(TAXBase.metadata.create_all)
         await conn.run_sync(MasterBase.metadata.create_all)
         await conn.run_sync(OCRBase.metadata.create_all)
+        await conn.run_sync(BankBase.metadata.create_all)
