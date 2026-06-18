@@ -126,6 +126,7 @@ async def init_company_db(firm_id: int, company_id: int) -> None:
     from app.modules.inv.models import Base as INVBase
     from app.modules.fa.models import Base as FABase
     from app.modules.tax.models import Base as TAXBase
+    from app.master.models import Base as MasterBase
 
     db_url = settings.get_company_db_url(firm_id, company_id)
     engine = get_engine(db_url)
@@ -136,3 +137,4 @@ async def init_company_db(firm_id: int, company_id: int) -> None:
         await conn.run_sync(INVBase.metadata.create_all)
         await conn.run_sync(FABase.metadata.create_all)
         await conn.run_sync(TAXBase.metadata.create_all)
+        await conn.run_sync(MasterBase.metadata.create_all)

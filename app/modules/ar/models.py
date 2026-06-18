@@ -58,6 +58,15 @@ class Contact(Base):
     default_ap_account: Mapped[str] = mapped_column(String(10), default="2101", nullable=False)
     default_revenue_account: Mapped[str] = mapped_column(String(10), default="4101", nullable=False)
 
+    # เครดิต
+    credit_limit: Mapped[Decimal] = mapped_column(Numeric(15, 2), nullable=False, default=Decimal(0))
+
+    # บัญชีธนาคารสำหรับโอนเงิน
+    bank_name: Mapped[Optional[str]] = mapped_column(String(100))
+    bank_branch: Mapped[Optional[str]] = mapped_column(String(100))
+    bank_account_no: Mapped[Optional[str]] = mapped_column(String(30))
+    bank_account_name: Mapped[Optional[str]] = mapped_column(String(200))
+
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
