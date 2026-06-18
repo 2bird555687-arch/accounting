@@ -1,0 +1,146 @@
+{% extends "base.html" %}
+{% block title %}จัดการสำนักงาน{% endblock %}
+{% block page_title %}Firm Dashboard — จัดการสำนักงานบัญชี{% endblock %}
+
+{% block content %}
+<div x-data="firmDashboard()" x-init="init()">
+
+  <!-- Summary KPIs -->
+  <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+    <div class="bg-white rounded-xl p-5 shadow-sm border border-gray-100">
+      <p class="text-xs text-gray-500 uppercase tracking-wide">บริษัทในระบบ</p>
+      <p class="text-3xl font-bold text-gray-800 mt-1" x-text="stats.total_companies">—</p>
+    </div>
+    <div class="bg-white rounded-xl p-5 shadow-sm border border-gray-100">
+      <p class="text-xs text-gray-500 uppercase tracking-wide">ผู้ใช้งาน</p>
+      <p class="text-3xl font-bold text-gray-800 mt-1" x-text="stats.total_users">—</p>
+    </div>
+    <div class="bg-white rounded-xl p-5 shadow-sm border border-gray-100">
+      <p class="text-xs text-gray-500 uppercase tracking-wide">กำหนดส่งภาษีเดือนนี้</p>
+      <p class="text-3xl font-bold text-amber-600 mt-1" x-text="stats.deadlines_this_month">—</p>
+    </div>
+    <div class="bg-white rounded-xl p-5 shadow-sm border border-gray-100">
+      <p class="text-xs text-gray-500 uppercase tracking-wide">เกินกำหนด!</p>
+      <p class="text-3xl font-bold text-red-600 mt-1" x-text="stats.overdue_count">—</p>
+    </div>
+  </div>
+
+  <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+
+    <!-- Deadline calendar -->
+    <div class="bg-white rounded-xl shadow-sm border border-gray-100">
+      <div class="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
+        <h2 class="font-semibold text-gray-800">กำหนดการภาษี</h2>
+        <span class="text-xs text-gray-400" x-text="currentMonthLabel"></span>
+      </div>
+
+      <div class="p-5">
+        <div class="space-y-2" id="deadlines-list">
+          <div
+            hx-get="/api/v1/deadlines?limit=20"
+            hx-trigger="load"
+            hx-target="#deadlines-list"
+            hx-headers='{"Authorization": "Bearer {{ request.cookies.get("access_token", "") }}"}'
+          >
+            <div class="animate-pulse space-y-2">
+              <div class="h-12 bg-gray-100 rounded-lg"></div>
+              <div class="h-12 bg-gray-100 rounded-lg"></div>
+              <div class="h-12 bg-gray-100 rounded-lg"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Companies list -->
+    <div class="bg-white rounded-xl shadow-sm border border-gray-100">
+      <div class="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
+        <h2 class="font-semibold text-gray-800">บริษัท / ลูกค้า</h2>
+        <button @click="newCompany()" class="text-sm text-blue-600 hover:underline">+ เพิ่มบริษัท</button>
+      </div>
+      <div class="divide-y divide-gray-50">
+        <template x-for="c in companies" :key="c.id">
+          <div class="flex items-center gap-3 px-5 py-3 hover:bg-gray-50">
+            <div class="w-9 h-9 bg-blue-700 rounded-lg flex items-center justify-center text-white text-sm font-bold shrink-0" x-text="c.name?.charAt(0) || 'C'"></div>
+            <div class="flex-1 min-w-0">
+              <p class="font-medium text-gray-800 text-sm truncate" x-text="c.name"></p>
+              <p class="text-xs text-gray-400" x-text="'งวด: ' + (c.current_period || '—')"></p>
+            </div>
+            <div class="flex items-center gap-1">
+              <span x-show="c.period_status === 'closed'" class="text-xs px-1.5 py-0.5 bg-green-100 text-green-700 rounded font-medium">ปิดแล้ว</span>
+              <span x-show="c.period_status === 'open'" class="text-xs px-1.5 py-0.5 bg-blue-100 text-blue-700 rounded font-medium">เปิด</span>
+              <button @click="switchCompany(c.id)" class="ml-2 text-xs px-2 py-1 rounded bg-gray-100 text-gray-600 hover:bg-gray-200">สลับ</button>
+            </div>
+          </div>
+        </template>
+        <template x-if="companies.length === 0">
+          <div class="px-5 py-8 text-center text-gray-400 text-sm">ไม่พบข้อมูลบริษัท</div>
+        </template>
+      </div>
+    </div>
+  </div>
+
+  <!-- Recurring entries due -->
+  <div class="bg-white rounded-xl shadow-sm border border-gray-100">
+    <div class="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
+      <h2 class="font-semibold text-gray-800">รายการประจำที่ถึงกำหนด</h2>
+      <a href="#" class="text-sm text-blue-600 hover:underline">จัดการทั้งหมด →</a>
+    </div>
+    <div class="p-5">
+      <div
+        hx-get="/api/v1/automation/recurring/due"
+        hx-trigger="load"
+        hx-target="this"
+        hx-headers='{"Authorization": "Bearer {{ request.cookies.get("access_token", "") }}"}'
+      >
+        <div class="animate-pulse space-y-2">
+          <div class="h-10 bg-gray-100 rounded"></div>
+          <div class="h-10 bg-gray-100 rounded"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function firmDashboard() {
+  return {
+    stats: { total_companies: 0, total_users: 0, deadlines_this_month: 0, overdue_count: 0 },
+    companies: [],
+    get currentMonthLabel() {
+      const months = ['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'];
+      const d = new Date();
+      return months[d.getMonth()] + ' ' + (d.getFullYear() + 543);
+    },
+
+    async init() {
+      await Promise.all([this.loadStats(), this.loadCompanies()]);
+    },
+
+    async loadStats() {
+      this.stats = { total_companies: 3, total_users: 8, deadlines_this_month: 4, overdue_count: 1 };
+    },
+
+    async loadCompanies() {
+      const token = document.cookie.match(/access_token=([^;]+)/)?.[1] || '';
+      try {
+        const r = await fetch('/api/v1/platform/companies', { headers: { Authorization: 'Bearer ' + token } });
+        const d = await r.json();
+        this.companies = d.items || d.data || d || [];
+      } catch { this.companies = []; }
+    },
+
+    switchCompany(id) {
+      alert('สลับไปบริษัท ' + id + ' — ต้อง login ใหม่พร้อม company_id ใหม่');
+    },
+
+    newCompany() {
+      alert('ฟอร์มสร้างบริษัทใหม่ (Modal)');
+    },
+  };
+}
+</script>
+{% endblock %}

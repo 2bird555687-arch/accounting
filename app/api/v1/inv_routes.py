@@ -1,4 +1,4 @@
-"""INV API Routes."""
+﻿"""INV API Routes."""
 
 from __future__ import annotations
 
@@ -6,8 +6,8 @@ from typing import Annotated, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 
-from app.api.deps import get_app_context, get_company_db
-from app.core.context import AppContext
+from app.api.deps import get_app_context, CTX, CompanyDB
+from app.context import AppContext
 from app.modules.inv.schemas import (
     AdjustStockIn,
     IssueStockIn,
@@ -26,10 +26,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 router = APIRouter(prefix="/inv", tags=["Inventory"])
 
 Ctx = Annotated[AppContext, Depends(get_app_context)]
-DB = Annotated[AsyncSession, Depends(get_company_db)]
+DB = CompanyDB
 
 
-# ── Products ──────────────────────────────────────────────────────────────────
+# โ”€โ”€ Products โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€
 
 @router.get("/products", response_model=list[ProductOut])
 async def list_products(
@@ -77,7 +77,7 @@ async def deactivate_product(product_id: int, ctx: Ctx, db: DB):
         raise HTTPException(status_code=404, detail=str(e))
 
 
-# ── Stock Balance ─────────────────────────────────────────────────────────────
+# โ”€โ”€ Stock Balance โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€
 
 @router.get("/stock/balance", response_model=list[StockBalance])
 async def get_stock_balance(ctx: Ctx, db: DB, product_id: Optional[int] = None):
@@ -89,7 +89,7 @@ async def get_lots(product_id: int, ctx: Ctx, db: DB):
     return await InventoryService.get_lots(product_id, ctx, db)
 
 
-# ── Stock Movements ───────────────────────────────────────────────────────────
+# โ”€โ”€ Stock Movements โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€
 
 @router.get("/movements", response_model=list[StockMovementOut])
 async def list_movements(
@@ -129,3 +129,5 @@ async def adjust_stock(data: AdjustStockIn, ctx: Ctx, db: DB):
         raise HTTPException(status_code=403, detail=str(e))
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
+
+

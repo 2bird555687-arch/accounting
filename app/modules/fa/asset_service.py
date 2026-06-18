@@ -1,4 +1,4 @@
-"""FA — Fixed Asset Service (create / update / dispose)."""
+﻿"""FA โ€” Fixed Asset Service (create / update / dispose)."""
 
 from __future__ import annotations
 
@@ -9,8 +9,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.fa.models import ASSET_CATEGORY_ACCOUNTS, FixedAsset
 from app.modules.fa.schemas import AssetCreate, AssetOut, AssetUpdate, DisposeAssetIn
-from app.core.context import AppContext
-from app.core.posting_engine import PostingEngine, JournalLineIn
+from app.context import AppContext
+from app.core.engine import PostingEngine, JournalLineInput as JournalLineIn
 
 
 async def _next_asset_code(company_id: int, db: AsyncSession) -> str:
@@ -28,9 +28,9 @@ class AssetService:
     @staticmethod
     async def create_asset(data: AssetCreate, ctx: AppContext, db: AsyncSession) -> AssetOut:
         if ctx.user_role not in ("firm_admin", "accountant"):
-            raise PermissionError("ต้องการสิทธิ์ accountant ขึ้นไป")
+            raise PermissionError("เธ•เนเธญเธเธเธฒเธฃเธชเธดเธ—เธเธดเน accountant เธเธถเนเธเนเธ")
 
-        # ตรวจ asset_code ซ้ำ
+        # เธ•เธฃเธงเธ asset_code เธเนเธณ
         existing = await db.scalar(
             select(FixedAsset).where(
                 FixedAsset.company_id == ctx.company_id,
@@ -38,9 +38,9 @@ class AssetService:
             )
         )
         if existing:
-            raise ValueError(f"รหัสสินทรัพย์ '{data.asset_code}' มีอยู่แล้ว")
+            raise ValueError(f"เธฃเธซเธฑเธชเธชเธดเธเธ—เธฃเธฑเธเธขเน '{data.asset_code}' เธกเธตเธญเธขเธนเนเนเธฅเนเธง")
 
-        # กำหนดบัญชีจาก category
+        # เธเธณเธซเธเธ”เธเธฑเธเธเธตเธเธฒเธ category
         cat = ASSET_CATEGORY_ACCOUNTS.get(data.category, ASSET_CATEGORY_ACCOUNTS["other"])
         asset_account = data.asset_account or cat[0]
         acc_depr_account = data.acc_depr_account or cat[1]
@@ -73,7 +73,7 @@ class AssetService:
         db.add(asset)
         await db.flush()
 
-        # Journal ซื้อสินทรัพย์: Dr asset_account | Cr credit_account (เจ้าหนี้/เงินสด)
+        # Journal เธเธทเนเธญเธชเธดเธเธ—เธฃเธฑเธเธขเน: Dr asset_account | Cr credit_account (เน€เธเนเธฒเธซเธเธตเน/เน€เธเธดเธเธชเธ”)
         lines = [
             JournalLineIn(account_code=asset_account, dr_cr="DR", amount=data.cost),
             JournalLineIn(account_code=data.credit_account, dr_cr="CR", amount=data.cost),
@@ -82,7 +82,7 @@ class AssetService:
             ctx=ctx,
             journal_type="GJ",
             lines=lines,
-            description=f"ซื้อสินทรัพย์ {data.asset_code} {data.asset_name}",
+            description=f"เธเธทเนเธญเธชเธดเธเธ—เธฃเธฑเธเธขเน {data.asset_code} {data.asset_name}",
             source_module="FA",
             source_id=asset.id,
         )
@@ -116,7 +116,7 @@ class AssetService:
             )
         )
         if not a:
-            raise ValueError(f"ไม่พบสินทรัพย์ {asset_id}")
+            raise ValueError(f"เนเธกเนเธเธเธชเธดเธเธ—เธฃเธฑเธเธขเน {asset_id}")
         return AssetOut.model_validate(a)
 
     @staticmethod
@@ -124,7 +124,7 @@ class AssetService:
         asset_id: int, data: AssetUpdate, ctx: AppContext, db: AsyncSession
     ) -> AssetOut:
         if ctx.user_role not in ("firm_admin", "accountant"):
-            raise PermissionError("ต้องการสิทธิ์ accountant ขึ้นไป")
+            raise PermissionError("เธ•เนเธญเธเธเธฒเธฃเธชเธดเธ—เธเธดเน accountant เธเธถเนเธเนเธ")
 
         a = await db.scalar(
             select(FixedAsset).where(
@@ -133,9 +133,9 @@ class AssetService:
             )
         )
         if not a:
-            raise ValueError(f"ไม่พบสินทรัพย์ {asset_id}")
+            raise ValueError(f"เนเธกเนเธเธเธชเธดเธเธ—เธฃเธฑเธเธขเน {asset_id}")
         if a.status == "disposed":
-            raise ValueError("ไม่สามารถแก้ไขสินทรัพย์ที่ตัดจำหน่ายแล้ว")
+            raise ValueError("เนเธกเนเธชเธฒเธกเธฒเธฃเธ–เนเธเนเนเธเธชเธดเธเธ—เธฃเธฑเธเธขเนเธ—เธตเนเธ•เธฑเธ”เธเธณเธซเธเนเธฒเธขเนเธฅเนเธง")
 
         for field, val in data.model_dump(exclude_none=True).items():
             setattr(a, field, val)
@@ -148,17 +148,17 @@ class AssetService:
     async def dispose_asset(
         asset_id: int, data: DisposeAssetIn, ctx: AppContext, db: AsyncSession
     ) -> AssetOut:
-        """ตัดจำหน่ายสินทรัพย์ (Disposal).
+        """เธ•เธฑเธ”เธเธณเธซเธเนเธฒเธขเธชเธดเธเธ—เธฃเธฑเธเธขเน (Disposal).
 
         Journal:
-            Dr acc_depr_account (ค่าเสื่อมสะสม)
-            Dr proceeds_account (เงินสด ถ้ามี proceeds)
-            Dr 6506 (ขาดทุนจากการจำหน่าย ถ้า proceeds < book_value)
-          Cr asset_account (ราคาทุน)
-          Cr 7401 (กำไรจากการจำหน่าย ถ้า proceeds > book_value)
+            Dr acc_depr_account (เธเนเธฒเน€เธชเธทเนเธญเธกเธชเธฐเธชเธก)
+            Dr proceeds_account (เน€เธเธดเธเธชเธ” เธ–เนเธฒเธกเธต proceeds)
+            Dr 6506 (เธเธฒเธ”เธ—เธธเธเธเธฒเธเธเธฒเธฃเธเธณเธซเธเนเธฒเธข เธ–เนเธฒ proceeds < book_value)
+          Cr asset_account (เธฃเธฒเธเธฒเธ—เธธเธ)
+          Cr 7401 (เธเธณเนเธฃเธเธฒเธเธเธฒเธฃเธเธณเธซเธเนเธฒเธข เธ–เนเธฒ proceeds > book_value)
         """
         if ctx.user_role not in ("firm_admin", "accountant"):
-            raise PermissionError("ต้องการสิทธิ์ accountant ขึ้นไป")
+            raise PermissionError("เธ•เนเธญเธเธเธฒเธฃเธชเธดเธ—เธเธดเน accountant เธเธถเนเธเนเธ")
 
         a = await db.scalar(
             select(FixedAsset).where(
@@ -167,40 +167,40 @@ class AssetService:
             )
         )
         if not a:
-            raise ValueError(f"ไม่พบสินทรัพย์ {asset_id}")
+            raise ValueError(f"เนเธกเนเธเธเธชเธดเธเธ—เธฃเธฑเธเธขเน {asset_id}")
         if a.status == "disposed":
-            raise ValueError("สินทรัพย์นี้ถูกตัดจำหน่ายแล้ว")
+            raise ValueError("เธชเธดเธเธ—เธฃเธฑเธเธขเนเธเธตเนเธ–เธนเธเธ•เธฑเธ”เธเธณเธซเธเนเธฒเธขเนเธฅเนเธง")
 
         book_value = a.book_value
         proceeds = data.proceeds
-        gain_loss = proceeds - book_value  # บวก = กำไร, ลบ = ขาดทุน
+        gain_loss = proceeds - book_value  # เธเธงเธ = เธเธณเนเธฃ, เธฅเธ = เธเธฒเธ”เธ—เธธเธ
 
         lines: list[JournalLineIn] = []
 
-        # Dr ค่าเสื่อมสะสม (ล้างออก)
+        # Dr เธเนเธฒเน€เธชเธทเนเธญเธกเธชเธฐเธชเธก (เธฅเนเธฒเธเธญเธญเธ)
         if a.accumulated_depr > 0 and a.acc_depr_account:
             lines.append(JournalLineIn(
                 account_code=a.acc_depr_account, dr_cr="DR",
                 amount=a.accumulated_depr,
             ))
 
-        # Dr เงินสด (ถ้าได้รับ)
+        # Dr เน€เธเธดเธเธชเธ” (เธ–เนเธฒเนเธ”เนเธฃเธฑเธ)
         if proceeds > 0:
             lines.append(JournalLineIn(
                 account_code=data.proceeds_account, dr_cr="DR", amount=proceeds,
             ))
 
-        # Dr ขาดทุน (ถ้า proceeds < book_value)
+        # Dr เธเธฒเธ”เธ—เธธเธ (เธ–เนเธฒ proceeds < book_value)
         if gain_loss < 0:
             lines.append(JournalLineIn(
                 account_code="6506", dr_cr="DR",
                 amount=abs(gain_loss).quantize(Decimal("0.01"), ROUND_HALF_UP),
             ))
 
-        # Cr ราคาทุนสินทรัพย์ (ล้างออก)
+        # Cr เธฃเธฒเธเธฒเธ—เธธเธเธชเธดเธเธ—เธฃเธฑเธเธขเน (เธฅเนเธฒเธเธญเธญเธ)
         lines.append(JournalLineIn(account_code=a.asset_account, dr_cr="CR", amount=a.cost))
 
-        # Cr กำไรจากการจำหน่าย
+        # Cr เธเธณเนเธฃเธเธฒเธเธเธฒเธฃเธเธณเธซเธเนเธฒเธข
         if gain_loss > 0:
             lines.append(JournalLineIn(
                 account_code="7401", dr_cr="CR",
@@ -211,7 +211,7 @@ class AssetService:
             ctx=ctx,
             journal_type="GJ",
             lines=lines,
-            description=f"ตัดจำหน่ายสินทรัพย์ {a.asset_code} {a.asset_name}",
+            description=f"เธ•เธฑเธ”เธเธณเธซเธเนเธฒเธขเธชเธดเธเธ—เธฃเธฑเธเธขเน {a.asset_code} {a.asset_name}",
             source_module="FA",
             source_id=a.id,
         )
@@ -225,3 +225,5 @@ class AssetService:
         await db.flush()
         await db.refresh(a)
         return AssetOut.model_validate(a)
+
+

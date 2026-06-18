@@ -1,0 +1,203 @@
+{% extends "base.html" %}
+{% block title %}แดชบอร์ด{% endblock %}
+{% block page_title %}แดชบอร์ด{% endblock %}
+
+{% block head %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+{% endblock %}
+
+{% block content %}
+<div x-data="dashboard()" x-init="init()">
+
+  <!-- KPI Cards -->
+  <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+
+    <!-- Revenue -->
+    <div class="bg-white rounded-xl p-5 shadow-sm border border-gray-100">
+      <div class="flex items-start justify-between">
+        <div>
+          <p class="text-xs text-gray-500 font-medium uppercase tracking-wide">รายได้เดือนนี้</p>
+          <p class="text-2xl font-bold text-gray-900 mt-1" x-text="fmt(kpi.revenue)">—</p>
+          <p class="text-xs text-green-600 mt-1 flex items-center gap-1">
+            <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M5.293 9.707a1 1 0 010-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 01-1.414 1.414L11 7.414V15a1 1 0 11-2 0V7.414L6.707 9.707a1 1 0 01-1.414 0z" clip-rule="evenodd"/></svg>
+            รวมงวดปัจจุบัน
+          </p>
+        </div>
+        <div class="w-10 h-10 bg-blue-50 rounded-lg flex items-center justify-center">
+          <svg class="w-5 h-5 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+          </svg>
+        </div>
+      </div>
+    </div>
+
+    <!-- Expenses -->
+    <div class="bg-white rounded-xl p-5 shadow-sm border border-gray-100">
+      <div class="flex items-start justify-between">
+        <div>
+          <p class="text-xs text-gray-500 font-medium uppercase tracking-wide">ค่าใช้จ่ายเดือนนี้</p>
+          <p class="text-2xl font-bold text-gray-900 mt-1" x-text="fmt(kpi.expenses)">—</p>
+          <p class="text-xs text-gray-500 mt-1">รวมงวดปัจจุบัน</p>
+        </div>
+        <div class="w-10 h-10 bg-orange-50 rounded-lg flex items-center justify-center">
+          <svg class="w-5 h-5 text-orange-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 14l6-6m-5.5.5h.01m4.99 5h.01M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16l3.5-2 3.5 2 3.5-2 3.5 2z"/>
+          </svg>
+        </div>
+      </div>
+    </div>
+
+    <!-- AR Outstanding -->
+    <div class="bg-white rounded-xl p-5 shadow-sm border border-gray-100">
+      <div class="flex items-start justify-between">
+        <div>
+          <p class="text-xs text-gray-500 font-medium uppercase tracking-wide">ลูกหนี้ค้างชำระ</p>
+          <p class="text-2xl font-bold text-gray-900 mt-1" x-text="fmt(kpi.ar_outstanding)">—</p>
+          <p class="text-xs text-amber-600 mt-1" x-text="(kpi.ar_overdue || 0) + ' รายการเกินกำหนด'"></p>
+        </div>
+        <div class="w-10 h-10 bg-green-50 rounded-lg flex items-center justify-center">
+          <svg class="w-5 h-5 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"/>
+          </svg>
+        </div>
+      </div>
+    </div>
+
+    <!-- AP Outstanding -->
+    <div class="bg-white rounded-xl p-5 shadow-sm border border-gray-100">
+      <div class="flex items-start justify-between">
+        <div>
+          <p class="text-xs text-gray-500 font-medium uppercase tracking-wide">เจ้าหนี้ค้างจ่าย</p>
+          <p class="text-2xl font-bold text-gray-900 mt-1" x-text="fmt(kpi.ap_outstanding)">—</p>
+          <p class="text-xs text-red-500 mt-1" x-text="(kpi.ap_overdue || 0) + ' รายการเกินกำหนด'"></p>
+        </div>
+        <div class="w-10 h-10 bg-purple-50 rounded-lg flex items-center justify-center">
+          <svg class="w-5 h-5 text-purple-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"/>
+          </svg>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Chart + Todo -->
+  <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+
+    <!-- Revenue Chart -->
+    <div class="lg:col-span-2 bg-white rounded-xl p-5 shadow-sm border border-gray-100">
+      <div class="flex items-center justify-between mb-4">
+        <h2 class="font-semibold text-gray-800">รายได้ vs ค่าใช้จ่าย (6 เดือนล่าสุด)</h2>
+        <span class="text-xs text-gray-400">บาท</span>
+      </div>
+      <div class="relative h-56">
+        <canvas id="revenueChart"></canvas>
+      </div>
+    </div>
+
+    <!-- Quick Actions + Deadlines -->
+    <div class="bg-white rounded-xl p-5 shadow-sm border border-gray-100">
+      <h2 class="font-semibold text-gray-800 mb-4">กำหนดชำระภาษี</h2>
+      <div
+        hx-get="/api/v1/deadlines?limit=5"
+        hx-trigger="load"
+        hx-target="this"
+        hx-headers='{"Authorization": "Bearer {{ request.cookies.get("access_token", "") }}"}'
+        class="space-y-2"
+      >
+        <div class="animate-pulse space-y-2">
+          <div class="h-10 bg-gray-100 rounded-lg"></div>
+          <div class="h-10 bg-gray-100 rounded-lg"></div>
+          <div class="h-10 bg-gray-100 rounded-lg"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Recent Journals -->
+  <div class="bg-white rounded-xl shadow-sm border border-gray-100">
+    <div class="flex items-center justify-between px-5 py-4 border-b border-gray-100">
+      <h2 class="font-semibold text-gray-800">รายการบันทึกบัญชีล่าสุด</h2>
+      <a href="/journals" class="text-sm text-blue-600 hover:underline">ดูทั้งหมด →</a>
+    </div>
+    <div
+      hx-get="/api/v1/journals?page=1&page_size=8"
+      hx-trigger="load"
+      hx-target="this"
+      hx-headers='{"Authorization": "Bearer {{ request.cookies.get("access_token", "") }}"}'
+    >
+      <div class="p-5 animate-pulse space-y-3">
+        <div class="h-8 bg-gray-100 rounded"></div>
+        <div class="h-8 bg-gray-100 rounded"></div>
+        <div class="h-8 bg-gray-100 rounded"></div>
+      </div>
+    </div>
+  </div>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function dashboard() {
+  return {
+    kpi: { revenue: 0, expenses: 0, ar_outstanding: 0, ap_outstanding: 0, ar_overdue: 0, ap_overdue: 0 },
+    chart: null,
+
+    async init() {
+      await this.loadKpi();
+      this.initChart();
+    },
+
+    async loadKpi() {
+      // Placeholder KPI — in production fetch from /api/v1/reports/...
+      this.kpi = { revenue: 1250000, expenses: 830000, ar_outstanding: 425000, ap_outstanding: 210000, ar_overdue: 3, ap_overdue: 1 };
+    },
+
+    initChart() {
+      const ctx = document.getElementById('revenueChart');
+      if (!ctx) return;
+      const months = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.'];
+      this.chart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: months,
+          datasets: [
+            {
+              label: 'รายได้',
+              data: [980000, 1120000, 890000, 1340000, 1150000, 1250000],
+              backgroundColor: 'rgba(59,130,246,0.7)',
+              borderRadius: 6,
+            },
+            {
+              label: 'ค่าใช้จ่าย',
+              data: [720000, 810000, 680000, 950000, 800000, 830000],
+              backgroundColor: 'rgba(249,115,22,0.6)',
+              borderRadius: 6,
+            },
+          ],
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: { legend: { position: 'top', labels: { font: { size: 11 } } } },
+          scales: {
+            y: {
+              ticks: {
+                callback: v => (v / 1000) + 'K',
+                font: { size: 10 },
+              },
+              grid: { color: 'rgba(0,0,0,0.04)' },
+            },
+            x: { grid: { display: false } },
+          },
+        },
+      });
+    },
+
+    fmt(v) {
+      return new Intl.NumberFormat('th-TH', { style: 'currency', currency: 'THB', minimumFractionDigits: 0 }).format(v || 0);
+    },
+  };
+}
+</script>
+{% endblock %}

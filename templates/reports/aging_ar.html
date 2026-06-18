@@ -1,0 +1,121 @@
+{% extends "base.html" %}
+{% block title %}อายุหนี้ลูกหนี้{% endblock %}
+{% block page_title %}รายงาน — อายุหนี้ลูกหนี้ (AR Aging){% endblock %}
+
+{% block content %}
+<div x-data="agingReport('ar', '{{ default_date }}')" x-init="init()">
+
+  <div class="bg-white rounded-xl p-4 shadow-sm border border-gray-100 mb-4 flex items-center gap-3">
+    <label class="text-sm font-medium text-gray-700">ณ วันที่</label>
+    <input type="date" x-model="asOf"
+      class="px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"/>
+    <button @click="load()" class="px-4 py-2 bg-blue-700 text-white rounded-lg text-sm font-medium hover:bg-blue-800">แสดง</button>
+    <div class="ml-auto flex gap-2">
+      <a :href="'/api/v1/reports/aging/ar?as_of=' + asOf + '&fmt=excel'"
+        class="px-3 py-2 border border-gray-300 text-gray-600 rounded-lg text-sm hover:bg-gray-50">Excel</a>
+      <a :href="'/api/v1/reports/aging/ar?as_of=' + asOf + '&fmt=pdf'"
+        class="px-3 py-2 border border-gray-300 text-gray-600 rounded-lg text-sm hover:bg-gray-50">PDF</a>
+    </div>
+  </div>
+
+  <!-- Summary buckets -->
+  <div x-show="report" class="grid grid-cols-5 gap-3 mb-4">
+    <template x-for="(b, i) in bucketLabels" :key="i">
+      <div class="bg-white rounded-lg p-3 border border-gray-100 shadow-sm text-center">
+        <p class="text-xs text-gray-500" x-text="b"></p>
+        <p class="text-base font-bold mt-1" :class="i === 0 ? 'text-gray-700' : 'text-red-600'"
+          x-text="fmt(bucketTotals[i])"></p>
+      </div>
+    </template>
+  </div>
+
+  <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+    <table class="w-full text-sm">
+      <thead class="bg-gray-50 border-b border-gray-100">
+        <tr>
+          <th class="text-left px-4 py-3 font-medium text-gray-600">ลูกค้า</th>
+          <th class="text-right px-4 py-3 font-medium text-gray-600">ยังไม่ครบ</th>
+          <th class="text-right px-4 py-3 font-medium text-gray-600">1-30 วัน</th>
+          <th class="text-right px-4 py-3 font-medium text-gray-600">31-60 วัน</th>
+          <th class="text-right px-4 py-3 font-medium text-gray-600">61-90 วัน</th>
+          <th class="text-right px-4 py-3 font-medium text-gray-600">&gt;90 วัน</th>
+          <th class="text-right px-4 py-3 font-medium text-gray-600">รวม</th>
+        </tr>
+      </thead>
+      <tbody>
+        <template x-if="loading">
+          <tr><td colspan="7" class="px-4 py-8 text-center text-gray-400">
+            <svg class="animate-spin w-6 h-6 mx-auto" fill="none" viewBox="0 0 24 24">
+              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+            </svg>
+          </td></tr>
+        </template>
+        <template x-for="row in (report?.rows || [])" :key="row.contact_id">
+          <tr class="border-b border-gray-50 hover:bg-gray-50">
+            <td class="px-4 py-2.5 text-gray-800" x-text="row.contact_name"></td>
+            <td class="px-4 py-2.5 text-right font-mono text-gray-700" x-text="row.current > 0 ? fmt(row.current) : ''"></td>
+            <td class="px-4 py-2.5 text-right font-mono text-amber-600" x-text="row.days_30 > 0 ? fmt(row.days_30) : ''"></td>
+            <td class="px-4 py-2.5 text-right font-mono text-orange-500" x-text="row.days_60 > 0 ? fmt(row.days_60) : ''"></td>
+            <td class="px-4 py-2.5 text-right font-mono text-red-500" x-text="row.days_90 > 0 ? fmt(row.days_90) : ''"></td>
+            <td class="px-4 py-2.5 text-right font-mono text-red-700 font-medium" x-text="row.over_90 > 0 ? fmt(row.over_90) : ''"></td>
+            <td class="px-4 py-2.5 text-right font-mono font-bold text-gray-800" x-text="fmt(row.total)"></td>
+          </tr>
+        </template>
+        <template x-if="!loading && (!report?.rows || report.rows.length === 0)">
+          <tr><td colspan="7" class="px-4 py-8 text-center text-gray-400">ไม่มีข้อมูลลูกหนี้ค้างชำระ</td></tr>
+        </template>
+      </tbody>
+      <tfoot x-show="report?.rows?.length > 0" class="border-t-2 border-gray-300 bg-gray-50 font-bold text-sm">
+        <tr>
+          <td class="px-4 py-3">รวมทั้งสิ้น</td>
+          <td class="px-4 py-3 text-right font-mono" x-text="fmt(bucketTotals[0])"></td>
+          <td class="px-4 py-3 text-right font-mono" x-text="fmt(bucketTotals[1])"></td>
+          <td class="px-4 py-3 text-right font-mono" x-text="fmt(bucketTotals[2])"></td>
+          <td class="px-4 py-3 text-right font-mono" x-text="fmt(bucketTotals[3])"></td>
+          <td class="px-4 py-3 text-right font-mono" x-text="fmt(bucketTotals[4])"></td>
+          <td class="px-4 py-3 text-right font-mono text-blue-700" x-text="fmt(grandTotal)"></td>
+        </tr>
+      </tfoot>
+    </table>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function agingReport(type, initDate) {
+  return {
+    asOf: initDate, report: null, loading: false,
+    bucketLabels: ['ยังไม่ครบ', '1-30 วัน', '31-60 วัน', '61-90 วัน', '>90 วัน'],
+    get bucketTotals() {
+      const rows = this.report?.rows || [];
+      return [
+        rows.reduce((s, r) => s + (r.current || 0), 0),
+        rows.reduce((s, r) => s + (r.days_30 || 0), 0),
+        rows.reduce((s, r) => s + (r.days_60 || 0), 0),
+        rows.reduce((s, r) => s + (r.days_90 || 0), 0),
+        rows.reduce((s, r) => s + (r.over_90 || 0), 0),
+      ];
+    },
+    get grandTotal() { return this.bucketTotals.reduce((s, v) => s + v, 0); },
+
+    async init() { await this.load(); },
+
+    async load() {
+      this.loading = true;
+      const token = document.cookie.match(/access_token=([^;]+)/)?.[1] || '';
+      try {
+        const r = await fetch('/api/v1/reports/aging/' + type + '?as_of=' + this.asOf, {
+          headers: { Authorization: 'Bearer ' + token }
+        });
+        this.report = await r.json();
+      } catch { this.report = null; }
+      this.loading = false;
+    },
+
+    fmt(v) { return new Intl.NumberFormat('th-TH', { minimumFractionDigits: 2 }).format(v || 0); },
+  };
+}
+</script>
+{% endblock %}

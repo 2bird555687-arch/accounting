@@ -1,4 +1,4 @@
-"""TAX — VAT Service (get_vat_summary / generate_pp30)."""
+﻿"""TAX โ€” VAT Service (get_vat_summary / generate_pp30)."""
 
 from __future__ import annotations
 
@@ -9,7 +9,7 @@ from sqlalchemy import select, func as sqlfunc
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.tax.schemas import PP30Data, VATSummaryItem
-from app.core.context import AppContext
+from app.context import AppContext
 from app.core.models import LedgerEntry  # ledger_entries table
 
 
@@ -22,7 +22,7 @@ class VATService:
         fiscal_year: int,
         month: int,
     ) -> list[VATSummaryItem]:
-        """สรุป VAT input (1140) และ output (2120) สำหรับงวด."""
+        """เธชเธฃเธธเธ VAT input (1140) เนเธฅเธฐ output (2120) เธชเธณเธซเธฃเธฑเธเธเธงเธ”."""
         period_str = f"{fiscal_year}{month:02d}"
 
         results: list[VATSummaryItem] = []
@@ -60,7 +60,7 @@ class VATService:
         fiscal_year: int,
         month: int,
     ) -> PP30Data:
-        """สร้างข้อมูล ภ.พ.30."""
+        """เธชเธฃเนเธฒเธเธเนเธญเธกเธนเธฅ เธ .เธ.30."""
         summary = await VATService.get_vat_summary(ctx, db, fiscal_year, month)
 
         input_item = next((s for s in summary if s.direction == "input"), None)
@@ -72,7 +72,7 @@ class VATService:
         output_base = output_item.total_base if output_item else Decimal(0)
         net_vat = output_vat - input_vat
 
-        # กำหนดส่ง: วันที่ 15 ของเดือนถัดไป
+        # เธเธณเธซเธเธ”เธชเนเธ: เธงเธฑเธเธ—เธตเน 15 เธเธญเธเน€เธ”เธทเธญเธเธ–เธฑเธ”เนเธ
         if month == 12:
             due_year, due_month = fiscal_year + 1, 1
         else:
@@ -88,3 +88,4 @@ class VATService:
             output_base=output_base,
             input_base=input_base,
         )
+

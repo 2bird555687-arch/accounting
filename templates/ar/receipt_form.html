@@ -1,0 +1,126 @@
+{% extends "base.html" %}
+{% block title %}รับชำระเงิน{% endblock %}
+{% block page_title %}AR — รับชำระเงิน{% endblock %}
+
+{% block content %}
+<div x-data="receiptForm({{ invoice_id or 'null' }})" x-init="init()">
+
+  <div class="mb-4">
+    <a href="/ar/invoices" class="text-sm text-gray-500 hover:text-gray-700 flex items-center gap-1">
+      <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+      </svg>
+      กลับรายการ
+    </a>
+  </div>
+
+  <div class="max-w-xl mx-auto">
+    <div class="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
+      <h2 class="font-semibold text-gray-800 mb-5">บันทึกรับชำระเงิน</h2>
+
+      <!-- Invoice ref -->
+      <div x-show="invoiceInfo" class="mb-5 p-3 bg-blue-50 rounded-lg text-sm">
+        <div class="flex justify-between">
+          <span class="text-gray-600">ใบแจ้งหนี้</span>
+          <span class="font-mono font-medium text-blue-700" x-text="invoiceInfo?.invoice_no"></span>
+        </div>
+        <div class="flex justify-between mt-1">
+          <span class="text-gray-600">ค้างชำระ</span>
+          <span class="font-mono font-bold text-red-600" x-text="fmt(invoiceInfo?.balance_due)"></span>
+        </div>
+      </div>
+
+      <div class="space-y-4">
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">ใบแจ้งหนี้ (Invoice ID)</label>
+          <input type="number" x-model.number="form.invoice_id" @change="loadInvoice()"
+            class="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"/>
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">วันที่รับชำระ</label>
+          <input type="date" x-model="form.payment_date"
+            class="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"/>
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">จำนวนเงิน</label>
+          <input type="number" x-model.number="form.amount" step="0.01" min="0"
+            class="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"/>
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">วิธีชำระเงิน</label>
+          <select x-model="form.payment_method"
+            class="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+            <option value="cash">เงินสด</option>
+            <option value="transfer">โอนเงิน</option>
+            <option value="cheque">เช็ค</option>
+            <option value="credit_card">บัตรเครดิต</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">อ้างอิง / เลขที่โอน</label>
+          <input type="text" x-model="form.reference" placeholder="เลขที่อ้างอิง..."
+            class="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"/>
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">หมายเหตุ</label>
+          <textarea x-model="form.notes" rows="2"
+            class="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"></textarea>
+        </div>
+
+        <div x-show="error" class="p-3 bg-red-50 rounded-lg text-red-600 text-sm" x-text="error"></div>
+        <div x-show="success" class="p-3 bg-green-50 rounded-lg text-green-600 text-sm">บันทึกสำเร็จ!</div>
+
+        <button @click="save()" :disabled="saving || !form.invoice_id || !form.amount"
+          class="w-full py-2.5 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 disabled:opacity-50">
+          <span x-text="saving ? 'กำลังบันทึก...' : 'ยืนยันรับชำระเงิน'"></span>
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function receiptForm(initInvoiceId) {
+  const today = new Date().toISOString().slice(0, 10);
+  return {
+    form: { invoice_id: initInvoiceId, payment_date: today, amount: 0, payment_method: 'transfer', reference: '', notes: '' },
+    invoiceInfo: null,
+    saving: false, error: '', success: false,
+
+    async init() {
+      if (initInvoiceId) await this.loadInvoice();
+    },
+
+    async loadInvoice() {
+      if (!this.form.invoice_id) return;
+      const token = document.cookie.match(/access_token=([^;]+)/)?.[1] || '';
+      try {
+        const r = await fetch('/api/v1/ar/invoices/' + this.form.invoice_id, { headers: { Authorization: 'Bearer ' + token } });
+        const d = await r.json();
+        this.invoiceInfo = d.data || d;
+        if (this.invoiceInfo?.balance_due) this.form.amount = this.invoiceInfo.balance_due;
+      } catch { this.invoiceInfo = null; }
+    },
+
+    async save() {
+      this.saving = true; this.error = ''; this.success = false;
+      const token = document.cookie.match(/access_token=([^;]+)/)?.[1] || '';
+      try {
+        const r = await fetch('/api/v1/ar/receipts', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+          body: JSON.stringify(this.form),
+        });
+        if (!r.ok) { const e = await r.json(); this.error = e.detail || 'เกิดข้อผิดพลาด'; }
+        else { this.success = true; setTimeout(() => window.location = '/ar/invoices', 1500); }
+      } catch { this.error = 'ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์'; }
+      this.saving = false;
+    },
+
+    fmt(v) { return new Intl.NumberFormat('th-TH', { minimumFractionDigits: 2 }).format(v || 0); },
+  };
+}
+</script>
+{% endblock %}

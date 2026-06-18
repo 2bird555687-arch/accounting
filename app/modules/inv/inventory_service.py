@@ -1,4 +1,4 @@
-"""INV — Inventory Service (receive / issue / adjust / stock balance)."""
+﻿"""INV โ€” Inventory Service (receive / issue / adjust / stock balance)."""
 
 from __future__ import annotations
 
@@ -17,8 +17,8 @@ from app.modules.inv.schemas import (
     StockBalance,
     StockMovementOut,
 )
-from app.core.context import AppContext
-from app.core.posting_engine import PostingEngine, JournalLineIn
+from app.context import AppContext
+from app.core.engine import PostingEngine, JournalLineInput as JournalLineIn
 
 
 async def _next_movement_no(company_id: int, movement_date: date, prefix: str, db: AsyncSession) -> str:
@@ -38,9 +38,9 @@ class InventoryService:
 
     @staticmethod
     async def receive(data: ReceiveStockIn, ctx: AppContext, db: AsyncSession) -> StockMovementOut:
-        """รับสินค้าเข้าคลัง — Dr 1130 | Cr ตาม AP/เงินสด (GJ)."""
+        """เธฃเธฑเธเธชเธดเธเธเนเธฒเน€เธเนเธฒเธเธฅเธฑเธ โ€” Dr 1130 | Cr เธ•เธฒเธก AP/เน€เธเธดเธเธชเธ” (GJ)."""
         if ctx.user_role not in ("firm_admin", "accountant", "junior"):
-            raise PermissionError("ไม่มีสิทธิ์รับสินค้า")
+            raise PermissionError("เนเธกเนเธกเธตเธชเธดเธ—เธเธดเนเธฃเธฑเธเธชเธดเธเธเนเธฒ")
 
         product = await db.scalar(
             select(Product).where(
@@ -49,13 +49,13 @@ class InventoryService:
             )
         )
         if not product:
-            raise ValueError("ไม่พบสินค้า")
+            raise ValueError("เนเธกเนเธเธเธชเธดเธเธเนเธฒ")
 
         qty = data.quantity
         unit_cost = data.unit_cost
         total_cost = (qty * unit_cost).quantize(Decimal("0.01"), ROUND_HALF_UP)
 
-        # อัปเดต lot (FIFO)
+        # เธญเธฑเธเน€เธ”เธ• lot (FIFO)
         lot: ProductLot | None = None
         if product.cost_method == "fifo":
             lot_no = data.lot_no or f"L{data.movement_date.strftime('%Y%m%d')}-{data.source_ref or 'RCV'}"
@@ -72,7 +72,7 @@ class InventoryService:
             db.add(lot)
             await db.flush()
 
-        # อัปเดต average cost
+        # เธญเธฑเธเน€เธ”เธ• average cost
         old_qty = product.quantity_on_hand
         old_value = product.total_value
         new_qty = old_qty + qty
@@ -81,7 +81,7 @@ class InventoryService:
         if product.cost_method == "average":
             product.current_cost = (new_value / new_qty).quantize(Decimal("0.0001"), ROUND_HALF_UP) if new_qty else unit_cost
         else:
-            product.current_cost = unit_cost  # FIFO ใช้ last received cost เป็น approximation
+            product.current_cost = unit_cost  # FIFO เนเธเน last received cost เน€เธเนเธ approximation
 
         product.quantity_on_hand = new_qty
         product.total_value = new_value
@@ -108,7 +108,7 @@ class InventoryService:
             created_by=ctx.user_id,
         )
 
-        # Journal: Dr 1130 | Cr เจ้าหนี้/เงินสด
+        # Journal: Dr 1130 | Cr เน€เธเนเธฒเธซเธเธตเน/เน€เธเธดเธเธชเธ”
         lines = [
             JournalLineIn(account_code=product.inventory_account, dr_cr="DR", amount=total_cost),
             JournalLineIn(account_code="2101", dr_cr="CR", amount=total_cost),
@@ -117,7 +117,7 @@ class InventoryService:
             ctx=ctx,
             journal_type="GJ",
             lines=lines,
-            description=f"รับสินค้า {product.sku} x{qty} @ {unit_cost}",
+            description=f"เธฃเธฑเธเธชเธดเธเธเนเธฒ {product.sku} x{qty} @ {unit_cost}",
             source_module="INV",
             source_id=None,
         )
@@ -129,12 +129,12 @@ class InventoryService:
 
     @staticmethod
     async def issue(data: IssueStockIn, ctx: AppContext, db: AsyncSession) -> list[StockMovementOut]:
-        """จ่ายสินค้าออกคลัง — Dr 5101 (COGS) | Cr 1130 (GJ).
+        """เธเนเธฒเธขเธชเธดเธเธเนเธฒเธญเธญเธเธเธฅเธฑเธ โ€” Dr 5101 (COGS) | Cr 1130 (GJ).
 
-        สำหรับ FIFO จะ return หลาย movement (1 lot ต่อ 1 movement)
+        เธชเธณเธซเธฃเธฑเธ FIFO เธเธฐ return เธซเธฅเธฒเธข movement (1 lot เธ•เนเธญ 1 movement)
         """
         if ctx.user_role not in ("firm_admin", "accountant", "junior"):
-            raise PermissionError("ไม่มีสิทธิ์จ่ายสินค้า")
+            raise PermissionError("เนเธกเนเธกเธตเธชเธดเธ—เธเธดเนเธเนเธฒเธขเธชเธดเธเธเนเธฒ")
 
         product = await db.scalar(
             select(Product).where(
@@ -143,10 +143,10 @@ class InventoryService:
             )
         )
         if not product:
-            raise ValueError("ไม่พบสินค้า")
+            raise ValueError("เนเธกเนเธเธเธชเธดเธเธเนเธฒ")
 
         if product.quantity_on_hand < data.quantity:
-            raise ValueError(f"สินค้าไม่พอ (คงเหลือ {product.quantity_on_hand})")
+            raise ValueError(f"เธชเธดเธเธเนเธฒเนเธกเนเธเธญ (เธเธเน€เธซเธฅเธทเธญ {product.quantity_on_hand})")
 
         results: list[StockMovementOut] = []
         remaining = data.quantity
@@ -194,7 +194,7 @@ class InventoryService:
                 ]
                 je = await PostingEngine(db).post(
                     ctx=ctx, journal_type="GJ", lines=lines,
-                    description=f"จ่ายสินค้า {product.sku} x{take} FIFO",
+                    description=f"เธเนเธฒเธขเธชเธดเธเธเนเธฒ {product.sku} x{take} FIFO",
                     source_module="INV", source_id=None,
                 )
                 mv.journal_entry_no = je.entry_no
@@ -237,7 +237,7 @@ class InventoryService:
             ]
             je = await PostingEngine(db).post(
                 ctx=ctx, journal_type="GJ", lines=lines,
-                description=f"จ่ายสินค้า {product.sku} x{qty} @ avg {unit_cost}",
+                description=f"เธเนเธฒเธขเธชเธดเธเธเนเธฒ {product.sku} x{qty} @ avg {unit_cost}",
                 source_module="INV", source_id=None,
             )
             mv.journal_entry_no = je.entry_no
@@ -250,9 +250,9 @@ class InventoryService:
 
     @staticmethod
     async def adjust(data: AdjustStockIn, ctx: AppContext, db: AsyncSession) -> StockMovementOut:
-        """ปรับปริมาณสินค้า — Dr/Cr 1130 (GJ)."""
+        """เธเธฃเธฑเธเธเธฃเธดเธกเธฒเธ“เธชเธดเธเธเนเธฒ โ€” Dr/Cr 1130 (GJ)."""
         if ctx.user_role not in ("firm_admin", "accountant"):
-            raise PermissionError("ต้องการสิทธิ์ accountant ขึ้นไปสำหรับการปรับปริมาณ")
+            raise PermissionError("เธ•เนเธญเธเธเธฒเธฃเธชเธดเธ—เธเธดเน accountant เธเธถเนเธเนเธเธชเธณเธซเธฃเธฑเธเธเธฒเธฃเธเธฃเธฑเธเธเธฃเธดเธกเธฒเธ“")
 
         product = await db.scalar(
             select(Product).where(
@@ -261,7 +261,7 @@ class InventoryService:
             )
         )
         if not product:
-            raise ValueError("ไม่พบสินค้า")
+            raise ValueError("เนเธกเนเธเธเธชเธดเธเธเนเธฒ")
 
         old_qty = product.quantity_on_hand
         new_qty = data.new_quantity
@@ -270,18 +270,18 @@ class InventoryService:
         total_cost = (abs(diff) * unit_cost).quantize(Decimal("0.01"), ROUND_HALF_UP)
 
         if diff == 0:
-            raise ValueError("ปริมาณเท่าเดิม ไม่มีการปรับ")
+            raise ValueError("เธเธฃเธดเธกเธฒเธ“เน€เธ—เนเธฒเน€เธ”เธดเธก เนเธกเนเธกเธตเธเธฒเธฃเธเธฃเธฑเธ")
 
         movement_type = "adjust_in" if diff > 0 else "adjust_out"
 
         if diff > 0:
             product.quantity_on_hand = new_qty
             product.total_value += total_cost
-            dr_acc, cr_acc = product.inventory_account, "5901"  # Cr ค่าปรับปริมาณ
+            dr_acc, cr_acc = product.inventory_account, "5901"  # Cr เธเนเธฒเธเธฃเธฑเธเธเธฃเธดเธกเธฒเธ“
         else:
             product.quantity_on_hand = new_qty
             product.total_value = max(Decimal(0), product.total_value - total_cost)
-            dr_acc, cr_acc = "5901", product.inventory_account  # Dr ค่าปรับปริมาณ
+            dr_acc, cr_acc = "5901", product.inventory_account  # Dr เธเนเธฒเธเธฃเธฑเธเธเธฃเธดเธกเธฒเธ“
 
         if product.quantity_on_hand > 0:
             product.current_cost = (product.total_value / product.quantity_on_hand).quantize(
@@ -310,7 +310,7 @@ class InventoryService:
         ]
         je = await PostingEngine(db).post(
             ctx=ctx, journal_type="GJ", lines=lines,
-            description=f"ปรับสต็อก {product.sku}: {old_qty} → {new_qty}",
+            description=f"เธเธฃเธฑเธเธชเธ•เนเธญเธ {product.sku}: {old_qty} โ’ {new_qty}",
             source_module="INV", source_id=None,
         )
         mv.journal_entry_no = je.entry_no
@@ -373,3 +373,5 @@ class InventoryService:
         q = q.order_by(StockMovement.movement_date.desc(), StockMovement.id.desc()).offset(skip).limit(limit)
         rows = await db.scalars(q)
         return [StockMovementOut.model_validate(r) for r in rows]
+
+

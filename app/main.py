@@ -7,6 +7,7 @@ from fastapi import FastAPI, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
+from fastapi.templating import Jinja2Templates
 
 from app.config import settings
 from app.database import init_shared_db
@@ -82,6 +83,17 @@ def create_app() -> FastAPI:
     # ── Routers ───────────────────────────────────────────────────────────────
     from app.api.v1 import router as api_v1_router
     app.include_router(api_v1_router, prefix="/api/v1")
+
+    # ── Web UI ────────────────────────────────────────────────────────────────
+    from app.ui.routes import router as ui_router
+    from app.ui.deps import UIRedirectException
+    from fastapi.responses import RedirectResponse
+
+    @app.exception_handler(UIRedirectException)
+    async def ui_redirect_handler(request: Request, exc: UIRedirectException):
+        return RedirectResponse(url=exc.url, status_code=302)
+
+    app.include_router(ui_router)
 
     return app
 

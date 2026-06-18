@@ -1,0 +1,173 @@
+{% extends "base.html" %}
+{% block title %}งบดุล{% endblock %}
+{% block page_title %}รายงาน — งบดุล (Balance Sheet){% endblock %}
+
+{% block content %}
+<div x-data="balanceSheet('{{ default_date }}')" x-init="init()">
+
+  <!-- Filter -->
+  <div class="bg-white rounded-xl p-4 shadow-sm border border-gray-100 mb-4 flex items-center gap-3">
+    <label class="text-sm font-medium text-gray-700">ณ วันที่</label>
+    <input type="date" x-model="asOf"
+      class="px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"/>
+    <button @click="load()" class="px-4 py-2 bg-blue-700 text-white rounded-lg text-sm font-medium hover:bg-blue-800">แสดง</button>
+    <div class="ml-auto flex gap-2">
+      <a :href="'/api/v1/reports/balance-sheet?as_of=' + asOf + '&fmt=excel'"
+        class="px-3 py-2 border border-gray-300 text-gray-600 rounded-lg text-sm hover:bg-gray-50">Excel</a>
+      <a :href="'/api/v1/reports/balance-sheet?as_of=' + asOf + '&fmt=pdf'"
+        class="px-3 py-2 border border-gray-300 text-gray-600 rounded-lg text-sm hover:bg-gray-50">PDF</a>
+    </div>
+  </div>
+
+  <template x-if="loading">
+    <div class="bg-white rounded-xl p-8 text-center text-gray-400 shadow-sm border border-gray-100">
+      <svg class="animate-spin w-8 h-8 mx-auto" fill="none" viewBox="0 0 24 24">
+        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+      </svg>
+    </div>
+  </template>
+
+  <template x-if="!loading && report">
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+
+      <!-- Assets -->
+      <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+        <div class="px-5 py-4 bg-blue-700 text-white">
+          <h2 class="font-semibold">สินทรัพย์ (Assets)</h2>
+          <p class="text-blue-200 text-sm" x-text="'ณ วันที่ ' + report.as_of_date"></p>
+        </div>
+
+        <!-- Current assets -->
+        <div class="px-5 pt-4">
+          <p class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">สินทรัพย์หมุนเวียน</p>
+          <template x-for="l in report.current_assets.lines" :key="l.account_code">
+            <div class="flex justify-between py-1.5 text-sm border-b border-gray-50">
+              <span class="text-gray-700" x-text="l.account_code + ' ' + l.account_name"></span>
+              <span class="font-mono text-gray-800" x-text="fmt(l.amount)"></span>
+            </div>
+          </template>
+          <div class="flex justify-between py-2 font-medium text-sm border-t border-gray-200 mt-1">
+            <span class="text-gray-700">รวมสินทรัพย์หมุนเวียน</span>
+            <span class="font-mono text-gray-800" x-text="fmt(report.current_assets.total)"></span>
+          </div>
+        </div>
+
+        <!-- Non-current assets -->
+        <div class="px-5 pt-3 pb-4">
+          <p class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">สินทรัพย์ไม่หมุนเวียน</p>
+          <template x-for="l in report.non_current_assets.lines" :key="l.account_code">
+            <div class="flex justify-between py-1.5 text-sm border-b border-gray-50">
+              <span class="text-gray-700" x-text="l.account_code + ' ' + l.account_name"></span>
+              <span class="font-mono text-gray-800" x-text="fmt(l.amount)"></span>
+            </div>
+          </template>
+          <div class="flex justify-between py-2 font-medium text-sm border-t border-gray-200 mt-1">
+            <span class="text-gray-700">รวมสินทรัพย์ไม่หมุนเวียน</span>
+            <span class="font-mono text-gray-800" x-text="fmt(report.non_current_assets.total)"></span>
+          </div>
+        </div>
+
+        <div class="mx-5 mb-4 p-3 bg-blue-50 rounded-lg flex justify-between font-bold text-blue-800">
+          <span>รวมสินทรัพย์ทั้งสิ้น</span>
+          <span class="font-mono text-lg" x-text="fmt(report.total_assets)"></span>
+        </div>
+      </div>
+
+      <!-- Liabilities + Equity -->
+      <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+        <div class="px-5 py-4 bg-orange-600 text-white">
+          <h2 class="font-semibold">หนี้สินและส่วนของเจ้าของ</h2>
+          <p class="text-orange-200 text-sm">Liabilities &amp; Equity</p>
+        </div>
+
+        <!-- Current liabilities -->
+        <div class="px-5 pt-4">
+          <p class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">หนี้สินหมุนเวียน</p>
+          <template x-for="l in report.current_liabilities.lines" :key="l.account_code">
+            <div class="flex justify-between py-1.5 text-sm border-b border-gray-50">
+              <span class="text-gray-700" x-text="l.account_code + ' ' + l.account_name"></span>
+              <span class="font-mono text-gray-800" x-text="fmt(l.amount)"></span>
+            </div>
+          </template>
+          <div class="flex justify-between py-2 font-medium text-sm border-t border-gray-200 mt-1">
+            <span class="text-gray-700">รวมหนี้สินหมุนเวียน</span>
+            <span class="font-mono" x-text="fmt(report.current_liabilities.total)"></span>
+          </div>
+        </div>
+
+        <!-- Non-current liabilities -->
+        <div class="px-5 pt-3">
+          <p class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">หนี้สินไม่หมุนเวียน</p>
+          <template x-for="l in report.non_current_liabilities.lines" :key="l.account_code">
+            <div class="flex justify-between py-1.5 text-sm border-b border-gray-50">
+              <span class="text-gray-700" x-text="l.account_code + ' ' + l.account_name"></span>
+              <span class="font-mono text-gray-800" x-text="fmt(l.amount)"></span>
+            </div>
+          </template>
+          <div class="flex justify-between py-2 font-medium text-sm border-t border-gray-200 mt-1">
+            <span>รวมหนี้สินไม่หมุนเวียน</span>
+            <span class="font-mono" x-text="fmt(report.non_current_liabilities.total)"></span>
+          </div>
+        </div>
+
+        <!-- Equity -->
+        <div class="px-5 pt-3 pb-4">
+          <p class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">ส่วนของเจ้าของ</p>
+          <template x-for="l in report.equity.lines" :key="l.account_code">
+            <div class="flex justify-between py-1.5 text-sm border-b border-gray-50">
+              <span class="text-gray-700" x-text="l.account_code + ' ' + l.account_name"></span>
+              <span class="font-mono text-gray-800" x-text="fmt(l.amount)"></span>
+            </div>
+          </template>
+          <div class="flex justify-between py-2 font-medium text-sm border-t border-gray-200 mt-1">
+            <span>รวมส่วนของเจ้าของ</span>
+            <span class="font-mono" x-text="fmt(report.total_equity)"></span>
+          </div>
+        </div>
+
+        <div class="mx-5 mb-4 p-3 bg-orange-50 rounded-lg flex justify-between font-bold text-orange-800">
+          <span>รวมหนี้สินและส่วนของเจ้าของ</span>
+          <span class="font-mono text-lg" x-text="fmt(report.total_liabilities_equity)"></span>
+        </div>
+
+        <!-- Balanced check -->
+        <div class="mx-5 mb-4 text-center text-sm font-medium"
+          :class="report.is_balanced ? 'text-green-600' : 'text-red-600'"
+          x-text="report.is_balanced ? '✓ งบดุลสมดุล' : '✗ งบดุลไม่สมดุล'">
+        </div>
+      </div>
+    </div>
+  </template>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function balanceSheet(initDate) {
+  return {
+    asOf: initDate,
+    report: null,
+    loading: false,
+
+    async init() { await this.load(); },
+
+    async load() {
+      this.loading = true;
+      const token = document.cookie.match(/access_token=([^;]+)/)?.[1] || '';
+      try {
+        const r = await fetch('/api/v1/reports/balance-sheet?as_of=' + this.asOf, {
+          headers: { Authorization: 'Bearer ' + token }
+        });
+        const d = await r.json();
+        this.report = d;
+      } catch { this.report = null; }
+      this.loading = false;
+    },
+
+    fmt(v) { return new Intl.NumberFormat('th-TH', { minimumFractionDigits: 2 }).format(v || 0); },
+  };
+}
+</script>
+{% endblock %}

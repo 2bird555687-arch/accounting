@@ -1,4 +1,4 @@
-"""FA — Depreciation Service (calculate / post / schedule)."""
+﻿"""FA โ€” Depreciation Service (calculate / post / schedule)."""
 
 from __future__ import annotations
 
@@ -9,8 +9,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.fa.models import AssetDepreciation, FixedAsset
 from app.modules.fa.schemas import DeprScheduleItem, DepreciationRecordOut, PostDepreciationIn
-from app.core.context import AppContext
-from app.core.posting_engine import PostingEngine, JournalLineIn
+from app.context import AppContext
+from app.core.engine import PostingEngine, JournalLineInput as JournalLineIn
 
 
 class DepreciationService:
@@ -23,7 +23,7 @@ class DepreciationService:
         month: int,
         asset_ids: list[int] | None = None,
     ) -> list[DeprScheduleItem]:
-        """คำนวณค่าเสื่อมราคาประจำเดือน (preview ก่อน post)."""
+        """เธเธณเธเธงเธ“เธเนเธฒเน€เธชเธทเนเธญเธกเธฃเธฒเธเธฒเธเธฃเธฐเธเธณเน€เธ”เธทเธญเธ (preview เธเนเธญเธ post)."""
         q = select(FixedAsset).where(
             FixedAsset.company_id == ctx.company_id,
             FixedAsset.status == "active",
@@ -39,7 +39,7 @@ class DepreciationService:
             if asset.months_depreciated >= asset.useful_life_months:
                 continue
 
-            # ตรวจว่า period นี้ posted แล้วหรือยัง
+            # เธ•เธฃเธงเธเธงเนเธฒ period เธเธตเน posted เนเธฅเนเธงเธซเธฃเธทเธญเธขเธฑเธ
             posted = await db.scalar(
                 select(AssetDepreciation).where(
                     AssetDepreciation.asset_id == asset.id,
@@ -53,7 +53,7 @@ class DepreciationService:
             else:
                 depr_amount = asset.monthly_depr_declining()
 
-            # อย่าให้เกิน book_value - salvage_value
+            # เธญเธขเนเธฒเนเธซเนเน€เธเธดเธ book_value - salvage_value
             max_depr = asset.book_value - asset.salvage_value
             depr_amount = min(depr_amount, max_depr).quantize(Decimal("0.01"), ROUND_HALF_UP)
 
@@ -81,9 +81,9 @@ class DepreciationService:
     async def post_depreciation(
         data: PostDepreciationIn, ctx: AppContext, db: AsyncSession
     ) -> list[DepreciationRecordOut]:
-        """บันทึกค่าเสื่อมราคา — Dr 6505 | Cr acc_depr_account (GJ)."""
+        """เธเธฑเธเธ—เธถเธเธเนเธฒเน€เธชเธทเนเธญเธกเธฃเธฒเธเธฒ โ€” Dr 6505 | Cr acc_depr_account (GJ)."""
         if ctx.user_role not in ("firm_admin", "accountant"):
-            raise PermissionError("ต้องการสิทธิ์ accountant ขึ้นไป")
+            raise PermissionError("เธ•เนเธญเธเธเธฒเธฃเธชเธดเธ—เธเธดเน accountant เธเธถเนเธเนเธ")
 
         schedule = await DepreciationService.get_schedule(
             ctx=ctx,
@@ -112,12 +112,12 @@ class DepreciationService:
                 ctx=ctx,
                 journal_type="GJ",
                 lines=lines,
-                description=f"ค่าเสื่อมราคา {asset.asset_code} {data.fiscal_year}/{data.month:02d}",
+                description=f"เธเนเธฒเน€เธชเธทเนเธญเธกเธฃเธฒเธเธฒ {asset.asset_code} {data.fiscal_year}/{data.month:02d}",
                 source_module="FA",
                 source_id=asset.id,
             )
 
-            # อัปเดต asset
+            # เธญเธฑเธเน€เธ”เธ• asset
             asset.accumulated_depr = item.accumulated_depr_after
             asset.book_value = item.book_value_after
             asset.months_depreciated += 1
@@ -125,7 +125,7 @@ class DepreciationService:
             if asset.months_depreciated >= asset.useful_life_months:
                 asset.status = "fully_depreciated"
 
-            # บันทึก AssetDepreciation
+            # เธเธฑเธเธ—เธถเธ AssetDepreciation
             rec = AssetDepreciation(
                 asset_id=asset.id,
                 fiscal_year=data.fiscal_year,
@@ -161,3 +161,5 @@ class DepreciationService:
         q = q.order_by(AssetDepreciation.asset_id, AssetDepreciation.fiscal_year, AssetDepreciation.month)
         rows = await db.scalars(q)
         return [DepreciationRecordOut.model_validate(r) for r in rows]
+
+

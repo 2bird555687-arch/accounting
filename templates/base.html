@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="th" class="h-full">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{% block title %}AccCloud{% endblock %} — AccCloud</title>
+
+  <!-- Tailwind CSS Play CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            brand: { DEFAULT: '#1D4ED8', dark: '#1e3a8a', light: '#3B82F6' }
+          }
+        }
+      }
+    }
+  </script>
+
+  <!-- HTMX -->
+  <script src="https://unpkg.com/htmx.org@1.9.12" defer></script>
+  <!-- Alpine.js -->
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+
+  {% block head %}{% endblock %}
+
+  <style>
+    [x-cloak] { display: none !important; }
+    .htmx-indicator { opacity: 0; transition: opacity 0.2s ease-in; }
+    .htmx-request .htmx-indicator { opacity: 1; }
+    .htmx-request.htmx-indicator { opacity: 1; }
+    .sidebar-link { @apply flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-gray-300 hover:bg-white/10 hover:text-white transition-colors; }
+    .sidebar-link.active { @apply bg-white/15 text-white; }
+  </style>
+</head>
+
+<body class="h-full bg-gray-50 font-sans" hx-headers='{"Authorization": "Bearer {{ request.cookies.get("access_token", "") }}"}'>
+
+<div class="flex h-full" x-data="{ sidebarOpen: true }">
+
+  <!-- ── Sidebar ──────────────────────────────────────────────────────── -->
+  <aside
+    class="flex flex-col w-64 shrink-0 bg-gray-900 transition-all duration-300"
+    :class="sidebarOpen ? 'w-64' : 'w-16'"
+  >
+    <!-- Logo -->
+    <div class="flex items-center h-16 px-4 border-b border-white/10">
+      <div class="flex items-center gap-3 overflow-hidden">
+        <div class="w-8 h-8 bg-brand rounded-lg flex items-center justify-center shrink-0">
+          <svg class="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+              d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 11h.01M12 11h.01M15 11h.01M4 19V7a2 2 0 012-2h12a2 2 0 012 2v12a4 4 0 01-4 4H8a4 4 0 01-4-4z"/>
+          </svg>
+        </div>
+        <span class="text-white font-bold text-lg whitespace-nowrap" x-show="sidebarOpen" x-cloak>AccCloud</span>
+      </div>
+    </div>
+
+    <!-- Company Switcher -->
+    {% if ctx %}
+    <div class="px-3 py-3 border-b border-white/10">
+      <div class="text-xs text-gray-400 uppercase tracking-wider mb-1 px-1" x-show="sidebarOpen" x-cloak>บริษัท</div>
+      <div class="flex items-center gap-2 px-2 py-2 rounded-lg bg-white/5 cursor-pointer hover:bg-white/10">
+        <div class="w-6 h-6 bg-blue-500 rounded text-white text-xs flex items-center justify-center font-bold shrink-0">
+          {{ ctx.company_id }}
+        </div>
+        <div x-show="sidebarOpen" x-cloak>
+          <div class="text-white text-xs font-medium">Company {{ ctx.company_id }}</div>
+          <div class="text-gray-400 text-xs">งวด: {{ ctx.period }}</div>
+        </div>
+      </div>
+    </div>
+    {% endif %}
+
+    <!-- Navigation -->
+    <nav class="flex-1 px-3 py-4 overflow-y-auto space-y-1">
+      <a href="/" class="sidebar-link {% if request.url.path == '/' %}active{% endif %}">
+        <svg class="w-5 h-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+            d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/>
+        </svg>
+        <span x-show="sidebarOpen" x-cloak>แดชบอร์ด</span>
+      </a>
+
+      <!-- Journals group -->
+      <div x-data="{ open: {{ 'true' if '/journals' in request.url.path else 'false' }} }">
+        <button @click="open = !open" class="sidebar-link w-full justify-between">
+          <div class="flex items-center gap-3">
+            <svg class="w-5 h-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+            </svg>
+            <span x-show="sidebarOpen" x-cloak>สมุดรายวัน</span>
+          </div>
+          <svg x-show="sidebarOpen" x-cloak class="w-4 h-4 transition-transform" :class="open ? 'rotate-90' : ''" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+          </svg>
+        </button>
+        <div x-show="open" x-cloak class="ml-8 mt-1 space-y-1">
+          <a href="/journals" class="sidebar-link text-xs">ทั้งหมด</a>
+          <a href="/journals?jtype=GJ" class="sidebar-link text-xs">สมุดรายวันทั่วไป (GJ)</a>
+          <a href="/journals?jtype=SJ" class="sidebar-link text-xs">สมุดขาย (SJ)</a>
+          <a href="/journals?jtype=PJ" class="sidebar-link text-xs">สมุดซื้อ (PJ)</a>
+          <a href="/journals?jtype=CR" class="sidebar-link text-xs">สมุดรับเงิน (CR)</a>
+          <a href="/journals?jtype=CP" class="sidebar-link text-xs">สมุดจ่ายเงิน (CP)</a>
+        </div>
+      </div>
+
+      <!-- AR group -->
+      <div x-data="{ open: {{ 'true' if '/ar/' in request.url.path else 'false' }} }">
+        <button @click="open = !open" class="sidebar-link w-full justify-between">
+          <div class="flex items-center gap-3">
+            <svg class="w-5 h-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"/>
+            </svg>
+            <span x-show="sidebarOpen" x-cloak>ลูกหนี้ (AR)</span>
+          </div>
+          <svg x-show="sidebarOpen" x-cloak class="w-4 h-4 transition-transform" :class="open ? 'rotate-90' : ''" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+          </svg>
+        </button>
+        <div x-show="open" x-cloak class="ml-8 mt-1 space-y-1">
+          <a href="/ar/invoices" class="sidebar-link text-xs">ใบกำกับภาษี/ใบแจ้งหนี้</a>
+          <a href="/ar/invoices/new" class="sidebar-link text-xs">สร้างใบแจ้งหนี้</a>
+          <a href="/ar/receipts/new" class="sidebar-link text-xs">รับชำระเงิน</a>
+        </div>
+      </div>
+
+      <!-- AP group -->
+      <div x-data="{ open: {{ 'true' if '/ap/' in request.url.path else 'false' }} }">
+        <button @click="open = !open" class="sidebar-link w-full justify-between">
+          <div class="flex items-center gap-3">
+            <svg class="w-5 h-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"/>
+            </svg>
+            <span x-show="sidebarOpen" x-cloak>เจ้าหนี้ (AP)</span>
+          </div>
+          <svg x-show="sidebarOpen" x-cloak class="w-4 h-4 transition-transform" :class="open ? 'rotate-90' : ''" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+          </svg>
+        </button>
+        <div x-show="open" x-cloak class="ml-8 mt-1 space-y-1">
+          <a href="/ap/purchases" class="sidebar-link text-xs">ใบรับสินค้า/ใบแจ้งหนี้ซื้อ</a>
+          <a href="/ap/purchases/new" class="sidebar-link text-xs">บันทึกซื้อ</a>
+          <a href="/ap/payments/new" class="sidebar-link text-xs">จ่ายชำระเงิน</a>
+          <a href="/ap/po" class="sidebar-link text-xs">ใบสั่งซื้อ (PO)</a>
+        </div>
+      </div>
+
+      <!-- OCR -->
+      <a href="/ocr" class="sidebar-link {% if '/ocr' in request.url.path %}active{% endif %}">
+        <svg class="w-5 h-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+            d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"/>
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"/>
+        </svg>
+        <span x-show="sidebarOpen" x-cloak>OCR สแกนเอกสาร</span>
+      </a>
+
+      <!-- Reports group -->
+      <div x-data="{ open: {{ 'true' if '/reports' in request.url.path else 'false' }} }">
+        <button @click="open = !open" class="sidebar-link w-full justify-between">
+          <div class="flex items-center gap-3">
+            <svg class="w-5 h-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
+            </svg>
+            <span x-show="sidebarOpen" x-cloak>รายงาน</span>
+          </div>
+          <svg x-show="sidebarOpen" x-cloak class="w-4 h-4 transition-transform" :class="open ? 'rotate-90' : ''" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+          </svg>
+        </button>
+        <div x-show="open" x-cloak class="ml-8 mt-1 space-y-1">
+          <a href="/reports/trial-balance" class="sidebar-link text-xs">งบทดลอง</a>
+          <a href="/reports/balance-sheet" class="sidebar-link text-xs">งบดุล</a>
+          <a href="/reports/income" class="sidebar-link text-xs">งบกำไรขาดทุน</a>
+          <a href="/reports/aging/ar" class="sidebar-link text-xs">อายุหนี้ลูกหนี้</a>
+          <a href="/reports/aging/ap" class="sidebar-link text-xs">อายุหนี้เจ้าหนี้</a>
+        </div>
+      </div>
+
+      <!-- Firm Dashboard (admin) -->
+      {% if ctx and ctx.user_role.value in ('FIRM_ADMIN', 'ACCOUNTANT') %}
+      <a href="/firm" class="sidebar-link {% if '/firm' in request.url.path %}active{% endif %}">
+        <svg class="w-5 h-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+            d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-2 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/>
+        </svg>
+        <span x-show="sidebarOpen" x-cloak>จัดการสำนักงาน</span>
+      </a>
+      {% endif %}
+    </nav>
+
+    <!-- Footer -->
+    <div class="px-3 py-4 border-t border-white/10">
+      <a href="/logout" class="sidebar-link text-red-400 hover:text-red-300 hover:bg-red-900/20">
+        <svg class="w-5 h-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+            d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/>
+        </svg>
+        <span x-show="sidebarOpen" x-cloak>ออกจากระบบ</span>
+      </a>
+    </div>
+  </aside>
+
+  <!-- ── Main content ──────────────────────────────────────────────────── -->
+  <div class="flex-1 flex flex-col overflow-hidden">
+
+    <!-- Top bar -->
+    <header class="h-16 bg-white border-b border-gray-200 flex items-center justify-between px-6 shrink-0">
+      <div class="flex items-center gap-4">
+        <button @click="sidebarOpen = !sidebarOpen" class="p-1.5 rounded-lg hover:bg-gray-100 text-gray-500">
+          <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/>
+          </svg>
+        </button>
+        <h1 class="text-lg font-semibold text-gray-800">{% block page_title %}{% endblock %}</h1>
+      </div>
+
+      <div class="flex items-center gap-3">
+        <!-- HTMX loading indicator -->
+        <div class="htmx-indicator">
+          <svg class="animate-spin w-5 h-5 text-brand" fill="none" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+          </svg>
+        </div>
+
+        {% if ctx %}
+        <span class="text-sm text-gray-500">งวด {{ ctx.period }}</span>
+        <div class="w-8 h-8 bg-brand rounded-full flex items-center justify-center text-white text-sm font-medium">
+          {{ ctx.user_id }}
+        </div>
+        {% endif %}
+      </div>
+    </header>
+
+    <!-- Page content -->
+    <main class="flex-1 overflow-auto p-6">
+      {% block content %}{% endblock %}
+    </main>
+  </div>
+</div>
+
+{% block scripts %}{% endblock %}
+</body>
+</html>

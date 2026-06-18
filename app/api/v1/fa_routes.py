@@ -1,4 +1,4 @@
-"""FA API Routes."""
+﻿"""FA API Routes."""
 
 from __future__ import annotations
 
@@ -6,8 +6,8 @@ from typing import Annotated, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 
-from app.api.deps import get_app_context, get_company_db
-from app.core.context import AppContext
+from app.api.deps import get_app_context, CTX, CompanyDB
+from app.context import AppContext
 from app.modules.fa.schemas import (
     AssetCreate,
     AssetOut,
@@ -24,10 +24,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 router = APIRouter(prefix="/fa", tags=["Fixed Assets"])
 
 Ctx = Annotated[AppContext, Depends(get_app_context)]
-DB = Annotated[AsyncSession, Depends(get_company_db)]
+DB = CompanyDB
 
 
-# ── Assets ────────────────────────────────────────────────────────────────────
+# โ”€โ”€ Assets โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€
 
 @router.get("/assets", response_model=list[AssetOut])
 async def list_assets(
@@ -77,7 +77,7 @@ async def dispose_asset(asset_id: int, data: DisposeAssetIn, ctx: Ctx, db: DB):
         raise HTTPException(status_code=400, detail=str(e))
 
 
-# ── Depreciation ──────────────────────────────────────────────────────────────
+# โ”€โ”€ Depreciation โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€
 
 @router.get("/depreciation/schedule", response_model=list[DeprScheduleItem])
 async def get_depr_schedule(
@@ -105,3 +105,4 @@ async def list_depr_records(
     fiscal_year: Optional[int] = None,
 ):
     return await DepreciationService.list_records(ctx, db, asset_id=asset_id, fiscal_year=fiscal_year)
+

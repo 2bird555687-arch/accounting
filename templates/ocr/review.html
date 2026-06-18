@@ -1,0 +1,188 @@
+{% extends "base.html" %}
+{% block title %}ตรวจสอบผล OCR{% endblock %}
+{% block page_title %}OCR — ตรวจสอบและยืนยันข้อมูล{% endblock %}
+
+{% block content %}
+<div x-data="ocrReview({{ history_id }})" x-init="init()">
+
+  <div class="mb-4">
+    <a href="/ocr" class="text-sm text-gray-500 hover:text-gray-700 flex items-center gap-1">
+      <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+      </svg>
+      กลับหน้าสแกน
+    </a>
+  </div>
+
+  <template x-if="loading">
+    <div class="bg-white rounded-xl p-8 text-center text-gray-400">
+      <svg class="animate-spin w-10 h-10 mx-auto mb-3" fill="none" viewBox="0 0 24 24">
+        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+      </svg>
+      <p>กำลังโหลดผลการสแกน...</p>
+    </div>
+  </template>
+
+  <template x-if="!loading && result">
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+
+      <!-- Left: OCR Result fields -->
+      <div class="space-y-4">
+        <div class="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
+          <div class="flex items-center justify-between mb-4">
+            <h2 class="font-semibold text-gray-800">ข้อมูลที่อ่านได้จากเอกสาร</h2>
+            <!-- Overall confidence -->
+            <div class="flex items-center gap-2">
+              <div class="w-2 h-2 rounded-full" :class="result.confidence >= 0.8 ? 'bg-green-500' : result.confidence >= 0.5 ? 'bg-yellow-400' : 'bg-red-400'"></div>
+              <span class="text-sm font-medium" :class="result.confidence >= 0.8 ? 'text-green-600' : result.confidence >= 0.5 ? 'text-yellow-600' : 'text-red-600'"
+                x-text="'ความมั่นใจ: ' + Math.round((result.confidence || 0) * 100) + '%'"></span>
+            </div>
+          </div>
+
+          <div class="space-y-3">
+            <!-- Each field with confidence badge -->
+            <template x-for="field in editableFields" :key="field.key">
+              <div>
+                <div class="flex items-center justify-between mb-1">
+                  <label class="text-sm font-medium text-gray-700" x-text="field.label"></label>
+                  <span x-show="field.conf !== undefined"
+                    :class="field.conf >= 0.8 ? 'bg-green-100 text-green-700' : field.conf >= 0.5 ? 'bg-yellow-100 text-yellow-700' : 'bg-red-100 text-red-600'"
+                    class="text-xs px-1.5 py-0.5 rounded font-medium"
+                    x-text="Math.round((field.conf || 0) * 100) + '%'"></span>
+                </div>
+                <input
+                  :type="field.type || 'text'"
+                  x-model="editData[field.key]"
+                  :class="field.conf < 0.5 ? 'border-red-300 bg-red-50' : 'border-gray-200'"
+                  class="w-full px-3 py-2 rounded-lg border text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+            </template>
+
+            <!-- COA suggestion -->
+            <div x-show="result.suggested_coa" class="p-3 bg-blue-50 rounded-lg text-sm">
+              <p class="font-medium text-blue-800">บัญชีที่แนะนำ</p>
+              <p class="text-blue-600 mt-1" x-text="result.suggested_coa?.code + ' — ' + result.suggested_coa?.name"></p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Right: Preview + Actions -->
+      <div class="space-y-4">
+
+        <!-- Image preview -->
+        <div class="bg-white rounded-xl p-5 shadow-sm border border-gray-100">
+          <h2 class="font-semibold text-gray-800 mb-3">ตัวอย่างเอกสาร</h2>
+          <div class="bg-gray-100 rounded-lg aspect-[3/4] flex items-center justify-center">
+            <template x-if="result.preview_url">
+              <img :src="result.preview_url" class="max-h-full max-w-full object-contain rounded" />
+            </template>
+            <template x-if="!result.preview_url">
+              <div class="text-center text-gray-400">
+                <svg class="w-12 h-12 mx-auto mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                </svg>
+                <p class="text-sm">ไม่มีตัวอย่าง</p>
+              </div>
+            </template>
+          </div>
+        </div>
+
+        <!-- Action buttons -->
+        <div class="bg-white rounded-xl p-5 shadow-sm border border-gray-100">
+          <h2 class="font-semibold text-gray-800 mb-4">ดำเนินการ</h2>
+
+          <div class="space-y-3">
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">บันทึกเป็นประเภทเอกสาร</label>
+              <select x-model="confirmAs" class="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                <option value="ar_invoice">ใบกำกับขาย (AR)</option>
+                <option value="ap_purchase">ใบกำกับซื้อ (AP)</option>
+                <option value="journal">สมุดรายวันทั่วไป (GJ)</option>
+              </select>
+            </div>
+
+            <div x-show="error" class="p-3 bg-red-50 rounded-lg text-red-600 text-sm" x-text="error"></div>
+            <div x-show="success" class="p-3 bg-green-50 rounded-lg text-green-600 text-sm">บันทึกสำเร็จ!</div>
+
+            <button @click="confirm()" :disabled="confirming"
+              class="w-full py-2.5 bg-blue-700 text-white rounded-lg font-medium hover:bg-blue-800 disabled:opacity-50">
+              <span x-text="confirming ? 'กำลังบันทึก...' : 'ยืนยันและบันทึก'"></span>
+            </button>
+            <button @click="discard()" class="w-full py-2 border border-gray-300 text-gray-600 rounded-lg text-sm hover:bg-gray-50">
+              ทิ้งและสแกนใหม่
+            </button>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </template>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function ocrReview(historyId) {
+  return {
+    historyId,
+    result: null,
+    editData: {},
+    editableFields: [],
+    confirmAs: 'ar_invoice',
+    loading: true,
+    confirming: false,
+    error: '',
+    success: false,
+
+    async init() {
+      const token = document.cookie.match(/access_token=([^;]+)/)?.[1] || '';
+      try {
+        const r = await fetch('/api/v1/ocr/history/' + historyId, { headers: { Authorization: 'Bearer ' + token } });
+        const d = await r.json();
+        this.result = d.data || d;
+        this.buildFields();
+      } catch { this.result = null; }
+      this.loading = false;
+    },
+
+    buildFields() {
+      if (!this.result) return;
+      const r = this.result;
+      const confs = r.field_confidence || {};
+      const fieldDefs = [
+        { key: 'vendor_name', label: 'ชื่อผู้ขาย/ออกใบกำกับ', conf: confs.vendor_name },
+        { key: 'tax_id', label: 'เลขประจำตัวผู้เสียภาษี', conf: confs.tax_id },
+        { key: 'invoice_no', label: 'เลขที่ใบกำกับ', conf: confs.invoice_no },
+        { key: 'invoice_date', label: 'วันที่', type: 'date', conf: confs.invoice_date },
+        { key: 'subtotal', label: 'ยอดก่อนภาษี', type: 'number', conf: confs.subtotal },
+        { key: 'vat', label: 'ภาษีมูลค่าเพิ่ม', type: 'number', conf: confs.vat },
+        { key: 'total', label: 'ยอดรวมทั้งสิ้น', type: 'number', conf: confs.total },
+      ];
+      this.editableFields = fieldDefs.map(f => ({ ...f, conf: f.conf ?? 1 }));
+      this.editData = { ...r };
+    },
+
+    async confirm() {
+      this.confirming = true; this.error = ''; this.success = false;
+      const token = document.cookie.match(/access_token=([^;]+)/)?.[1] || '';
+      try {
+        const r = await fetch('/api/v1/ocr/confirm', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+          body: JSON.stringify({ history_id: this.historyId, data: this.editData, confirm_as: this.confirmAs }),
+        });
+        if (!r.ok) { const e = await r.json(); this.error = e.detail || 'เกิดข้อผิดพลาด'; }
+        else { this.success = true; setTimeout(() => window.location = '/ocr', 1500); }
+      } catch { this.error = 'ไม่สามารถเชื่อมต่อ'; }
+      this.confirming = false;
+    },
+
+    discard() { window.location = '/ocr'; },
+  };
+}
+</script>
+{% endblock %}

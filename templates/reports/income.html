@@ -1,0 +1,138 @@
+{% extends "base.html" %}
+{% block title %}งบกำไรขาดทุน{% endblock %}
+{% block page_title %}รายงาน — งบกำไรขาดทุน (P&amp;L){% endblock %}
+
+{% block content %}
+<div x-data="incomeStatement('{{ default_from }}', '{{ default_to }}')" x-init="init()">
+
+  <div class="bg-white rounded-xl p-4 shadow-sm border border-gray-100 mb-4 flex items-center gap-3 flex-wrap">
+    <div class="flex items-center gap-2">
+      <label class="text-sm font-medium text-gray-700">จาก</label>
+      <input type="date" x-model="dateFrom"
+        class="px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"/>
+    </div>
+    <div class="flex items-center gap-2">
+      <label class="text-sm font-medium text-gray-700">ถึง</label>
+      <input type="date" x-model="dateTo"
+        class="px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"/>
+    </div>
+    <label class="flex items-center gap-2 text-sm text-gray-600 cursor-pointer">
+      <input type="checkbox" x-model="comparePY" class="rounded"/>
+      เปรียบเทียบปีก่อน
+    </label>
+    <button @click="load()" class="px-4 py-2 bg-blue-700 text-white rounded-lg text-sm font-medium hover:bg-blue-800">แสดง</button>
+    <div class="ml-auto flex gap-2">
+      <a :href="'/api/v1/reports/income-statement?date_from=' + dateFrom + '&date_to=' + dateTo + '&fmt=excel'"
+        class="px-3 py-2 border border-gray-300 text-gray-600 rounded-lg text-sm hover:bg-gray-50">Excel</a>
+      <a :href="'/api/v1/reports/income-statement?date_from=' + dateFrom + '&date_to=' + dateTo + '&fmt=pdf'"
+        class="px-3 py-2 border border-gray-300 text-gray-600 rounded-lg text-sm hover:bg-gray-50">PDF</a>
+    </div>
+  </div>
+
+  <template x-if="loading">
+    <div class="bg-white rounded-xl p-8 text-center text-gray-400 shadow-sm border border-gray-100">
+      <svg class="animate-spin w-8 h-8 mx-auto" fill="none" viewBox="0 0 24 24">
+        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+      </svg>
+    </div>
+  </template>
+
+  <template x-if="!loading && report">
+    <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+      <div class="px-5 py-4 border-b border-gray-100">
+        <h2 class="font-semibold text-gray-800" x-text="'งบกำไรขาดทุน: ' + dateFrom + ' ถึง ' + dateTo"></h2>
+      </div>
+
+      <div class="p-5 max-w-2xl">
+        <!-- Revenue -->
+        <div class="mb-6">
+          <p class="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">รายได้</p>
+          <template x-for="l in report.revenue_lines || []" :key="l.account_code">
+            <div class="flex justify-between py-1.5 text-sm border-b border-gray-50">
+              <span class="text-gray-700 pl-4" x-text="l.account_code + ' ' + l.account_name"></span>
+              <span class="font-mono text-gray-800" x-text="fmt(l.amount)"></span>
+            </div>
+          </template>
+          <div class="flex justify-between py-2 font-medium border-t border-gray-200 text-sm mt-1">
+            <span>รวมรายได้</span>
+            <span class="font-mono text-green-700 font-bold" x-text="fmt(report.total_revenue)"></span>
+          </div>
+        </div>
+
+        <!-- COGS -->
+        <div class="mb-6" x-show="(report.cogs_lines || []).length > 0">
+          <p class="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">ต้นทุนขาย</p>
+          <template x-for="l in report.cogs_lines || []" :key="l.account_code">
+            <div class="flex justify-between py-1.5 text-sm border-b border-gray-50">
+              <span class="text-gray-700 pl-4" x-text="l.account_code + ' ' + l.account_name"></span>
+              <span class="font-mono text-gray-800" x-text="fmt(l.amount)"></span>
+            </div>
+          </template>
+          <div class="flex justify-between py-2 font-medium border-t border-gray-200 text-sm mt-1">
+            <span>รวมต้นทุนขาย</span>
+            <span class="font-mono text-red-700" x-text="fmt(report.total_cogs)"></span>
+          </div>
+        </div>
+
+        <!-- Gross Profit -->
+        <div class="flex justify-between py-3 bg-gray-50 px-3 rounded-lg mb-6 font-semibold text-sm">
+          <span>กำไรขั้นต้น</span>
+          <span class="font-mono" :class="report.gross_profit >= 0 ? 'text-green-700' : 'text-red-600'" x-text="fmt(report.gross_profit)"></span>
+        </div>
+
+        <!-- Expenses -->
+        <div class="mb-6">
+          <p class="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">ค่าใช้จ่าย</p>
+          <template x-for="l in report.expense_lines || []" :key="l.account_code">
+            <div class="flex justify-between py-1.5 text-sm border-b border-gray-50">
+              <span class="text-gray-700 pl-4" x-text="l.account_code + ' ' + l.account_name"></span>
+              <span class="font-mono text-gray-800" x-text="fmt(l.amount)"></span>
+            </div>
+          </template>
+          <div class="flex justify-between py-2 font-medium border-t border-gray-200 text-sm mt-1">
+            <span>รวมค่าใช้จ่าย</span>
+            <span class="font-mono text-red-700" x-text="fmt(report.total_expenses)"></span>
+          </div>
+        </div>
+
+        <!-- Net Profit -->
+        <div class="p-4 rounded-xl border-2 flex justify-between font-bold text-base"
+          :class="report.net_profit >= 0 ? 'border-green-300 bg-green-50' : 'border-red-300 bg-red-50'">
+          <span :class="report.net_profit >= 0 ? 'text-green-800' : 'text-red-700'"
+            x-text="report.net_profit >= 0 ? 'กำไรสุทธิ' : 'ขาดทุนสุทธิ'"></span>
+          <span class="font-mono text-lg" :class="report.net_profit >= 0 ? 'text-green-700' : 'text-red-600'"
+            x-text="fmt(Math.abs(report.net_profit))"></span>
+        </div>
+      </div>
+    </div>
+  </template>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function incomeStatement(initFrom, initTo) {
+  return {
+    dateFrom: initFrom, dateTo: initTo, comparePY: false,
+    report: null, loading: false,
+
+    async init() { await this.load(); },
+
+    async load() {
+      this.loading = true;
+      const token = document.cookie.match(/access_token=([^;]+)/)?.[1] || '';
+      const params = new URLSearchParams({ date_from: this.dateFrom, date_to: this.dateTo, compare_prior_year: this.comparePY });
+      try {
+        const r = await fetch('/api/v1/reports/income-statement?' + params, { headers: { Authorization: 'Bearer ' + token } });
+        this.report = await r.json();
+      } catch { this.report = null; }
+      this.loading = false;
+    },
+
+    fmt(v) { return new Intl.NumberFormat('th-TH', { minimumFractionDigits: 2 }).format(v || 0); },
+  };
+}
+</script>
+{% endblock %}

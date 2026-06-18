@@ -1,4 +1,4 @@
-"""TAX — WHT Service (get_wht_summary / generate_certificate / post_wht_payment)."""
+﻿"""TAX โ€” WHT Service (get_wht_summary / generate_certificate / post_wht_payment)."""
 
 from __future__ import annotations
 
@@ -18,8 +18,8 @@ from app.modules.tax.schemas import (
     WHTSummaryItem,
 )
 from app.modules.ar.models import Contact
-from app.core.context import AppContext
-from app.core.posting_engine import PostingEngine, JournalLineIn
+from app.context import AppContext
+from app.core.engine import PostingEngine, JournalLineInput as JournalLineIn
 
 
 class WHTService:
@@ -28,7 +28,7 @@ class WHTService:
     async def create_wht_record(
         data: WHTRecordCreate, ctx: AppContext, db: AsyncSession
     ) -> WHTRecordOut:
-        """บันทึก WHT record รายการ."""
+        """เธเธฑเธเธ—เธถเธ WHT record เธฃเธฒเธขเธเธฒเธฃ."""
         rec = WHTRecord(
             company_id=ctx.company_id,
             branch_id=ctx.branch_id,
@@ -59,7 +59,7 @@ class WHTService:
         month: int,
         direction: str = "collected",
     ) -> list[WHTSummaryItem]:
-        """สรุป WHT รายผู้รับเงิน/ผู้จ่ายเงิน."""
+        """เธชเธฃเธธเธ WHT เธฃเธฒเธขเธเธนเนเธฃเธฑเธเน€เธเธดเธ/เธเธนเนเธเนเธฒเธขเน€เธเธดเธ."""
         rows = await db.execute(
             select(
                 WHTRecord.contact_id,
@@ -107,7 +107,7 @@ class WHTService:
         month: int,
         direction: str = "collected",
     ) -> WHTCertificateOut:
-        """ออกหนังสือรับรองหัก ณ ที่จ่าย (50 ทวิ)."""
+        """เธญเธญเธเธซเธเธฑเธเธชเธทเธญเธฃเธฑเธเธฃเธญเธเธซเธฑเธ เธ“ เธ—เธตเนเธเนเธฒเธข (50 เธ—เธงเธด)."""
         rows = await db.scalars(
             select(WHTRecord).where(
                 WHTRecord.company_id == ctx.company_id,
@@ -119,11 +119,11 @@ class WHTService:
         )
         records = list(rows)
         if not records:
-            raise ValueError("ไม่พบรายการ WHT สำหรับผู้รับเงินและงวดที่ระบุ")
+            raise ValueError("เนเธกเนเธเธเธฃเธฒเธขเธเธฒเธฃ WHT เธชเธณเธซเธฃเธฑเธเธเธนเนเธฃเธฑเธเน€เธเธดเธเนเธฅเธฐเธเธงเธ”เธ—เธตเนเธฃเธฐเธเธธ")
 
         contact = await db.scalar(select(Contact).where(Contact.id == contact_id))
 
-        # Generate certificate_no สำหรับทุก record ที่ยังไม่มี
+        # Generate certificate_no เธชเธณเธซเธฃเธฑเธเธ—เธธเธ record เธ—เธตเนเธขเธฑเธเนเธกเนเธกเธต
         cert_no = f"WHT-{ctx.company_id}-{fiscal_year}{month:02d}-{contact_id:04d}"
         for rec in records:
             if not rec.certificate_no:
@@ -150,9 +150,9 @@ class WHTService:
     async def post_wht_payment(
         data: PostWHTPaymentIn, ctx: AppContext, db: AsyncSession
     ) -> WHTPaymentResult:
-        """นำส่ง WHT ให้กรมสรรพากร — Dr 2121 | Cr 1102 (CP)."""
+        """เธเธณเธชเนเธ WHT เนเธซเนเธเธฃเธกเธชเธฃเธฃเธเธฒเธเธฃ โ€” Dr 2121 | Cr 1102 (CP)."""
         if ctx.user_role not in ("firm_admin", "accountant"):
-            raise PermissionError("ต้องการสิทธิ์ accountant ขึ้นไป")
+            raise PermissionError("เธ•เนเธญเธเธเธฒเธฃเธชเธดเธ—เธเธดเน accountant เธเธถเนเธเนเธ")
 
         q = select(WHTRecord).where(
             WHTRecord.company_id == ctx.company_id,
@@ -168,7 +168,7 @@ class WHTService:
         records = list(rows)
 
         if not records:
-            raise ValueError("ไม่มีรายการ WHT ที่ยังไม่ได้นำส่งในงวดนี้")
+            raise ValueError("เนเธกเนเธกเธตเธฃเธฒเธขเธเธฒเธฃ WHT เธ—เธตเนเธขเธฑเธเนเธกเนเนเธ”เนเธเธณเธชเนเธเนเธเธเธงเธ”เธเธตเน")
 
         total_wht = sum(r.wht_amount for r in records)
         period_str = f"{data.fiscal_year}{data.month:02d}"
@@ -181,7 +181,7 @@ class WHTService:
             ctx=ctx,
             journal_type="CP",
             lines=lines,
-            description=f"นำส่ง WHT งวด {period_str}",
+            description=f"เธเธณเธชเนเธ WHT เธเธงเธ” {period_str}",
             source_module="TAX",
             source_id=None,
         )
@@ -221,3 +221,5 @@ class WHTService:
         q = q.order_by(WHTRecord.payment_date.desc())
         rows = await db.scalars(q)
         return [WHTRecordOut.model_validate(r) for r in rows]
+
+

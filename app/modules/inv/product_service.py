@@ -1,4 +1,4 @@
-"""INV — Product CRUD Service."""
+﻿"""INV โ€” Product CRUD Service."""
 
 from __future__ import annotations
 
@@ -7,7 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.inv.models import Product
 from app.modules.inv.schemas import ProductCreate, ProductOut, ProductUpdate
-from app.core.context import AppContext
+from app.context import AppContext
 
 
 class ProductService:
@@ -15,7 +15,7 @@ class ProductService:
     @staticmethod
     async def create_product(data: ProductCreate, ctx: AppContext, db: AsyncSession) -> ProductOut:
         if ctx.user_role not in ("firm_admin", "accountant"):
-            raise PermissionError("ต้องการสิทธิ์ accountant ขึ้นไป")
+            raise PermissionError("เธ•เนเธญเธเธเธฒเธฃเธชเธดเธ—เธเธดเน accountant เธเธถเนเธเนเธ")
 
         existing = await db.scalar(
             select(Product).where(
@@ -24,7 +24,7 @@ class ProductService:
             )
         )
         if existing:
-            raise ValueError(f"SKU '{data.sku}' มีอยู่แล้ว")
+            raise ValueError(f"SKU '{data.sku}' เธกเธตเธญเธขเธนเนเนเธฅเนเธง")
 
         product = Product(
             company_id=ctx.company_id,
@@ -59,7 +59,7 @@ class ProductService:
             )
         )
         if not p:
-            raise ValueError(f"Product {product_id} ไม่พบ")
+            raise ValueError(f"Product {product_id} เนเธกเนเธเธ")
         return ProductOut.model_validate(p)
 
     @staticmethod
@@ -67,7 +67,7 @@ class ProductService:
         product_id: int, data: ProductUpdate, ctx: AppContext, db: AsyncSession
     ) -> ProductOut:
         if ctx.user_role not in ("firm_admin", "accountant"):
-            raise PermissionError("ต้องการสิทธิ์ accountant ขึ้นไป")
+            raise PermissionError("เธ•เนเธญเธเธเธฒเธฃเธชเธดเธ—เธเธดเน accountant เธเธถเนเธเนเธ")
 
         p = await db.scalar(
             select(Product).where(
@@ -76,7 +76,7 @@ class ProductService:
             )
         )
         if not p:
-            raise ValueError(f"Product {product_id} ไม่พบ")
+            raise ValueError(f"Product {product_id} เนเธกเนเธเธ")
 
         for field, val in data.model_dump(exclude_none=True).items():
             setattr(p, field, val)
@@ -88,7 +88,7 @@ class ProductService:
     @staticmethod
     async def deactivate_product(product_id: int, ctx: AppContext, db: AsyncSession) -> None:
         if ctx.user_role not in ("firm_admin", "accountant"):
-            raise PermissionError("ต้องการสิทธิ์ accountant ขึ้นไป")
+            raise PermissionError("เธ•เนเธญเธเธเธฒเธฃเธชเธดเธ—เธเธดเน accountant เธเธถเนเธเนเธ")
 
         p = await db.scalar(
             select(Product).where(
@@ -97,7 +97,8 @@ class ProductService:
             )
         )
         if not p:
-            raise ValueError(f"Product {product_id} ไม่พบ")
+            raise ValueError(f"Product {product_id} เนเธกเนเธเธ")
 
         p.is_active = False
         await db.flush()
+

@@ -1,0 +1,131 @@
+{% extends "base.html" %}
+{% block title %}งบทดลอง{% endblock %}
+{% block page_title %}รายงาน — งบทดลอง{% endblock %}
+
+{% block content %}
+<div x-data="trialBalance({{ default_year }}, {{ default_month }})" x-init="init()">
+
+  <!-- Filter bar -->
+  <div class="bg-white rounded-xl p-4 shadow-sm border border-gray-100 mb-4 flex items-center gap-3 flex-wrap">
+    <div class="flex items-center gap-2">
+      <label class="text-sm font-medium text-gray-700">ปี</label>
+      <input type="number" x-model.number="year" min="2000" max="2099"
+        class="w-24 px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"/>
+    </div>
+    <div class="flex items-center gap-2">
+      <label class="text-sm font-medium text-gray-700">เดือน</label>
+      <select x-model.number="month" class="px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+        <template x-for="m in 12" :key="m">
+          <option :value="m" x-text="months[m-1]"></option>
+        </template>
+      </select>
+    </div>
+    <button @click="load()" class="px-4 py-2 bg-blue-700 text-white rounded-lg text-sm font-medium hover:bg-blue-800">แสดงรายงาน</button>
+    <div class="ml-auto flex gap-2">
+      <a :href="'/api/v1/reports/trial-balance/' + year + '/' + month + '?fmt=excel'"
+        class="px-3 py-2 border border-gray-300 text-gray-600 rounded-lg text-sm hover:bg-gray-50 flex items-center gap-1">
+        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+        </svg>
+        Excel
+      </a>
+      <a :href="'/api/v1/reports/trial-balance/' + year + '/' + month + '?fmt=pdf'"
+        class="px-3 py-2 border border-gray-300 text-gray-600 rounded-lg text-sm hover:bg-gray-50 flex items-center gap-1">
+        PDF
+      </a>
+    </div>
+  </div>
+
+  <!-- Table -->
+  <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+    <div class="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
+      <h2 class="font-semibold text-gray-800" x-text="'งบทดลอง — ' + months[month-1] + ' ' + (year + 543)"></h2>
+      <div x-show="loading">
+        <svg class="animate-spin w-5 h-5 text-blue-600" fill="none" viewBox="0 0 24 24">
+          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+        </svg>
+      </div>
+    </div>
+
+    <table class="w-full text-sm">
+      <thead class="bg-gray-50 border-b border-gray-100">
+        <tr>
+          <th class="text-left px-4 py-3 font-medium text-gray-600">รหัสบัญชี</th>
+          <th class="text-left px-4 py-3 font-medium text-gray-600">ชื่อบัญชี</th>
+          <th class="text-right px-4 py-3 font-medium text-gray-600">ยอดยกมา</th>
+          <th class="text-right px-4 py-3 font-medium text-gray-600">เดบิต</th>
+          <th class="text-right px-4 py-3 font-medium text-gray-600">เครดิต</th>
+          <th class="text-right px-4 py-3 font-medium text-gray-600">ยอดคงเหลือ</th>
+        </tr>
+      </thead>
+      <tbody>
+        <template x-if="!loading && lines.length === 0">
+          <tr><td colspan="6" class="px-4 py-8 text-center text-gray-400">ไม่มีข้อมูลงวดนี้</td></tr>
+        </template>
+        <template x-for="l in lines" :key="l.account_code">
+          <tr class="border-b border-gray-50 hover:bg-gray-50">
+            <td class="px-4 py-2.5 font-mono text-gray-600" x-text="l.account_code"></td>
+            <td class="px-4 py-2.5 text-gray-800" x-text="l.account_name"></td>
+            <td class="px-4 py-2.5 text-right font-mono text-gray-600" x-text="l.opening_balance != 0 ? fmt(l.opening_balance) : ''"></td>
+            <td class="px-4 py-2.5 text-right font-mono text-gray-700" x-text="l.total_debit != 0 ? fmt(l.total_debit) : ''"></td>
+            <td class="px-4 py-2.5 text-right font-mono text-gray-700" x-text="l.total_credit != 0 ? fmt(l.total_credit) : ''"></td>
+            <td class="px-4 py-2.5 text-right font-mono font-medium text-gray-800" x-text="fmt(l.closing_balance)"></td>
+          </tr>
+        </template>
+      </tbody>
+      <tfoot x-show="lines.length > 0" class="border-t-2 border-gray-300 bg-gray-50 font-bold">
+        <tr>
+          <td colspan="2" class="px-4 py-3 text-gray-700">รวมทั้งสิ้น</td>
+          <td class="px-4 py-3 text-right font-mono" x-text="fmt(totals.opening)"></td>
+          <td class="px-4 py-3 text-right font-mono" x-text="fmt(totals.debit)"></td>
+          <td class="px-4 py-3 text-right font-mono" x-text="fmt(totals.credit)"></td>
+          <td class="px-4 py-3 text-right font-mono" x-text="fmt(totals.closing)"></td>
+        </tr>
+        <tr>
+          <td colspan="6" class="px-4 py-2 text-center text-sm" :class="isBalanced ? 'text-green-600' : 'text-red-600'"
+            x-text="isBalanced ? '✓ งบทดลองสมดุล' : '✗ งบทดลองไม่สมดุล — ตรวจสอบรายการ'"></td>
+        </tr>
+      </tfoot>
+    </table>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function trialBalance(initYear, initMonth) {
+  return {
+    year: initYear, month: initMonth,
+    lines: [], loading: false,
+    totals: { opening: 0, debit: 0, credit: 0, closing: 0 },
+    isBalanced: true,
+    months: ['มกราคม','กุมภาพันธ์','มีนาคม','เมษายน','พฤษภาคม','มิถุนายน','กรกฎาคม','สิงหาคม','กันยายน','ตุลาคม','พฤศจิกายน','ธันวาคม'],
+
+    async init() { await this.load(); },
+
+    async load() {
+      this.loading = true;
+      const token = document.cookie.match(/access_token=([^;]+)/)?.[1] || '';
+      try {
+        const r = await fetch(`/api/v1/reports/trial-balance/${this.year}/${this.month}`, {
+          headers: { Authorization: 'Bearer ' + token }
+        });
+        const d = await r.json();
+        this.lines = d.lines || [];
+        this.isBalanced = d.is_balanced ?? true;
+        this.totals = {
+          opening: this.lines.reduce((s, l) => s + (l.opening_balance || 0), 0),
+          debit: this.lines.reduce((s, l) => s + (l.total_debit || 0), 0),
+          credit: this.lines.reduce((s, l) => s + (l.total_credit || 0), 0),
+          closing: this.lines.reduce((s, l) => s + (l.closing_balance || 0), 0),
+        };
+      } catch { this.lines = []; }
+      this.loading = false;
+    },
+
+    fmt(v) { return new Intl.NumberFormat('th-TH', { minimumFractionDigits: 2 }).format(v || 0); },
+  };
+}
+</script>
+{% endblock %}

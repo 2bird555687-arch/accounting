@@ -1,4 +1,4 @@
-"""TAX API Routes."""
+﻿"""TAX API Routes."""
 
 from __future__ import annotations
 
@@ -6,8 +6,8 @@ from typing import Annotated, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 
-from app.api.deps import get_app_context, get_company_db
-from app.core.context import AppContext
+from app.api.deps import get_app_context, CTX, CompanyDB
+from app.context import AppContext
 from app.modules.tax.schemas import (
     PP30Data,
     PostWHTPaymentIn,
@@ -25,10 +25,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 router = APIRouter(prefix="/tax", tags=["Tax"])
 
 Ctx = Annotated[AppContext, Depends(get_app_context)]
-DB = Annotated[AsyncSession, Depends(get_company_db)]
+DB = CompanyDB
 
 
-# ── VAT ───────────────────────────────────────────────────────────────────────
+# โ”€โ”€ VAT โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€
 
 @router.get("/vat/summary", response_model=list[VATSummaryItem])
 async def get_vat_summary(
@@ -48,7 +48,7 @@ async def generate_pp30(
     return await VATService.generate_pp30(ctx, db, fiscal_year=fiscal_year, month=month)
 
 
-# ── WHT ───────────────────────────────────────────────────────────────────────
+# โ”€โ”€ WHT โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€
 
 @router.get("/wht/records", response_model=list[WHTRecordOut])
 async def list_wht_records(
@@ -103,3 +103,5 @@ async def post_wht_payment(data: PostWHTPaymentIn, ctx: Ctx, db: DB):
         raise HTTPException(status_code=403, detail=str(e))
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
+
+
