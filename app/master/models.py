@@ -10,12 +10,9 @@ from sqlalchemy import (
     Boolean, Date, DateTime, Integer,
     Numeric, String, Text, UniqueConstraint, ForeignKey, func,
 )
-from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-
-class Base(DeclarativeBase):
-    """Base สำหรับ master module models (company database)."""
-    pass
+from app.database import CompanyBase as Base
 
 
 # ── Employee ──────────────────────────────────────────────────────────────────

@@ -188,7 +188,7 @@ class PurchaseLineCreate(BaseModel):
 
 
 class PurchaseCreate(BaseModel):
-    contact_id: int
+    contact_id: Optional[int] = None     # required สำหรับ credit, optional สำหรับ cash
     purchase_date: date
     due_date: Optional[date] = None
     supplier_invoice_no: Optional[str] = None
@@ -198,6 +198,15 @@ class PurchaseCreate(BaseModel):
     po_id: Optional[int] = None          # ถ้ามี PO
     grn_id: Optional[int] = None         # ถ้ามี GRN
     vat_exempt: bool = False
+    payment_mode: str = "credit"         # "cash" | "credit"
+    payment_account_code: Optional[str] = None  # account code เงินสด/ธนาคาร (สำหรับ cash)
+
+    @field_validator("payment_mode")
+    @classmethod
+    def validate_payment_mode(cls, v: str) -> str:
+        if v not in ("cash", "credit"):
+            raise ValueError("payment_mode ต้องเป็น cash หรือ credit")
+        return v
 
     @field_validator("purchase_type")
     @classmethod
@@ -212,6 +221,14 @@ class PurchaseCreate(BaseModel):
         if not v:
             raise ValueError("lines ต้องมีอย่างน้อย 1 รายการ")
         return v
+
+    @model_validator(mode="after")
+    def validate_payment(self) -> "PurchaseCreate":
+        if self.payment_mode == "credit" and not self.contact_id:
+            raise ValueError("ต้องระบุผู้ขายสำหรับการซื้อแบบเครดิต")
+        if self.payment_mode == "cash" and not self.payment_account_code:
+            raise ValueError("ต้องระบุช่องทางจ่ายเงินสำหรับการซื้อสด")
+        return self
 
 
 class PurchaseLineOut(BaseModel):
@@ -237,8 +254,10 @@ class PurchaseOut(BaseModel):
     supplier_invoice_no: Optional[str]
     purchase_date: date
     due_date: date
-    contact_id: int
+    contact_id: Optional[int]
     contact_name: str
+    payment_mode: str = "credit"
+    payment_account_code: Optional[str] = None
     purchase_type: str
     po_id: Optional[int]
     grn_id: Optional[int]

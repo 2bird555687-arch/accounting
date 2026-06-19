@@ -9,6 +9,24 @@
     <a href="/ar/invoices" class="btn btn-ghost btn-sm">← กลับรายการใบแจ้งหนี้</a>
   </div>
 
+  <!-- Payment Mode Toggle -->
+  <div style="display:flex;gap:0;margin-bottom:16px;border:1px solid var(--border);border-radius:var(--r);overflow:hidden;width:fit-content;">
+    <div @click="mode='credit'" :style="mode==='credit' ? 'background:var(--blue);color:#fff;' : 'background:var(--surface);color:var(--text2);'"
+      style="padding:8px 20px;cursor:pointer;font-size:14px;font-weight:500;transition:all .15s;">
+      ขายเชื่อ (ตั้งลูกหนี้)
+    </div>
+    <div @click="mode='cash'" :style="mode==='cash' ? 'background:var(--teal,#0d9488);color:#fff;' : 'background:var(--surface);color:var(--text2);'"
+      style="padding:8px 20px;cursor:pointer;font-size:14px;font-weight:500;transition:all .15s;">
+      ขายสด (รับเงินทันที)
+    </div>
+  </div>
+  <div x-show="mode==='credit'" style="margin-bottom:12px;padding:8px 12px;background:var(--blue-l,#eff6ff);border-radius:var(--r);font-size:12px;color:var(--blue,#1d4ed8);">
+    Dr ลูกหนี้การค้า | Cr รายได้ + VAT — ตั้งยอดค้างชำระ
+  </div>
+  <div x-show="mode==='cash'" style="margin-bottom:12px;padding:8px 12px;background:var(--teal-l,#f0fdfa);border-radius:var(--r);font-size:12px;color:var(--teal,#0d9488);">
+    Dr เงินสด/ธนาคาร | Cr รายได้ + VAT — ชำระครบทันที ไม่มีลูกหนี้
+  </div>
+
   <div class="grid2">
 
     <!-- Main form -->
@@ -18,8 +36,18 @@
       <div class="panel">
         <div class="panel-head"><span class="panel-title">ข้อมูลหัว</span></div>
         <div class="form-grid">
+
+          <!-- ช่องทางรับเงิน (เฉพาะสด) -->
+          <div class="form-group" x-show="mode==='cash'">
+            <label>ช่องทางรับเงิน <span style="color:var(--red)">*</span></label>
+            <select x-model="form.payment_account_code">
+              <option value="1101">เงินสด (1101)</option>
+              <option value="1102">เงินฝากธนาคาร (1102)</option>
+            </select>
+          </div>
+
           <div class="form-group">
-            <label>ลูกค้า <span style="color:var(--red)">*</span></label>
+            <label x-text="mode==='credit' ? 'ลูกค้า *' : 'ลูกค้า (ไม่บังคับ)'"></label>
             <input type="text" x-model="contactSearch" @input.debounce.300ms="searchContacts()" placeholder="พิมพ์ชื่อลูกค้า..." />
             <div x-show="contacts.length > 0" style="position:absolute;z-index:10;background:var(--surface);border:1px solid var(--border);border-radius:var(--r);box-shadow:0 4px 12px rgba(0,0,0,.1);margin-top:36px;width:240px;max-height:180px;overflow-y:auto;">
               <template x-for="c in contacts" :key="c.id">
@@ -37,7 +65,7 @@
             <input type="date" x-model="form.invoice_date" />
           </div>
 
-          <div class="form-group">
+          <div class="form-group" x-show="mode==='credit'">
             <label>วันครบกำหนด</label>
             <input type="date" x-model="form.due_date" />
           </div>
@@ -124,7 +152,7 @@
           <button @click="save('draft')" :disabled="saving" class="btn btn-ghost" style="width:100%;justify-content:center;">
             บันทึกแบบร่าง
           </button>
-          <button @click="save('open')" :disabled="saving || !form.contact_id" class="btn btn-primary" style="width:100%;justify-content:center;">
+          <button @click="save('open')" :disabled="saving || (mode==='credit' && !form.contact_id) || (mode==='cash' && !form.payment_account_code)" class="btn btn-primary" style="width:100%;justify-content:center;">
             <span x-text="saving ? 'กำลังบันทึก...' : 'ออกใบแจ้งหนี้'"></span>
           </button>
         </div>
@@ -144,9 +172,11 @@ function invoiceForm() {
   const today = new Date().toISOString().slice(0, 10);
   const due = new Date(Date.now() + 30 * 86400000).toISOString().slice(0, 10);
   return {
+    mode: 'credit',
     form: {
       contact_id: null, invoice_date: today, due_date: due,
       reference: '', vat_rate: 7, notes: '',
+      payment_account_code: '1101',
       lines: [{ description: '', quantity: 1, unit_price: 0, amount: 0 }],
     },
     contactSearch: '', contacts: [], selectedContactName: '',
@@ -189,10 +219,17 @@ function invoiceForm() {
       this.saving = true; this.error = ''; this.success = false;
       const token = document.cookie.match(/access_token=([^;]+)/)?.[1] || '';
       try {
+        const payload = {
+          ...this.form,
+          status,
+          payment_mode: this.mode,
+          payment_account_code: this.mode === 'cash' ? this.form.payment_account_code : null,
+          due_date: this.mode === 'cash' ? this.form.invoice_date : this.form.due_date,
+        };
         const r = await fetch('/api/v1/ar/invoices', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
-          body: JSON.stringify({ ...this.form, status }),
+          body: JSON.stringify(payload),
         });
         if (!r.ok) { const e = await r.json(); this.error = e.detail || 'เกิดข้อผิดพลาด'; }
         else { this.success = true; setTimeout(() => window.location = '/ar/invoices', 1500); }

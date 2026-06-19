@@ -107,7 +107,7 @@ class InvoiceLineCreate(BaseModel):
 
 
 class InvoiceCreate(BaseModel):
-    contact_id: int
+    contact_id: Optional[int] = None      # required สำหรับ credit, optional สำหรับ cash
     invoice_date: date
     due_date: Optional[date] = None        # ถ้าไม่ระบุ ใช้ invoice_date + credit_days
     lines: list[InvoiceLineCreate]
@@ -115,6 +115,15 @@ class InvoiceCreate(BaseModel):
     reference: Optional[str] = None       # PO# ของลูกค้า
     bank_account_code: str = "1110"       # บัญชีลูกหนี้ (default 1110)
     vat_exempt: bool = False              # True = ไม่มี VAT (ขายให้ส่งออก ฯลฯ)
+    payment_mode: str = "credit"          # "cash" | "credit"
+    payment_account_code: Optional[str] = None  # account code เงินสด/ธนาคาร (สำหรับ cash)
+
+    @field_validator("payment_mode")
+    @classmethod
+    def validate_payment_mode(cls, v: str) -> str:
+        if v not in ("cash", "credit"):
+            raise ValueError("payment_mode ต้องเป็น cash หรือ credit")
+        return v
 
     @field_validator("lines")
     @classmethod
@@ -122,6 +131,14 @@ class InvoiceCreate(BaseModel):
         if not v:
             raise ValueError("lines ต้องมีอย่างน้อย 1 รายการ")
         return v
+
+    @model_validator(mode="after")
+    def validate_payment(self) -> "InvoiceCreate":
+        if self.payment_mode == "credit" and not self.contact_id:
+            raise ValueError("ต้องระบุลูกค้าสำหรับการขายแบบเครดิต")
+        if self.payment_mode == "cash" and not self.payment_account_code:
+            raise ValueError("ต้องระบุช่องทางรับเงินสำหรับการขายสด")
+        return self
 
 
 class InvoiceLineOut(BaseModel):
@@ -146,8 +163,10 @@ class InvoiceOut(BaseModel):
     invoice_no: str
     invoice_date: date
     due_date: date
-    contact_id: int
+    contact_id: Optional[int]
     contact_name: str
+    payment_mode: str = "credit"
+    payment_account_code: Optional[str] = None
     subtotal: Decimal
     vat_amount: Decimal
     wht_amount: Decimal

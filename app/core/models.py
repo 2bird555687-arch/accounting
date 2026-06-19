@@ -19,12 +19,9 @@ from sqlalchemy import (
     func,
     CheckConstraint,
 )
-from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-
-class Base(DeclarativeBase):
-    """Base สำหรับ core models (company database)."""
-    pass
+from app.database import CompanyBase as Base
 
 
 # ── Chart of Accounts ─────────────────────────────────────────────────────────

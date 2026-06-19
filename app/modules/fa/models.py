@@ -10,12 +10,9 @@ from sqlalchemy import (
     Boolean, Date, DateTime, ForeignKey, Integer,
     Numeric, String, Text, UniqueConstraint, func,
 )
-from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-
-class Base(DeclarativeBase):
-    """Base สำหรับ FA module models (company database)."""
-    pass
+from app.database import CompanyBase as Base
 
 
 # ── บัญชีที่ใช้ตามประเภทสินทรัพย์ ─────────────────────────────────────────────

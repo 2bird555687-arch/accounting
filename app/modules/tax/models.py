@@ -10,12 +10,9 @@ from sqlalchemy import (
     Boolean, Date, DateTime, ForeignKey, Integer,
     Numeric, String, Text, UniqueConstraint, func,
 )
-from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column
 
-
-class Base(DeclarativeBase):
-    """Base สำหรับ TAX module models (company database)."""
-    pass
+from app.database import CompanyBase as Base
 
 
 # ── WHT Record ────────────────────────────────────────────────────────────────

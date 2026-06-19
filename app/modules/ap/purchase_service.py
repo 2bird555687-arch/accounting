@@ -66,8 +66,18 @@ class PurchaseService:
         if not ctx.can_post:
             raise HTTPException(403, "ไม่มีสิทธิ์บันทึกรายการ")
 
-        contact = await self._get_contact(data.contact_id, ctx.company_id)
-        due_date = data.due_date or _add_days(data.purchase_date, contact.credit_days)
+        contact = None
+        if data.contact_id:
+            contact = await self._get_contact(data.contact_id, ctx.company_id)
+
+        if data.payment_mode == "cash":
+            due_date = data.purchase_date
+        elif data.due_date:
+            due_date = data.due_date
+        elif contact:
+            due_date = _add_days(data.purchase_date, contact.credit_days)
+        else:
+            due_date = data.purchase_date
 
         # คำนวณยอด
         subtotal = Decimal(0)
@@ -94,10 +104,16 @@ class PurchaseService:
 
         total = subtotal + vat_amount
         wht_amount = Decimal(0)
-        if contact.wht_rate:
+        if contact and contact.wht_rate:
             wht_amount = (subtotal * contact.wht_rate / 100).quantize(_TWO, ROUND_HALF_UP)
 
         purchase_no = await self._next_purchase_no(ctx, data.purchase_date)
+        contact_name = contact.name if contact else "ผู้ขายทั่วไป"
+
+        # กำหนด status เริ่มต้น — cash = paid ทันที, credit = draft
+        initial_status = "paid" if data.payment_mode == "cash" else "draft"
+        initial_paid = total if data.payment_mode == "cash" else Decimal(0)
+        initial_balance = Decimal(0) if data.payment_mode == "cash" else total
 
         purchase = APPurchase(
             company_id=ctx.company_id,
@@ -106,17 +122,19 @@ class PurchaseService:
             supplier_invoice_no=data.supplier_invoice_no,
             purchase_date=data.purchase_date,
             due_date=due_date,
-            contact_id=contact.id,
+            contact_id=contact.id if contact else None,
             po_id=data.po_id,
             grn_id=data.grn_id,
             purchase_type=data.purchase_type,
+            payment_mode=data.payment_mode,
+            payment_account_code=data.payment_account_code,
             subtotal=subtotal,
             vat_amount=vat_amount,
             wht_amount=wht_amount,
             total_amount=total,
-            paid_amount=Decimal(0),
-            balance=total,
-            status="draft",
+            paid_amount=initial_paid,
+            balance=initial_balance,
+            status=initial_status,
             description=data.description,
             created_by=ctx.user_id,
         )
@@ -125,7 +143,6 @@ class PurchaseService:
         await self._db.flush()
 
         # สร้าง Journal lines
-        ap_account = contact.default_ap_account  # default 2101
         journal_lines: list[JournalLineInput] = []
 
         # Dr expense/inventory lines (แยกตาม account_code)
@@ -140,7 +157,7 @@ class PurchaseService:
                 account_code=acc_code,
                 side=DrCr.DR,
                 amount=acc_total,
-                description=f"ซื้อ {contact.name} | {purchase_no}",
+                description=f"ซื้อ {contact_name} | {purchase_no}",
             ))
 
         # Dr 1140 ภาษีซื้อ
@@ -152,18 +169,30 @@ class PurchaseService:
                 description=f"ภาษีซื้อ {purchase_no}",
             ))
 
-        # Cr 2101 เจ้าหนี้
-        journal_lines.append(JournalLineInput(
-            account_code=ap_account,
-            side=DrCr.CR,
-            amount=total,
-            description=f"เจ้าหนี้ {contact.name} | {purchase_no}",
-        ))
+        if data.payment_mode == "cash":
+            # Cr เงินสด/ธนาคาร (จ่ายทันที)
+            journal_lines.append(JournalLineInput(
+                account_code=data.payment_account_code,
+                side=DrCr.CR,
+                amount=total,
+                description=f"จ่ายสด {contact_name} | {purchase_no}",
+            ))
+            journal_type = JournalType.CP
+        else:
+            # Cr 2101 เจ้าหนี้
+            ap_account = contact.default_ap_account if contact else _DEFAULT_AP_ACCOUNT
+            journal_lines.append(JournalLineInput(
+                account_code=ap_account,
+                side=DrCr.CR,
+                amount=total,
+                description=f"เจ้าหนี้ {contact_name} | {purchase_no}",
+            ))
+            journal_type = JournalType.PJ
 
         entry_input = JournalEntryInput(
-            journal_type=JournalType.PJ,
+            journal_type=journal_type,
             entry_date=data.purchase_date,
-            description=data.description or f"ซื้อ {contact.name} | {purchase_no}",
+            description=data.description or f"ซื้อ {contact_name} | {purchase_no}",
             lines=journal_lines,
             reference=data.supplier_invoice_no or purchase_no,
             source_module="ap",
@@ -179,7 +208,8 @@ class PurchaseService:
             raise HTTPException(422, str(e))
 
         purchase.journal_entry_no = entry_no
-        purchase.status = "posted"
+        if data.payment_mode == "credit":
+            purchase.status = "posted"
         await self._db.flush()
 
         return _to_detail(purchase, contact, line_records)
@@ -243,15 +273,17 @@ class PurchaseService:
 
         out = []
         for p in rows:
-            c = contacts.get(p.contact_id)
-            out.append(_purchase_to_out(p, c.name if c else ""))
+            c = contacts.get(p.contact_id) if p.contact_id else None
+            out.append(_purchase_to_out(p, c.name if c else "ผู้ขายทั่วไป"))
         return out, total
 
     # ── Get ───────────────────────────────────────────────────────────────────
 
     async def get_purchase(self, purchase_id: int, ctx: AppContext) -> PurchaseDetail:
         purchase = await self._load(purchase_id, ctx.company_id)
-        contact = await self._get_contact(purchase.contact_id, ctx.company_id)
+        contact = None
+        if purchase.contact_id:
+            contact = await self._get_contact(purchase.contact_id, ctx.company_id)
         return _to_detail(purchase, contact, purchase.lines)
 
     # ── Cancel ────────────────────────────────────────────────────────────────
@@ -340,6 +372,8 @@ def _purchase_to_out(p: APPurchase, contact_name: str) -> PurchaseOut:
         due_date=p.due_date,
         contact_id=p.contact_id,
         contact_name=contact_name,
+        payment_mode=getattr(p, "payment_mode", "credit"),
+        payment_account_code=getattr(p, "payment_account_code", None),
         purchase_type=p.purchase_type,
         po_id=p.po_id,
         grn_id=p.grn_id,
@@ -360,7 +394,7 @@ def _purchase_to_out(p: APPurchase, contact_name: str) -> PurchaseOut:
 
 def _to_detail(
     p: APPurchase,
-    contact: Contact,
+    contact: "Optional[Contact]",
     lines: list[APPurchaseLine],
 ) -> PurchaseDetail:
     lines_out = [
@@ -379,6 +413,6 @@ def _to_detail(
         for ln in lines
     ]
     return PurchaseDetail(
-        **_purchase_to_out(p, contact.name).__dict__,
+        **_purchase_to_out(p, contact.name if contact else "ผู้ขายทั่วไป").__dict__,
         lines=lines_out,
     )

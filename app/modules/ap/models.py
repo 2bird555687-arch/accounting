@@ -18,12 +18,9 @@ from sqlalchemy import (
     UniqueConstraint,
     func,
 )
-from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-
-class Base(DeclarativeBase):
-    """Base สำหรับ AP module models (company database)."""
-    pass
+from app.database import CompanyBase as Base
 
 
 # ── Purchase Order ────────────────────────────────────────────────────────────
@@ -197,9 +194,15 @@ class APPurchase(Base):
     purchase_date: Mapped[date] = mapped_column(Date, nullable=False)
     due_date: Mapped[date] = mapped_column(Date, nullable=False)
 
-    contact_id: Mapped[int] = mapped_column(
-        Integer, ForeignKey("contacts.id"), nullable=False
+    contact_id: Mapped[Optional[int]] = mapped_column(
+        Integer, ForeignKey("contacts.id"), nullable=True
     )
+
+    payment_mode: Mapped[str] = mapped_column(String(10), nullable=False, default="credit")
+    # "cash" | "credit"
+    payment_account_code: Mapped[Optional[str]] = mapped_column(String(10), nullable=True)
+    # account code เงินสด/ธนาคาร — ใช้เฉพาะ payment_mode="cash"
+
     po_id: Mapped[Optional[int]] = mapped_column(
         Integer, ForeignKey("ap_purchase_orders.id")
     )

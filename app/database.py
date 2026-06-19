@@ -21,6 +21,16 @@ class Base(DeclarativeBase):
     pass
 
 
+class CompanyBase(DeclarativeBase):
+    """Shared Base สำหรับทุก model ใน company database.
+
+    ทุก module (AR, AP, INV, FA, TAX, Master, OCR, Bank, Core) ต้องใช้ Base นี้
+    เพื่อให้ metadata เดียวกัน — SQLAlchemy จะ resolve ForeignKey ข้าม-module ได้ถูกต้อง
+    เมื่อ create_all ถูกเรียกครั้งเดียว.
+    """
+    pass
+
+
 # ── Engine registry (connection pool per company) ─────────────────────────────
 
 _engines: dict[str, AsyncEngine] = {}
@@ -120,25 +130,20 @@ async def init_shared_db() -> None:
 
 async def init_company_db(firm_id: int, company_id: int) -> None:
     """สร้างตาราง company database (เรียกตอนสร้าง company ใหม่)."""
-    from app.core.models import Base as CoreBase
-    from app.modules.ap.models import Base as APBase
-    from app.modules.ar.models import Base as ARBase
-    from app.modules.inv.models import Base as INVBase
-    from app.modules.fa.models import Base as FABase
-    from app.modules.tax.models import Base as TAXBase
-    from app.master.models import Base as MasterBase
-    from app.ocr.models import Base as OCRBase
-    from app.modules.bank.models import Base as BankBase
+    # Import all company-DB model modules so their Table objects register onto
+    # CompanyBase.metadata before we call create_all once.  Order doesn't matter
+    # because we resolve FKs in a single pass rather than module-by-module.
+    import app.core.models  # noqa: F401
+    import app.modules.ar.models  # noqa: F401
+    import app.modules.ap.models  # noqa: F401
+    import app.modules.inv.models  # noqa: F401
+    import app.modules.fa.models  # noqa: F401
+    import app.modules.tax.models  # noqa: F401
+    import app.master.models  # noqa: F401
+    import app.ocr.models  # noqa: F401
+    import app.modules.bank.models  # noqa: F401
 
     db_url = settings.get_company_db_url(firm_id, company_id)
     engine = get_engine(db_url)
     async with engine.begin() as conn:
-        await conn.run_sync(CoreBase.metadata.create_all)
-        await conn.run_sync(ARBase.metadata.create_all)
-        await conn.run_sync(APBase.metadata.create_all)
-        await conn.run_sync(INVBase.metadata.create_all)
-        await conn.run_sync(FABase.metadata.create_all)
-        await conn.run_sync(TAXBase.metadata.create_all)
-        await conn.run_sync(MasterBase.metadata.create_all)
-        await conn.run_sync(OCRBase.metadata.create_all)
-        await conn.run_sync(BankBase.metadata.create_all)
+        await conn.run_sync(CompanyBase.metadata.create_all)

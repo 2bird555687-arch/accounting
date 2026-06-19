@@ -60,11 +60,20 @@ class InvoiceService:
         if not ctx.can_post:
             raise HTTPException(403, "ไม่มีสิทธิ์บันทึกรายการ")
 
-        # โหลด contact
-        contact = await self._get_contact(data.contact_id, ctx.company_id)
+        # โหลด contact (optional สำหรับ cash)
+        contact = None
+        if data.contact_id:
+            contact = await self._get_contact(data.contact_id, ctx.company_id)
 
         # due_date
-        due_date = data.due_date or _add_days(data.invoice_date, contact.credit_days)
+        if data.payment_mode == "cash":
+            due_date = data.invoice_date
+        elif data.due_date:
+            due_date = data.due_date
+        elif contact:
+            due_date = _add_days(data.invoice_date, contact.credit_days)
+        else:
+            due_date = data.invoice_date
 
         # คำนวณยอด
         subtotal = Decimal(0)
@@ -91,11 +100,18 @@ class InvoiceService:
 
         total = subtotal + vat_amount
         wht_amount = Decimal(0)
-        if contact.wht_rate:
+        if contact and contact.wht_rate:
             wht_amount = (subtotal * contact.wht_rate / 100).quantize(_TWO, ROUND_HALF_UP)
 
         # สร้าง invoice number
         invoice_no = await self._next_invoice_no(ctx, data.invoice_date)
+
+        contact_name = contact.name if contact else "ลูกค้าทั่วไป"
+
+        # กำหนด status เริ่มต้น — cash = paid ทันที, credit = draft
+        initial_status = "paid" if data.payment_mode == "cash" else "draft"
+        initial_paid = total if data.payment_mode == "cash" else Decimal(0)
+        initial_balance = Decimal(0) if data.payment_mode == "cash" else total
 
         # บันทึก Invoice ORM
         invoice = ARInvoice(
@@ -104,14 +120,16 @@ class InvoiceService:
             invoice_no=invoice_no,
             invoice_date=data.invoice_date,
             due_date=due_date,
-            contact_id=contact.id,
+            contact_id=contact.id if contact else None,
+            payment_mode=data.payment_mode,
+            payment_account_code=data.payment_account_code,
             subtotal=subtotal,
             vat_amount=vat_amount,
             wht_amount=wht_amount,
             total_amount=total,
-            paid_amount=Decimal(0),
-            balance=total,
-            status="draft",
+            paid_amount=initial_paid,
+            balance=initial_balance,
+            status=initial_status,
             description=data.description,
             reference=data.reference,
             created_by=ctx.user_id,
@@ -121,45 +139,80 @@ class InvoiceService:
         await self._db.flush()  # ได้ invoice.id
 
         # สร้าง JournalEntry lines
-        # Dr 1110 (ลูกหนี้) = total
-        ar_account = contact.default_ar_account
-        journal_lines: list[JournalLineInput] = [
-            JournalLineInput(
+        journal_lines: list[JournalLineInput] = []
+
+        if data.payment_mode == "cash":
+            # Cash sale: Dr เงินสด/ธนาคาร | Cr รายได้ + Cr ภาษีขาย
+            # journal_type = CR (รับเงิน)
+            journal_lines.append(JournalLineInput(
+                account_code=data.payment_account_code,
+                side=DrCr.DR,
+                amount=total,
+                description=f"รับเงินสด {contact_name} | {invoice_no}",
+            ))
+
+            # Cr revenue lines
+            rev_by_account: dict[str, Decimal] = {}
+            for lr in line_records:
+                rev_by_account[lr.account_code] = (
+                    rev_by_account.get(lr.account_code, Decimal(0)) + lr.amount
+                )
+            for acc_code, acc_total in rev_by_account.items():
+                journal_lines.append(JournalLineInput(
+                    account_code=acc_code,
+                    side=DrCr.CR,
+                    amount=acc_total,
+                    description=f"รายได้ {invoice_no}",
+                ))
+
+            if vat_amount > 0:
+                journal_lines.append(JournalLineInput(
+                    account_code="2120",
+                    side=DrCr.CR,
+                    amount=vat_amount,
+                    description=f"ภาษีขาย {invoice_no}",
+                ))
+
+            journal_type = JournalType.CR
+
+        else:
+            # Credit sale: Dr ลูกหนี้ | Cr รายได้ + Cr ภาษีขาย
+            # journal_type = SJ
+            ar_account = contact.default_ar_account if contact else "1110"
+            journal_lines.append(JournalLineInput(
                 account_code=ar_account,
                 side=DrCr.DR,
                 amount=total,
-                description=f"ลูกหนี้ {contact.name} | {invoice_no}",
-            )
-        ]
-
-        # Cr revenue lines (แยกตาม account_code ใน lines)
-        rev_by_account: dict[str, Decimal] = {}
-        for lr in line_records:
-            rev_by_account[lr.account_code] = (
-                rev_by_account.get(lr.account_code, Decimal(0)) + lr.amount
-            )
-
-        for acc_code, acc_total in rev_by_account.items():
-            journal_lines.append(JournalLineInput(
-                account_code=acc_code,
-                side=DrCr.CR,
-                amount=acc_total,
-                description=f"รายได้ {invoice_no}",
+                description=f"ลูกหนี้ {contact_name} | {invoice_no}",
             ))
 
-        # Cr 2120 ภาษีขาย
-        if vat_amount > 0:
-            journal_lines.append(JournalLineInput(
-                account_code="2120",
-                side=DrCr.CR,
-                amount=vat_amount,
-                description=f"ภาษีขาย {invoice_no}",
-            ))
+            rev_by_account: dict[str, Decimal] = {}
+            for lr in line_records:
+                rev_by_account[lr.account_code] = (
+                    rev_by_account.get(lr.account_code, Decimal(0)) + lr.amount
+                )
+            for acc_code, acc_total in rev_by_account.items():
+                journal_lines.append(JournalLineInput(
+                    account_code=acc_code,
+                    side=DrCr.CR,
+                    amount=acc_total,
+                    description=f"รายได้ {invoice_no}",
+                ))
+
+            if vat_amount > 0:
+                journal_lines.append(JournalLineInput(
+                    account_code="2120",
+                    side=DrCr.CR,
+                    amount=vat_amount,
+                    description=f"ภาษีขาย {invoice_no}",
+                ))
+
+            journal_type = JournalType.SJ
 
         entry_input = JournalEntryInput(
-            journal_type=JournalType.SJ,
+            journal_type=journal_type,
             entry_date=data.invoice_date,
-            description=data.description or f"ขาย {contact.name} | {invoice_no}",
+            description=data.description or f"ขาย {contact_name} | {invoice_no}",
             lines=journal_lines,
             reference=invoice_no,
             source_module="ar",
@@ -174,9 +227,10 @@ class InvoiceService:
         except Exception as e:
             raise HTTPException(422, str(e))
 
-        # อัปเดต status และ journal_entry_no
+        # อัปเดต journal_entry_no (status ถูก set ตาม payment_mode แล้ว)
         invoice.journal_entry_no = entry_no
-        invoice.status = "posted"
+        if data.payment_mode == "credit":
+            invoice.status = "posted"
         await self._db.flush()
 
         return await self._to_detail(invoice, contact)
@@ -225,7 +279,9 @@ class InvoiceService:
 
     async def get_invoice(self, invoice_id: int, ctx: AppContext) -> InvoiceDetail:
         invoice = await self._load_invoice(invoice_id, ctx.company_id)
-        contact = await self._get_contact(invoice.contact_id, ctx.company_id)
+        contact = None
+        if invoice.contact_id:
+            contact = await self._get_contact(invoice.contact_id, ctx.company_id)
         return await self._to_detail(invoice, contact)
 
     # ── Cancel ────────────────────────────────────────────────────────────────
@@ -363,7 +419,9 @@ class InvoiceService:
             invoice_date=invoice.invoice_date,
             due_date=invoice.due_date,
             contact_id=invoice.contact_id,
-            contact_name=contact.name,
+            contact_name=contact.name if contact else "ลูกค้าทั่วไป",
+            payment_mode=invoice.payment_mode,
+            payment_account_code=invoice.payment_account_code,
             subtotal=invoice.subtotal,
             vat_amount=invoice.vat_amount,
             wht_amount=invoice.wht_amount,
@@ -378,7 +436,7 @@ class InvoiceService:
             created_by=invoice.created_by,
             created_at=invoice.created_at,
             lines=lines_out,
-            contact=ContactOut.model_validate(contact),
+            contact=ContactOut.model_validate(contact) if contact else None,
         )
 
 
@@ -398,7 +456,9 @@ def _invoice_to_out(inv: ARInvoice) -> InvoiceOut:
         invoice_date=inv.invoice_date,
         due_date=inv.due_date,
         contact_id=inv.contact_id,
-        contact_name=inv.contact.name if inv.contact else "",
+        contact_name=inv.contact.name if inv.contact else "ลูกค้าทั่วไป",
+        payment_mode=getattr(inv, "payment_mode", "credit"),
+        payment_account_code=getattr(inv, "payment_account_code", None),
         subtotal=inv.subtotal,
         vat_amount=inv.vat_amount,
         wht_amount=inv.wht_amount,

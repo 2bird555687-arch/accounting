@@ -19,12 +19,9 @@ from sqlalchemy import (
     UniqueConstraint,
     func,
 )
-from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-
-class Base(DeclarativeBase):
-    """Base สำหรับ AR module models (company database)."""
-    pass
+from app.database import CompanyBase as Base
 
 
 # ── Contact Master ────────────────────────────────────────────────────────────
@@ -106,7 +103,12 @@ class ARInvoice(Base):
     invoice_date: Mapped[date] = mapped_column(Date, nullable=False)
     due_date: Mapped[date] = mapped_column(Date, nullable=False)
 
-    contact_id: Mapped[int] = mapped_column(Integer, ForeignKey("contacts.id"), nullable=False)
+    contact_id: Mapped[Optional[int]] = mapped_column(Integer, ForeignKey("contacts.id"), nullable=True)
+
+    payment_mode: Mapped[str] = mapped_column(String(10), nullable=False, default="credit")
+    # "cash" | "credit"
+    payment_account_code: Mapped[Optional[str]] = mapped_column(String(10), nullable=True)
+    # account code เงินสด/ธนาคาร — ใช้เฉพาะ payment_mode="cash"
 
     # ยอดเงิน
     subtotal: Mapped[Decimal] = mapped_column(Numeric(15, 2), nullable=False, default=Decimal(0))
@@ -140,7 +142,7 @@ class ARInvoice(Base):
     )
 
     # Relationships
-    contact: Mapped[Contact] = relationship("Contact", back_populates="invoices")
+    contact: Mapped[Optional[Contact]] = relationship("Contact", back_populates="invoices")
     lines: Mapped[list[ARInvoiceLine]] = relationship(
         "ARInvoiceLine", back_populates="invoice", order_by="ARInvoiceLine.line_no",
         cascade="all, delete-orphan",
