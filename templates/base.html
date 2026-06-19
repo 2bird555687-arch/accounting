@@ -27,21 +27,19 @@
   </div>
 
   {% if ctx %}
-  <div class="sb-company">
+  <a href="/" class="sb-company" style="text-decoration:none;display:block;cursor:pointer;">
     <div class="sb-company-name">Company {{ ctx.company_id }}</div>
     <div class="sb-company-branch">งวด: {{ ctx.period }}</div>
-  </div>
+  </a>
   {% endif %}
 
   <div class="sb-section">บัญชี</div>
 
-  <!-- สมุดรายวัน group -->
-  <div class="sb-group-head {% if '/journals' in request.url.path %}open{% endif %}" onclick="toggleGroup(this)">
-    <span class="sb-item-icon">📒</span>
-    สมุดรายวัน
-    <span class="sb-group-chev {% if '/journals' in request.url.path %}open{% endif %}">▶</span>
-  </div>
-  <div class="sb-sub {% if '/journals' in request.url.path %}open{% endif %}">
+  <!-- สมุดรายวัน — direct link + static sub-items -->
+  <a href="/journals" class="sb-item {% if '/journals' in request.url.path and not request.query_params.get('jtype') %}active{% endif %}">
+    <span class="sb-item-icon">📒</span>สมุดรายวัน
+  </a>
+  <div class="sb-sub open">
     <a href="/journals" class="sb-item {% if request.url.path == '/journals' and not request.query_params.get('jtype') %}active{% endif %}">ทั้งหมด</a>
     <a href="/journals?jtype=GJ" class="sb-item {% if request.query_params.get('jtype') == 'GJ' %}active{% endif %}">GJ — รายวันทั่วไป</a>
     <a href="/journals?jtype=SJ" class="sb-item {% if request.query_params.get('jtype') == 'SJ' %}active{% endif %}">SJ — สมุดขาย</a>
