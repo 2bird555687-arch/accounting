@@ -1,31 +1,29 @@
-"""Web UI Routes — HTML pages served via Jinja2 templates."""
+"""Web UI Routes — HTML pages served via Jinja2 templates (Starlette 1.x API)."""
 
 from __future__ import annotations
 
 from datetime import date
 from typing import Optional
 
-from fastapi import APIRouter, Cookie, Depends, Form, Query, Request
+from fastapi import APIRouter, Form, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 
-from app.ui.deps import UIRedirectException, get_ui_context, get_ui_user
-from app.platform.auth import verify_access_token, build_app_context
-from typing import Annotated
+from app.ui.deps import UIRedirectException, get_ui_context
+from app.platform.auth import verify_access_token
 
 router = APIRouter(tags=["UI"])
 templates = Jinja2Templates(directory="templates")
 
 
-def _redirect_login(request: Request, exc: UIRedirectException) -> RedirectResponse:
-    return RedirectResponse(url=exc.url, status_code=302)
+def _ctx(ctx=None, user=None, **extra) -> dict:
+    """Build template context dict — request is passed separately in Starlette 1.x."""
+    return {"ctx": ctx, "user": user, "today": date.today(), **extra}
 
 
-def _base_ctx(request: Request, ctx=None, user=None, extra: dict | None = None) -> dict:
-    d = {"request": request, "ctx": ctx, "user": user, "today": date.today()}
-    if extra:
-        d.update(extra)
-    return d
+def _r(name: str, request: Request, context: dict) -> HTMLResponse:
+    """Shorthand for TemplateResponse with Starlette 1.x signature."""
+    return templates.TemplateResponse(request=request, name=name, context=context)
 
 
 # ── Auth ──────────────────────────────────────────────────────────────────────
@@ -39,7 +37,7 @@ async def login_page(request: Request):
             return RedirectResponse(url="/", status_code=302)
         except Exception:
             pass
-    return templates.TemplateResponse("auth/login.html", {"request": request})
+    return _r("auth/login.html", request, {})
 
 
 @router.post("/login")
@@ -58,9 +56,12 @@ async def login_submit(
             "company_id": company_id, "branch_id": branch_id,
         })
     if resp.status_code != 200:
-        return templates.TemplateResponse("auth/login.html", {
-            "request": request, "error": "ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง"
-        }, status_code=401)
+        return templates.TemplateResponse(
+            request=request,
+            name="auth/login.html",
+            context={"error": "ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง"},
+            status_code=401,
+        )
     data = resp.json()
     token = data.get("access_token") or data.get("data", {}).get("access_token", "")
     response = RedirectResponse(url="/", status_code=302)
@@ -83,7 +84,7 @@ async def dashboard(request: Request):
         ctx = await get_ui_context(request)
     except UIRedirectException as e:
         return RedirectResponse(url=e.url, status_code=302)
-    return templates.TemplateResponse("dashboard.html", _base_ctx(request, ctx))
+    return _r("dashboard.html", request, _ctx(ctx))
 
 
 # ── Journals ─────────────────────────────────────────────────────────────────
@@ -94,7 +95,7 @@ async def journal_list(request: Request, jtype: str = ""):
         ctx = await get_ui_context(request)
     except UIRedirectException as e:
         return RedirectResponse(url=e.url, status_code=302)
-    return templates.TemplateResponse("journals/list.html", _base_ctx(request, ctx, extra={"jtype": jtype}))
+    return _r("journals/list.html", request, _ctx(ctx, jtype=jtype))
 
 
 @router.get("/journals/{entry_no}", response_class=HTMLResponse)
@@ -103,7 +104,7 @@ async def journal_detail(request: Request, entry_no: str):
         ctx = await get_ui_context(request)
     except UIRedirectException as e:
         return RedirectResponse(url=e.url, status_code=302)
-    return templates.TemplateResponse("journals/detail.html", _base_ctx(request, ctx, extra={"entry_no": entry_no}))
+    return _r("journals/detail.html", request, _ctx(ctx, entry_no=entry_no))
 
 
 # ── AR ────────────────────────────────────────────────────────────────────────
@@ -114,7 +115,7 @@ async def ar_invoice_list(request: Request):
         ctx = await get_ui_context(request)
     except UIRedirectException as e:
         return RedirectResponse(url=e.url, status_code=302)
-    return templates.TemplateResponse("ar/invoice_list.html", _base_ctx(request, ctx))
+    return _r("ar/invoice_list.html", request, _ctx(ctx))
 
 
 @router.get("/ar/invoices/new", response_class=HTMLResponse)
@@ -123,7 +124,7 @@ async def ar_invoice_new(request: Request):
         ctx = await get_ui_context(request)
     except UIRedirectException as e:
         return RedirectResponse(url=e.url, status_code=302)
-    return templates.TemplateResponse("ar/invoice_form.html", _base_ctx(request, ctx, extra={"invoice": None}))
+    return _r("ar/invoice_form.html", request, _ctx(ctx, invoice=None))
 
 
 @router.get("/ar/invoices/{invoice_id}", response_class=HTMLResponse)
@@ -132,7 +133,7 @@ async def ar_invoice_detail(request: Request, invoice_id: int):
         ctx = await get_ui_context(request)
     except UIRedirectException as e:
         return RedirectResponse(url=e.url, status_code=302)
-    return templates.TemplateResponse("ar/invoice_detail.html", _base_ctx(request, ctx, extra={"invoice_id": invoice_id}))
+    return _r("ar/invoice_detail.html", request, _ctx(ctx, invoice_id=invoice_id))
 
 
 @router.get("/ar/receipts/new", response_class=HTMLResponse)
@@ -141,7 +142,7 @@ async def ar_receipt_new(request: Request, invoice_id: Optional[int] = None):
         ctx = await get_ui_context(request)
     except UIRedirectException as e:
         return RedirectResponse(url=e.url, status_code=302)
-    return templates.TemplateResponse("ar/receipt_form.html", _base_ctx(request, ctx, extra={"invoice_id": invoice_id}))
+    return _r("ar/receipt_form.html", request, _ctx(ctx, invoice_id=invoice_id))
 
 
 # ── AP ────────────────────────────────────────────────────────────────────────
@@ -152,7 +153,7 @@ async def ap_purchase_list(request: Request):
         ctx = await get_ui_context(request)
     except UIRedirectException as e:
         return RedirectResponse(url=e.url, status_code=302)
-    return templates.TemplateResponse("ap/purchase_list.html", _base_ctx(request, ctx))
+    return _r("ap/purchase_list.html", request, _ctx(ctx))
 
 
 @router.get("/ap/purchases/new", response_class=HTMLResponse)
@@ -161,7 +162,7 @@ async def ap_purchase_new(request: Request):
         ctx = await get_ui_context(request)
     except UIRedirectException as e:
         return RedirectResponse(url=e.url, status_code=302)
-    return templates.TemplateResponse("ap/purchase_form.html", _base_ctx(request, ctx, extra={"purchase": None}))
+    return _r("ap/purchase_form.html", request, _ctx(ctx, purchase=None))
 
 
 @router.get("/ap/payments/new", response_class=HTMLResponse)
@@ -170,7 +171,7 @@ async def ap_payment_new(request: Request, purchase_id: Optional[int] = None):
         ctx = await get_ui_context(request)
     except UIRedirectException as e:
         return RedirectResponse(url=e.url, status_code=302)
-    return templates.TemplateResponse("ap/payment_form.html", _base_ctx(request, ctx, extra={"purchase_id": purchase_id}))
+    return _r("ap/payment_form.html", request, _ctx(ctx, purchase_id=purchase_id))
 
 
 @router.get("/ap/po", response_class=HTMLResponse)
@@ -179,7 +180,7 @@ async def ap_po_list(request: Request):
         ctx = await get_ui_context(request)
     except UIRedirectException as e:
         return RedirectResponse(url=e.url, status_code=302)
-    return templates.TemplateResponse("ap/po_list.html", _base_ctx(request, ctx))
+    return _r("ap/po_list.html", request, _ctx(ctx))
 
 
 # ── OCR ───────────────────────────────────────────────────────────────────────
@@ -190,7 +191,7 @@ async def ocr_upload(request: Request):
         ctx = await get_ui_context(request)
     except UIRedirectException as e:
         return RedirectResponse(url=e.url, status_code=302)
-    return templates.TemplateResponse("ocr/upload.html", _base_ctx(request, ctx))
+    return _r("ocr/upload.html", request, _ctx(ctx))
 
 
 @router.get("/ocr/review/{history_id}", response_class=HTMLResponse)
@@ -199,7 +200,7 @@ async def ocr_review(request: Request, history_id: int):
         ctx = await get_ui_context(request)
     except UIRedirectException as e:
         return RedirectResponse(url=e.url, status_code=302)
-    return templates.TemplateResponse("ocr/review.html", _base_ctx(request, ctx, extra={"history_id": history_id}))
+    return _r("ocr/review.html", request, _ctx(ctx, history_id=history_id))
 
 
 # ── Reports ───────────────────────────────────────────────────────────────────
@@ -211,9 +212,8 @@ async def report_trial_balance(request: Request):
     except UIRedirectException as e:
         return RedirectResponse(url=e.url, status_code=302)
     today = date.today()
-    return templates.TemplateResponse("reports/trial_balance.html", _base_ctx(
-        request, ctx, extra={"default_year": today.year, "default_month": today.month}
-    ))
+    return _r("reports/trial_balance.html", request,
+              _ctx(ctx, default_year=today.year, default_month=today.month))
 
 
 @router.get("/reports/balance-sheet", response_class=HTMLResponse)
@@ -222,9 +222,8 @@ async def report_balance_sheet(request: Request):
         ctx = await get_ui_context(request)
     except UIRedirectException as e:
         return RedirectResponse(url=e.url, status_code=302)
-    return templates.TemplateResponse("reports/balance_sheet.html", _base_ctx(
-        request, ctx, extra={"default_date": str(date.today())}
-    ))
+    return _r("reports/balance_sheet.html", request,
+              _ctx(ctx, default_date=str(date.today())))
 
 
 @router.get("/reports/income", response_class=HTMLResponse)
@@ -234,10 +233,8 @@ async def report_income(request: Request):
     except UIRedirectException as e:
         return RedirectResponse(url=e.url, status_code=302)
     today = date.today()
-    from_date = today.replace(day=1)
-    return templates.TemplateResponse("reports/income.html", _base_ctx(
-        request, ctx, extra={"default_from": str(from_date), "default_to": str(today)}
-    ))
+    return _r("reports/income.html", request,
+              _ctx(ctx, default_from=str(today.replace(day=1)), default_to=str(today)))
 
 
 @router.get("/reports/aging/ar", response_class=HTMLResponse)
@@ -246,9 +243,8 @@ async def report_aging_ar(request: Request):
         ctx = await get_ui_context(request)
     except UIRedirectException as e:
         return RedirectResponse(url=e.url, status_code=302)
-    return templates.TemplateResponse("reports/aging_ar.html", _base_ctx(
-        request, ctx, extra={"default_date": str(date.today())}
-    ))
+    return _r("reports/aging_ar.html", request,
+              _ctx(ctx, default_date=str(date.today())))
 
 
 @router.get("/reports/aging/ap", response_class=HTMLResponse)
@@ -257,9 +253,8 @@ async def report_aging_ap(request: Request):
         ctx = await get_ui_context(request)
     except UIRedirectException as e:
         return RedirectResponse(url=e.url, status_code=302)
-    return templates.TemplateResponse("reports/aging_ap.html", _base_ctx(
-        request, ctx, extra={"default_date": str(date.today())}
-    ))
+    return _r("reports/aging_ap.html", request,
+              _ctx(ctx, default_date=str(date.today())))
 
 
 # ── Firm Dashboard ────────────────────────────────────────────────────────────
@@ -270,4 +265,4 @@ async def firm_dashboard(request: Request):
         ctx = await get_ui_context(request)
     except UIRedirectException as e:
         return RedirectResponse(url=e.url, status_code=302)
-    return templates.TemplateResponse("firm_dashboard.html", _base_ctx(request, ctx))
+    return _r("firm_dashboard.html", request, _ctx(ctx))
