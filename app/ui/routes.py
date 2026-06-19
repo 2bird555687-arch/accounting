@@ -145,6 +145,60 @@ async def ar_receipt_new(request: Request, invoice_id: Optional[int] = None):
     return _r("ar/receipt_form.html", request, _ctx(ctx, invoice_id=invoice_id))
 
 
+@router.get("/ar/billing-notes", response_class=HTMLResponse)
+async def ar_billing_note_list(request: Request):
+    try:
+        ctx = await get_ui_context(request)
+    except UIRedirectException as e:
+        return RedirectResponse(url=e.url, status_code=302)
+    return _r("ar/billing_note_list.html", request, _ctx(ctx))
+
+
+@router.get("/ar/billing-notes/new", response_class=HTMLResponse)
+async def ar_billing_note_new(request: Request):
+    try:
+        ctx = await get_ui_context(request)
+    except UIRedirectException as e:
+        return RedirectResponse(url=e.url, status_code=302)
+    return _r("ar/billing_note_form.html", request, _ctx(ctx))
+
+
+@router.get("/ar/billing-notes/{bn_id}", response_class=HTMLResponse)
+async def ar_billing_note_detail(request: Request, bn_id: int):
+    try:
+        ctx = await get_ui_context(request)
+    except UIRedirectException as e:
+        return RedirectResponse(url=e.url, status_code=302)
+    return _r("ar/billing_note_detail.html", request, _ctx(ctx, bn_id=bn_id))
+
+
+@router.get("/ar/quotations", response_class=HTMLResponse)
+async def ar_quotation_list(request: Request):
+    try:
+        ctx = await get_ui_context(request)
+    except UIRedirectException as e:
+        return RedirectResponse(url=e.url, status_code=302)
+    return _r("ar/quotation_list.html", request, _ctx(ctx))
+
+
+@router.get("/ar/quotations/new", response_class=HTMLResponse)
+async def ar_quotation_new(request: Request):
+    try:
+        ctx = await get_ui_context(request)
+    except UIRedirectException as e:
+        return RedirectResponse(url=e.url, status_code=302)
+    return _r("ar/quotation_form.html", request, _ctx(ctx))
+
+
+@router.get("/ar/quotations/{quotation_id}", response_class=HTMLResponse)
+async def ar_quotation_detail(request: Request, quotation_id: int):
+    try:
+        ctx = await get_ui_context(request)
+    except UIRedirectException as e:
+        return RedirectResponse(url=e.url, status_code=302)
+    return _r("ar/quotation_detail.html", request, _ctx(ctx, quotation_id=quotation_id))
+
+
 # ── AP ────────────────────────────────────────────────────────────────────────
 
 @router.get("/ap/purchases", response_class=HTMLResponse)

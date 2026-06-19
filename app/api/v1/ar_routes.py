@@ -1,4 +1,4 @@
-"""AR Routes — Contact, Invoice, Receipt, e-Tax."""
+"""AR Routes — Contact, Invoice, Receipt, e-Tax, Billing Notes, Quotations."""
 
 from __future__ import annotations
 
@@ -9,7 +9,9 @@ from fastapi import APIRouter, HTTPException, Query, Response, status
 
 from app.api.deps import CTX, CompanyDB
 from app.api.responses import ok, paginated
+from app.modules.ar.billing_note_service import BillingNoteCreate, BillingNoteService
 from app.modules.ar.etax_service import ETaxService, SellerInfo
+from app.modules.ar.quotation_service import QuotationCreate, QuotationService
 from app.modules.ar.receipt_service import ReceiptService
 from app.modules.ar.sales_service import InvoiceService
 from app.modules.ar.schemas import (
@@ -376,3 +378,106 @@ async def ar_aging(
     }
 
     return ok(summary)
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# BILLING NOTES
+# ══════════════════════════════════════════════════════════════════════════════
+
+@router.get("/billing-notes", response_model=dict, summary="รายการใบวางบิล")
+async def list_billing_notes(
+    ctx: CTX,
+    company_db: CompanyDB,
+    contact_id: Optional[int] = Query(None),
+    status_: Optional[str] = Query(None, alias="status", description="draft/sent/cancelled"),
+    page: int = Query(1, ge=1),
+    page_size: int = Query(50, ge=1, le=500),
+) -> dict:
+    """รายการใบวางบิลทั้งหมด."""
+    svc = BillingNoteService(company_db)
+    items, total = await svc.list_billing_notes(
+        ctx, contact_id=contact_id, status=status_, page=page, page_size=page_size
+    )
+    return paginated(data=items, total=total, page=page, page_size=page_size)
+
+
+@router.post(
+    "/billing-notes",
+    response_model=dict,
+    status_code=status.HTTP_201_CREATED,
+    summary="สร้างใบวางบิล",
+)
+async def create_billing_note(data: BillingNoteCreate, ctx: CTX, company_db: CompanyDB) -> dict:
+    """
+    สร้างใบวางบิลจาก Invoice หลายใบ.
+
+    ใบวางบิลไม่สร้าง Journal Entry — เป็นเอกสารทางการค้าเพื่อเสนอลูกค้า.
+    """
+    svc = BillingNoteService(company_db)
+    bn = await svc.create_billing_note(data, ctx)
+    return ok(bn, f"สร้างใบวางบิล {bn.billing_note_no} สำเร็จ")
+
+
+@router.get("/billing-notes/{bn_id}", response_model=dict, summary="ข้อมูลใบวางบิล")
+async def get_billing_note(bn_id: int, ctx: CTX, company_db: CompanyDB) -> dict:
+    svc = BillingNoteService(company_db)
+    return ok(await svc.get_billing_note(bn_id, ctx))
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# QUOTATIONS
+# ══════════════════════════════════════════════════════════════════════════════
+
+@router.get("/quotations", response_model=dict, summary="รายการใบเสนอราคา")
+async def list_quotations(
+    ctx: CTX,
+    company_db: CompanyDB,
+    contact_id: Optional[int] = Query(None),
+    status_: Optional[str] = Query(None, alias="status",
+                                   description="draft/sent/accepted/rejected/converted/expired"),
+    page: int = Query(1, ge=1),
+    page_size: int = Query(50, ge=1, le=500),
+) -> dict:
+    """รายการใบเสนอราคาทั้งหมด."""
+    svc = QuotationService(company_db)
+    items, total = await svc.list_quotations(
+        ctx, contact_id=contact_id, status=status_, page=page, page_size=page_size
+    )
+    return paginated(data=items, total=total, page=page, page_size=page_size)
+
+
+@router.post(
+    "/quotations",
+    response_model=dict,
+    status_code=status.HTTP_201_CREATED,
+    summary="สร้างใบเสนอราคา",
+)
+async def create_quotation(data: QuotationCreate, ctx: CTX, company_db: CompanyDB) -> dict:
+    """สร้างใบเสนอราคาใหม่ (ไม่สร้าง Journal Entry)."""
+    svc = QuotationService(company_db)
+    qt = await svc.create_quotation(data, ctx)
+    return ok(qt, f"สร้างใบเสนอราคา {qt.quotation_no} สำเร็จ")
+
+
+@router.get("/quotations/{quotation_id}", response_model=dict, summary="ข้อมูลใบเสนอราคา")
+async def get_quotation(quotation_id: int, ctx: CTX, company_db: CompanyDB) -> dict:
+    svc = QuotationService(company_db)
+    return ok(await svc.get_quotation(quotation_id, ctx))
+
+
+@router.post(
+    "/quotations/{quotation_id}/convert",
+    response_model=dict,
+    status_code=status.HTTP_201_CREATED,
+    summary="แปลงใบเสนอราคา → Invoice (SJ)",
+)
+async def convert_quotation(quotation_id: int, ctx: CTX, company_db: CompanyDB) -> dict:
+    """
+    แปลง Quotation → Invoice พร้อม post Journal Entry (SJ) อัตโนมัติ.
+
+    - Quotation ต้องไม่ใช่สถานะ converted / cancelled
+    - คืน Invoice ที่สร้างแล้ว
+    """
+    svc = QuotationService(company_db)
+    invoice = await svc.convert_to_invoice(quotation_id, ctx)
+    return ok(invoice, f"แปลงใบเสนอราคาเป็น Invoice {invoice.invoice_no} สำเร็จ")

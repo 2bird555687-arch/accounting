@@ -1,4 +1,5 @@
-"""AR Module Models — Contact, ARInvoice, ARInvoiceLine, ARReceipt, ARReceiptAllocation."""
+"""AR Module Models — Contact, ARInvoice, ARInvoiceLine, ARReceipt, ARReceiptAllocation,
+BillingNote, BillingNoteInvoice, Quotation, QuotationLine."""
 
 from __future__ import annotations
 
@@ -122,6 +123,11 @@ class ARInvoice(Base):
     description: Mapped[Optional[str]] = mapped_column(Text)
     reference: Mapped[Optional[str]] = mapped_column(String(100))  # เลขที่ใบสั่งซื้อลูกค้า (PO#)
 
+    # ลิงก์ Billing Note
+    billing_note_id: Mapped[Optional[int]] = mapped_column(
+        Integer, ForeignKey("billing_notes.id"), nullable=True
+    )
+
     # ลิงก์กลับไปยัง journal
     journal_entry_no: Mapped[Optional[str]] = mapped_column(String(20))
 
@@ -239,3 +245,142 @@ class ARReceiptAllocation(Base):
 
     receipt: Mapped[ARReceipt] = relationship("ARReceipt", back_populates="allocations")
     invoice: Mapped[ARInvoice] = relationship("ARInvoice", back_populates="allocations")
+
+
+# ── Billing Note ──────────────────────────────────────────────────────────────
+
+class BillingNote(Base):
+    """
+    ใบวางบิล (Billing Note) — รวม Invoice หลายใบเพื่อเสนอลูกค้า.
+
+    ไม่สร้าง Journal Entry — เป็นเอกสารทางการค้าอย่างเดียว.
+    status: draft / sent / cancelled
+    """
+
+    __tablename__ = "billing_notes"
+    __table_args__ = (UniqueConstraint("company_id", "billing_note_no", name="uq_billing_note_no"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    company_id: Mapped[int] = mapped_column(Integer, nullable=False, index=True)
+    branch_id: Mapped[int] = mapped_column(Integer, nullable=False)
+
+    billing_note_no: Mapped[str] = mapped_column(String(20), nullable=False)
+    billing_date: Mapped[date] = mapped_column(Date, nullable=False)
+    due_date: Mapped[date] = mapped_column(Date, nullable=False)
+
+    contact_id: Mapped[int] = mapped_column(Integer, ForeignKey("contacts.id"), nullable=False)
+    total_amount: Mapped[Decimal] = mapped_column(Numeric(15, 2), nullable=False, default=Decimal(0))
+
+    status: Mapped[str] = mapped_column(String(20), nullable=False, default="draft")
+    description: Mapped[Optional[str]] = mapped_column(Text)
+
+    created_by: Mapped[int] = mapped_column(Integer, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
+    )
+
+    # Relationships
+    contact: Mapped[Contact] = relationship("Contact")
+    invoice_links: Mapped[list[BillingNoteInvoice]] = relationship(
+        "BillingNoteInvoice", back_populates="billing_note", cascade="all, delete-orphan"
+    )
+
+
+class BillingNoteInvoice(Base):
+    """Invoice ที่อยู่ใน Billing Note (Many-to-Many)."""
+
+    __tablename__ = "billing_note_invoices"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    billing_note_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("billing_notes.id", ondelete="CASCADE"), nullable=False
+    )
+    invoice_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("ar_invoices.id"), nullable=False
+    )
+
+    billing_note: Mapped[BillingNote] = relationship("BillingNote", back_populates="invoice_links")
+    invoice: Mapped[ARInvoice] = relationship("ARInvoice")
+
+
+# ── Quotation ─────────────────────────────────────────────────────────────────
+
+class Quotation(Base):
+    """
+    ใบเสนอราคา (Quotation).
+
+    status flow: draft → sent → accepted → converted / rejected / expired
+    converted_invoice_id: ลิงก์ไปยัง Invoice ที่สร้างจาก Quotation นี้
+    """
+
+    __tablename__ = "quotations"
+    __table_args__ = (UniqueConstraint("company_id", "quotation_no", name="uq_quotation_no"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    company_id: Mapped[int] = mapped_column(Integer, nullable=False, index=True)
+    branch_id: Mapped[int] = mapped_column(Integer, nullable=False)
+
+    quotation_no: Mapped[str] = mapped_column(String(20), nullable=False)
+    quotation_date: Mapped[date] = mapped_column(Date, nullable=False)
+    valid_until: Mapped[date] = mapped_column(Date, nullable=False)
+
+    contact_id: Mapped[int] = mapped_column(Integer, ForeignKey("contacts.id"), nullable=False)
+
+    subtotal: Mapped[Decimal] = mapped_column(Numeric(15, 2), nullable=False, default=Decimal(0))
+    vat_amount: Mapped[Decimal] = mapped_column(Numeric(15, 2), nullable=False, default=Decimal(0))
+    total_amount: Mapped[Decimal] = mapped_column(Numeric(15, 2), nullable=False, default=Decimal(0))
+
+    status: Mapped[str] = mapped_column(String(20), nullable=False, default="draft")
+    description: Mapped[Optional[str]] = mapped_column(Text)
+    reference: Mapped[Optional[str]] = mapped_column(String(100))
+
+    converted_invoice_id: Mapped[Optional[int]] = mapped_column(
+        Integer, ForeignKey("ar_invoices.id"), nullable=True
+    )
+
+    created_by: Mapped[int] = mapped_column(Integer, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
+    )
+
+    # Relationships
+    contact: Mapped[Contact] = relationship("Contact")
+    lines: Mapped[list[QuotationLine]] = relationship(
+        "QuotationLine", back_populates="quotation",
+        order_by="QuotationLine.line_no",
+        cascade="all, delete-orphan",
+    )
+    converted_invoice: Mapped[Optional[ARInvoice]] = relationship("ARInvoice", foreign_keys=[converted_invoice_id])
+
+    @property
+    def is_expired(self) -> bool:
+        return self.status not in ("converted", "cancelled") and date.today() > self.valid_until
+
+
+class QuotationLine(Base):
+    """บรรทัดรายการใน Quotation."""
+
+    __tablename__ = "quotation_lines"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    quotation_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("quotations.id", ondelete="CASCADE"), nullable=False
+    )
+    line_no: Mapped[int] = mapped_column(Integer, nullable=False)
+
+    description: Mapped[str] = mapped_column(String(500), nullable=False)
+    account_code: Mapped[str] = mapped_column(String(10), nullable=False)
+    unit: Mapped[Optional[str]] = mapped_column(String(20))
+    quantity: Mapped[Decimal] = mapped_column(Numeric(15, 4), nullable=False, default=Decimal(1))
+    unit_price: Mapped[Decimal] = mapped_column(Numeric(15, 4), nullable=False, default=Decimal(0))
+    amount: Mapped[Decimal] = mapped_column(Numeric(15, 2), nullable=False, default=Decimal(0))
+    vat_rate: Mapped[Decimal] = mapped_column(Numeric(5, 2), nullable=False, default=Decimal("7"))
+    vat_amount: Mapped[Decimal] = mapped_column(Numeric(15, 2), nullable=False, default=Decimal(0))
+
+    quotation: Mapped[Quotation] = relationship("Quotation", back_populates="lines")

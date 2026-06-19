@@ -1,0 +1,252 @@
+{% extends "base.html" %}
+{% block title %}สร้างใบเสนอราคา{% endblock %}
+{% block page_title %}AR — สร้างใบเสนอราคาใหม่{% endblock %}
+
+{% block content %}
+<div x-data="qtForm()" x-init="init()">
+
+  <div class="mb-4">
+    <a href="/ar/quotations" class="text-sm text-gray-500 hover:text-gray-700 flex items-center gap-1 w-fit">
+      <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+      </svg>
+      กลับรายการ
+    </a>
+  </div>
+
+  <form @submit.prevent="submit()" class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+    <!-- Left: main form -->
+    <div class="lg:col-span-2 space-y-6">
+
+      <!-- Header card -->
+      <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6 space-y-4">
+        <h2 class="font-semibold text-gray-800">ข้อมูลใบเสนอราคา</h2>
+
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <label class="block text-sm text-gray-600 mb-1">ลูกค้า <span class="text-red-500">*</span></label>
+            <select x-model="form.contact_id" required
+              class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand/40">
+              <option value="">-- เลือกลูกค้า --</option>
+              <template x-for="c in contacts" :key="c.id">
+                <option :value="c.id" x-text="c.name"></option>
+              </template>
+            </select>
+          </div>
+          <div>
+            <label class="block text-sm text-gray-600 mb-1">วันที่ <span class="text-red-500">*</span></label>
+            <input type="date" x-model="form.quotation_date" required
+              class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand/40" />
+          </div>
+          <div>
+            <label class="block text-sm text-gray-600 mb-1">ใช้ได้ถึงวันที่</label>
+            <input type="date" x-model="form.valid_until"
+              class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand/40" />
+          </div>
+          <div>
+            <label class="block text-sm text-gray-600 mb-1">อ้างอิง / PO#</label>
+            <input type="text" x-model="form.reference" placeholder="เลขที่ PO ลูกค้า"
+              class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand/40" />
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-sm text-gray-600 mb-1">หมายเหตุ</label>
+          <textarea x-model="form.description" rows="2" placeholder="หมายเหตุ..."
+            class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand/40"></textarea>
+        </div>
+
+        <label class="flex items-center gap-2 text-sm text-gray-600 cursor-pointer">
+          <input type="checkbox" x-model="form.vat_exempt" class="rounded" />
+          <span>ยกเว้น VAT (ส่งออก / ไม่มีภาษีมูลค่าเพิ่ม)</span>
+        </label>
+      </div>
+
+      <!-- Lines card -->
+      <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+        <div class="flex items-center justify-between mb-4">
+          <h2 class="font-semibold text-gray-800">รายการสินค้า/บริการ</h2>
+          <button type="button" @click="addLine()"
+            class="text-sm text-brand hover:text-brand-dark font-medium">+ เพิ่มรายการ</button>
+        </div>
+
+        <table class="w-full text-sm">
+          <thead>
+            <tr class="border-b border-gray-100 text-gray-500">
+              <th class="text-left py-2">รายการ</th>
+              <th class="text-left py-2 w-28">รหัสบัญชี</th>
+              <th class="text-right py-2 w-20">จำนวน</th>
+              <th class="text-right py-2 w-28">ราคา/หน่วย</th>
+              <th class="text-right py-2 w-16">VAT%</th>
+              <th class="text-right py-2 w-28">รวม</th>
+              <th class="py-2 w-8"></th>
+            </tr>
+          </thead>
+          <tbody>
+            <template x-for="(ln, i) in form.lines" :key="i">
+              <tr class="border-b border-gray-50">
+                <td class="py-1 pr-2">
+                  <input type="text" x-model="ln.description" placeholder="รายการ" required
+                    class="w-full border border-gray-200 rounded px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-brand/40" />
+                </td>
+                <td class="py-1 pr-2">
+                  <input type="text" x-model="ln.account_code" placeholder="4101" required
+                    class="w-full border border-gray-200 rounded px-2 py-1.5 text-sm font-mono focus:outline-none focus:ring-1 focus:ring-brand/40" />
+                </td>
+                <td class="py-1 pr-2">
+                  <input type="number" x-model="ln.quantity" step="0.0001" min="0.0001" required
+                    @input="calcLine(i)"
+                    class="w-full border border-gray-200 rounded px-2 py-1.5 text-sm text-right focus:outline-none focus:ring-1 focus:ring-brand/40" />
+                </td>
+                <td class="py-1 pr-2">
+                  <input type="number" x-model="ln.unit_price" step="0.01" min="0" required
+                    @input="calcLine(i)"
+                    class="w-full border border-gray-200 rounded px-2 py-1.5 text-sm text-right focus:outline-none focus:ring-1 focus:ring-brand/40" />
+                </td>
+                <td class="py-1 pr-2">
+                  <input type="number" x-model="ln.vat_rate" step="0.01" min="0"
+                    @input="calcLine(i)"
+                    :disabled="form.vat_exempt"
+                    class="w-full border border-gray-200 rounded px-2 py-1.5 text-sm text-right disabled:bg-gray-50 disabled:text-gray-400 focus:outline-none focus:ring-1 focus:ring-brand/40" />
+                </td>
+                <td class="py-1 pr-2 text-right font-mono text-gray-700" x-text="fmt(ln._amount || 0)"></td>
+                <td class="py-1 text-center">
+                  <button type="button" @click="removeLine(i)" class="text-gray-300 hover:text-red-500">
+                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                    </svg>
+                  </button>
+                </td>
+              </tr>
+            </template>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Right: summary -->
+    <div class="space-y-4">
+      <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-5 space-y-3">
+        <h3 class="font-semibold text-gray-800">สรุปยอด</h3>
+        <div class="space-y-2 text-sm">
+          <div class="flex justify-between">
+            <span class="text-gray-500">ยอดก่อนภาษี</span>
+            <span class="font-mono" x-text="fmt(subtotal)"></span>
+          </div>
+          <div class="flex justify-between">
+            <span class="text-gray-500">VAT</span>
+            <span class="font-mono" x-text="fmt(vatTotal)"></span>
+          </div>
+          <div class="flex justify-between border-t border-gray-100 pt-2 font-bold">
+            <span>ยอดสุทธิ</span>
+            <span class="font-mono text-lg text-gray-800" x-text="fmt(grandTotal)"></span>
+          </div>
+        </div>
+      </div>
+
+      <div x-show="errMsg" class="bg-red-50 text-red-700 rounded-xl p-4 text-sm" x-text="errMsg"></div>
+
+      <button type="submit" :disabled="submitting"
+        class="w-full px-4 py-3 bg-brand text-white rounded-xl font-semibold hover:bg-brand-dark transition-colors disabled:opacity-50">
+        <span x-show="!submitting">บันทึกใบเสนอราคา</span>
+        <span x-show="submitting">กำลังบันทึก...</span>
+      </button>
+    </div>
+
+  </form>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function qtForm() {
+  return {
+    contacts: [],
+    form: {
+      contact_id: '',
+      quotation_date: new Date().toISOString().slice(0, 10),
+      valid_until: '',
+      reference: '',
+      description: '',
+      vat_exempt: false,
+      lines: [],
+    },
+    submitting: false,
+    errMsg: '',
+
+    get subtotal() { return this.form.lines.reduce((s, l) => s + (l._amount || 0), 0); },
+    get vatTotal() { return this.form.lines.reduce((s, l) => s + (l._vat || 0), 0); },
+    get grandTotal() { return this.subtotal + this.vatTotal; },
+
+    async init() {
+      const token = document.cookie.match(/access_token=([^;]+)/)?.[1] || '';
+      const r = await fetch('/api/v1/ar/contacts?contact_type=customer', { headers: { Authorization: 'Bearer ' + token } });
+      const d = await r.json();
+      this.contacts = d.data || d;
+      this.addLine();
+    },
+
+    addLine() {
+      this.form.lines.push({ description: '', account_code: '4101', unit: '', quantity: 1, unit_price: 0, vat_rate: 7, _amount: 0, _vat: 0 });
+    },
+
+    removeLine(i) {
+      if (this.form.lines.length > 1) this.form.lines.splice(i, 1);
+    },
+
+    calcLine(i) {
+      const ln = this.form.lines[i];
+      const qty = parseFloat(ln.quantity) || 0;
+      const price = parseFloat(ln.unit_price) || 0;
+      const vatRate = this.form.vat_exempt ? 0 : (parseFloat(ln.vat_rate) || 0);
+      ln._amount = Math.round(qty * price * 100) / 100;
+      ln._vat = Math.round(ln._amount * vatRate) / 100;
+    },
+
+    async submit() {
+      this.errMsg = '';
+      if (!this.form.contact_id) { this.errMsg = 'กรุณาเลือกลูกค้า'; return; }
+      if (this.form.lines.length === 0) { this.errMsg = 'กรุณาเพิ่มรายการอย่างน้อย 1 รายการ'; return; }
+
+      this.submitting = true;
+      const token = document.cookie.match(/access_token=([^;]+)/)?.[1] || '';
+      const payload = {
+        contact_id: parseInt(this.form.contact_id),
+        quotation_date: this.form.quotation_date,
+        valid_until: this.form.valid_until || null,
+        reference: this.form.reference || null,
+        description: this.form.description || null,
+        vat_exempt: this.form.vat_exempt,
+        lines: this.form.lines.map(l => ({
+          description: l.description,
+          account_code: l.account_code,
+          unit: l.unit || null,
+          quantity: parseFloat(l.quantity),
+          unit_price: parseFloat(l.unit_price),
+          vat_rate: parseFloat(l.vat_rate),
+        })),
+      };
+
+      try {
+        const r = await fetch('/api/v1/ar/quotations', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+          body: JSON.stringify(payload),
+        });
+        const d = await r.json();
+        if (!r.ok) { this.errMsg = d.detail || d.message || 'เกิดข้อผิดพลาด'; return; }
+        const id = d.data?.id || d.id;
+        window.location.href = '/ar/quotations/' + id;
+      } catch (e) {
+        this.errMsg = 'เกิดข้อผิดพลาด: ' + e.message;
+      } finally {
+        this.submitting = false;
+      }
+    },
+
+    fmt(v) { return new Intl.NumberFormat('th-TH', { minimumFractionDigits: 2 }).format(v || 0); },
+  };
+}
+</script>
+{% endblock %}

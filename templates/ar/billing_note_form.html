@@ -1,0 +1,202 @@
+{% extends "base.html" %}
+{% block title %}สร้างใบวางบิล{% endblock %}
+{% block page_title %}AR — สร้างใบวางบิลใหม่{% endblock %}
+
+{% block content %}
+<div x-data="bnForm()" x-init="init()">
+
+  <div class="mb-4">
+    <a href="/ar/billing-notes" class="text-sm text-gray-500 hover:text-gray-700 flex items-center gap-1 w-fit">
+      <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+      </svg>
+      กลับรายการ
+    </a>
+  </div>
+
+  <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+    <!-- Left: form -->
+    <div class="lg:col-span-2 space-y-6">
+
+      <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6 space-y-4">
+        <h2 class="font-semibold text-gray-800">ข้อมูลใบวางบิล</h2>
+
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <label class="block text-sm text-gray-600 mb-1">ลูกค้า <span class="text-red-500">*</span></label>
+            <select x-model="form.contact_id" @change="loadInvoices()" required
+              class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand/40">
+              <option value="">-- เลือกลูกค้า --</option>
+              <template x-for="c in contacts" :key="c.id">
+                <option :value="c.id" x-text="c.name"></option>
+              </template>
+            </select>
+          </div>
+          <div>
+            <label class="block text-sm text-gray-600 mb-1">วันที่วางบิล <span class="text-red-500">*</span></label>
+            <input type="date" x-model="form.billing_date" required
+              class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand/40" />
+          </div>
+          <div>
+            <label class="block text-sm text-gray-600 mb-1">ครบกำหนดชำระ</label>
+            <input type="date" x-model="form.due_date"
+              class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand/40" />
+          </div>
+          <div>
+            <label class="block text-sm text-gray-600 mb-1">หมายเหตุ</label>
+            <input type="text" x-model="form.description" placeholder="หมายเหตุ (ถ้ามี)"
+              class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand/40" />
+          </div>
+        </div>
+      </div>
+
+      <!-- Invoice selector -->
+      <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+        <h2 class="font-semibold text-gray-800 mb-4">เลือก Invoice ที่ต้องการวางบิล</h2>
+
+        <template x-if="!form.contact_id">
+          <p class="text-sm text-gray-400">กรุณาเลือกลูกค้าก่อน</p>
+        </template>
+
+        <template x-if="form.contact_id && loadingInvoices">
+          <p class="text-sm text-gray-400">กำลังโหลด...</p>
+        </template>
+
+        <template x-if="form.contact_id && !loadingInvoices && openInvoices.length === 0">
+          <p class="text-sm text-gray-400">ไม่มี Invoice ค้างชำระสำหรับลูกค้านี้</p>
+        </template>
+
+        <template x-if="form.contact_id && !loadingInvoices && openInvoices.length > 0">
+          <div class="space-y-2">
+            <template x-for="inv in openInvoices" :key="inv.id">
+              <label class="flex items-center gap-3 p-3 border border-gray-100 rounded-lg hover:bg-gray-50 cursor-pointer">
+                <input type="checkbox" :value="inv.id" x-model="form.invoice_ids" class="rounded" />
+                <div class="flex-1 flex items-center justify-between">
+                  <div>
+                    <p class="text-sm font-medium text-gray-800" x-text="inv.invoice_no"></p>
+                    <p class="text-xs text-gray-500" x-text="inv.invoice_date + ' · ครบ ' + inv.due_date"></p>
+                  </div>
+                  <div class="text-right">
+                    <p class="text-sm font-mono font-medium text-gray-800" x-text="fmt(inv.balance)"></p>
+                    <span :class="inv.status === 'partially_paid' ? 'bg-yellow-100 text-yellow-700' : 'bg-blue-100 text-blue-700'"
+                      class="text-xs px-1.5 py-0.5 rounded-full" x-text="inv.status === 'partially_paid' ? 'ชำระบางส่วน' : 'ค้างชำระ'"></span>
+                  </div>
+                </div>
+              </label>
+            </template>
+          </div>
+        </template>
+      </div>
+    </div>
+
+    <!-- Right: summary -->
+    <div class="space-y-4">
+      <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-5 space-y-3">
+        <h3 class="font-semibold text-gray-800">สรุปใบวางบิล</h3>
+        <div class="space-y-2 text-sm">
+          <div class="flex justify-between">
+            <span class="text-gray-500">จำนวน Invoice</span>
+            <span class="font-medium" x-text="form.invoice_ids.length + ' ใบ'"></span>
+          </div>
+          <div class="flex justify-between border-t border-gray-100 pt-2 font-bold">
+            <span>ยอดรวมค้างชำระ</span>
+            <span class="font-mono text-lg text-gray-800" x-text="fmt(selectedTotal)"></span>
+          </div>
+        </div>
+        <p class="text-xs text-gray-400">ใบวางบิลไม่สร้างรายการบัญชี — เป็นเอกสารส่งให้ลูกค้าเพื่อเรียกชำระหนี้</p>
+      </div>
+
+      <div x-show="errMsg" class="bg-red-50 text-red-700 rounded-xl p-4 text-sm" x-text="errMsg"></div>
+
+      <button @click="submit()" :disabled="submitting || form.invoice_ids.length === 0"
+        class="w-full px-4 py-3 bg-brand text-white rounded-xl font-semibold hover:bg-brand-dark transition-colors disabled:opacity-50">
+        <span x-show="!submitting">สร้างใบวางบิล</span>
+        <span x-show="submitting">กำลังบันทึก...</span>
+      </button>
+    </div>
+
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function bnForm() {
+  return {
+    contacts: [],
+    openInvoices: [],
+    loadingInvoices: false,
+    form: {
+      contact_id: '',
+      billing_date: new Date().toISOString().slice(0, 10),
+      due_date: '',
+      description: '',
+      invoice_ids: [],
+    },
+    submitting: false,
+    errMsg: '',
+
+    get selectedTotal() {
+      return this.openInvoices
+        .filter(inv => this.form.invoice_ids.includes(inv.id))
+        .reduce((s, inv) => s + parseFloat(inv.balance || 0), 0);
+    },
+
+    async init() {
+      const token = document.cookie.match(/access_token=([^;]+)/)?.[1] || '';
+      const r = await fetch('/api/v1/ar/contacts?contact_type=customer', { headers: { Authorization: 'Bearer ' + token } });
+      const d = await r.json();
+      this.contacts = d.data || d;
+    },
+
+    async loadInvoices() {
+      if (!this.form.contact_id) { this.openInvoices = []; return; }
+      this.loadingInvoices = true;
+      this.form.invoice_ids = [];
+      const token = document.cookie.match(/access_token=([^;]+)/)?.[1] || '';
+      const params = new URLSearchParams({ contact_id: this.form.contact_id, page_size: 200 });
+      const r = await fetch('/api/v1/ar/invoices?' + params, { headers: { Authorization: 'Bearer ' + token } });
+      const d = await r.json();
+      const all = d.data?.items || d.items || [];
+      this.openInvoices = all.filter(inv => ['posted', 'partially_paid'].includes(inv.status));
+      this.loadingInvoices = false;
+    },
+
+    async submit() {
+      this.errMsg = '';
+      if (!this.form.contact_id) { this.errMsg = 'กรุณาเลือกลูกค้า'; return; }
+      if (this.form.invoice_ids.length === 0) { this.errMsg = 'กรุณาเลือก Invoice อย่างน้อย 1 ใบ'; return; }
+
+      this.submitting = true;
+      const token = document.cookie.match(/access_token=([^;]+)/)?.[1] || '';
+      const payload = {
+        contact_id: parseInt(this.form.contact_id),
+        billing_date: this.form.billing_date,
+        due_date: this.form.due_date || null,
+        description: this.form.description || null,
+        invoice_ids: this.form.invoice_ids.map(Number),
+      };
+
+      try {
+        const r = await fetch('/api/v1/ar/billing-notes', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+          body: JSON.stringify(payload),
+        });
+        const d = await r.json();
+        if (!r.ok) { this.errMsg = d.detail || d.message || 'เกิดข้อผิดพลาด'; return; }
+        const id = d.data?.id || d.id;
+        window.location.href = '/ar/billing-notes/' + id;
+      } catch (e) {
+        this.errMsg = 'เกิดข้อผิดพลาด: ' + e.message;
+      } finally {
+        this.submitting = false;
+      }
+    },
+
+    fmt(v) { return new Intl.NumberFormat('th-TH', { minimumFractionDigits: 2 }).format(v || 0); },
+  };
+}
+</script>
+{% endblock %}

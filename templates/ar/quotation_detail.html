@@ -1,0 +1,191 @@
+{% extends "base.html" %}
+{% block title %}ใบเสนอราคา{% endblock %}
+{% block page_title %}AR — ใบเสนอราคา #{{ quotation_id }}{% endblock %}
+
+{% block content %}
+<div x-data="qtDetail({{ quotation_id }})" x-init="init()">
+
+  <div class="mb-4 flex items-center justify-between">
+    <a href="/ar/quotations" class="text-sm text-gray-500 hover:text-gray-700 flex items-center gap-1">
+      <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+      </svg>
+      กลับรายการ
+    </a>
+    <div class="flex gap-2" x-show="qt && qt.status !== 'converted' && qt.status !== 'cancelled'">
+      <button @click="convert()"
+        :disabled="converting"
+        class="px-4 py-2 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700 disabled:opacity-50">
+        <span x-show="!converting">แปลงเป็น Invoice</span>
+        <span x-show="converting">กำลังแปลง...</span>
+      </button>
+    </div>
+  </div>
+
+  <div x-show="convertMsg" class="mb-4 bg-green-50 border border-green-200 text-green-700 rounded-xl p-4 text-sm" x-text="convertMsg"></div>
+  <div x-show="errMsg" class="mb-4 bg-red-50 border border-red-200 text-red-700 rounded-xl p-4 text-sm" x-text="errMsg"></div>
+
+  <template x-if="loading">
+    <div class="bg-white rounded-xl p-8 shadow-sm text-center text-gray-400">
+      <svg class="animate-spin w-8 h-8 mx-auto" fill="none" viewBox="0 0 24 24">
+        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+      </svg>
+    </div>
+  </template>
+
+  <template x-if="!loading && qt">
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+      <!-- Main card -->
+      <div class="lg:col-span-2 bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+        <div class="flex items-start justify-between mb-6">
+          <div>
+            <h2 class="text-2xl font-bold text-gray-800" x-text="qt.quotation_no"></h2>
+            <p class="text-gray-500 mt-1" x-text="qt.contact_name"></p>
+          </div>
+          <span :class="statusClass(qt.status)" class="px-3 py-1 rounded-full text-sm font-medium" x-text="statusLabel(qt.status)"></span>
+        </div>
+
+        <div class="grid grid-cols-3 gap-4 mb-6 text-sm">
+          <div>
+            <p class="text-gray-400 mb-1">วันที่ออก</p>
+            <p class="font-medium" x-text="qt.quotation_date"></p>
+          </div>
+          <div>
+            <p class="text-gray-400 mb-1">ใช้ได้ถึง</p>
+            <p class="font-medium" :class="qt.is_expired && qt.status === 'sent' ? 'text-red-600' : ''" x-text="qt.valid_until"></p>
+          </div>
+          <div>
+            <p class="text-gray-400 mb-1">อ้างอิง</p>
+            <p class="font-medium" x-text="qt.reference || '—'"></p>
+          </div>
+        </div>
+
+        <p class="text-sm text-gray-500 mb-4" x-show="qt.description" x-text="qt.description"></p>
+
+        <!-- Lines -->
+        <table class="w-full text-sm border-t border-gray-100">
+          <thead>
+            <tr class="border-b border-gray-100">
+              <th class="text-left py-2 text-gray-500 font-medium">รายการ</th>
+              <th class="text-left py-2 text-gray-500 font-medium">รหัสบัญชี</th>
+              <th class="text-right py-2 text-gray-500 font-medium">จำนวน</th>
+              <th class="text-right py-2 text-gray-500 font-medium">ราคา/หน่วย</th>
+              <th class="text-right py-2 text-gray-500 font-medium">รวม</th>
+            </tr>
+          </thead>
+          <tbody>
+            <template x-for="(l, i) in qt.lines" :key="i">
+              <tr class="border-b border-gray-50">
+                <td class="py-2 text-gray-700" x-text="l.description"></td>
+                <td class="py-2 font-mono text-gray-500 text-xs" x-text="l.account_code"></td>
+                <td class="py-2 text-right text-gray-600" x-text="l.quantity"></td>
+                <td class="py-2 text-right font-mono text-gray-600" x-text="fmt(l.unit_price)"></td>
+                <td class="py-2 text-right font-mono text-gray-800" x-text="fmt(l.amount)"></td>
+              </tr>
+            </template>
+          </tbody>
+          <tfoot>
+            <tr class="border-t border-gray-200">
+              <td colspan="4" class="py-2 text-right text-gray-500">ยอดก่อนภาษี</td>
+              <td class="py-2 text-right font-mono" x-text="fmt(qt.subtotal)"></td>
+            </tr>
+            <tr>
+              <td colspan="4" class="py-2 text-right text-gray-500">VAT 7%</td>
+              <td class="py-2 text-right font-mono" x-text="fmt(qt.vat_amount)"></td>
+            </tr>
+            <tr class="font-bold">
+              <td colspan="4" class="py-2 text-right text-gray-700">ยอดสุทธิ</td>
+              <td class="py-2 text-right font-mono text-lg text-gray-800" x-text="fmt(qt.total_amount)"></td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+
+      <!-- Sidebar info -->
+      <div class="space-y-4">
+        <div class="bg-white rounded-xl p-5 shadow-sm border border-gray-100">
+          <h3 class="font-semibold text-gray-800 mb-3">สรุปยอด</h3>
+          <div class="space-y-2 text-sm">
+            <div class="flex justify-between">
+              <span class="text-gray-500">ยอดก่อนภาษี</span>
+              <span class="font-mono" x-text="fmt(qt.subtotal)"></span>
+            </div>
+            <div class="flex justify-between">
+              <span class="text-gray-500">VAT</span>
+              <span class="font-mono" x-text="fmt(qt.vat_amount)"></span>
+            </div>
+            <div class="flex justify-between border-t border-gray-100 pt-2 font-bold">
+              <span>ยอดสุทธิ</span>
+              <span class="font-mono text-lg text-gray-800" x-text="fmt(qt.total_amount)"></span>
+            </div>
+          </div>
+        </div>
+
+        <div class="bg-white rounded-xl p-5 shadow-sm border border-gray-100" x-show="qt.converted_invoice_id">
+          <h3 class="font-semibold text-gray-800 mb-2">Invoice ที่สร้างแล้ว</h3>
+          <a :href="'/ar/invoices/' + qt.converted_invoice_id"
+            class="text-sm text-brand hover:underline">
+            ดู Invoice →
+          </a>
+        </div>
+      </div>
+    </div>
+  </template>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function qtDetail(quotationId) {
+  return {
+    quotationId,
+    qt: null,
+    loading: true,
+    converting: false,
+    convertMsg: '',
+    errMsg: '',
+
+    async init() {
+      const token = document.cookie.match(/access_token=([^;]+)/)?.[1] || '';
+      try {
+        const r = await fetch('/api/v1/ar/quotations/' + quotationId, { headers: { Authorization: 'Bearer ' + token } });
+        const d = await r.json();
+        this.qt = d.data || d;
+      } catch { this.qt = null; }
+      this.loading = false;
+    },
+
+    async convert() {
+      this.errMsg = ''; this.convertMsg = '';
+      this.converting = true;
+      const token = document.cookie.match(/access_token=([^;]+)/)?.[1] || '';
+      try {
+        const r = await fetch('/api/v1/ar/quotations/' + quotationId + '/convert', {
+          method: 'POST',
+          headers: { Authorization: 'Bearer ' + token },
+        });
+        const d = await r.json();
+        if (!r.ok) { this.errMsg = d.detail || d.message || 'เกิดข้อผิดพลาด'; return; }
+        const inv = d.data || d;
+        this.convertMsg = `สร้าง Invoice ${inv.invoice_no} สำเร็จ — กำลังไปหน้า Invoice...`;
+        setTimeout(() => window.location.href = '/ar/invoices/' + inv.id, 1500);
+      } catch (e) {
+        this.errMsg = 'เกิดข้อผิดพลาด: ' + e.message;
+      } finally {
+        this.converting = false;
+      }
+    },
+
+    statusLabel(s) {
+      return { draft:'แบบร่าง', sent:'ส่งแล้ว', accepted:'ยอมรับแล้ว', rejected:'ปฏิเสธ', converted:'แปลงเป็น INV แล้ว', expired:'หมดอายุ' }[s] || s;
+    },
+    statusClass(s) {
+      return { draft:'bg-gray-100 text-gray-600', sent:'bg-blue-100 text-blue-700', accepted:'bg-green-100 text-green-700', rejected:'bg-red-100 text-red-600', converted:'bg-purple-100 text-purple-700', expired:'bg-orange-100 text-orange-600' }[s] || 'bg-gray-100 text-gray-600';
+    },
+    fmt(v) { return new Intl.NumberFormat('th-TH', { minimumFractionDigits: 2 }).format(v || 0); },
+  };
+}
+</script>
+{% endblock %}

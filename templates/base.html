@@ -123,7 +123,9 @@
           </svg>
         </button>
         <div x-show="open" x-cloak class="ml-8 mt-1 space-y-1">
-          <a href="/ar/invoices" class="sidebar-link text-xs">ใบกำกับภาษี/ใบแจ้งหนี้</a>
+          <a href="/ar/quotations" class="sidebar-link text-xs {% if '/ar/quotation' in request.url.path %}active{% endif %}">ใบเสนอราคา</a>
+          <a href="/ar/invoices" class="sidebar-link text-xs {% if '/ar/invoice' in request.url.path %}active{% endif %}">ใบกำกับภาษี/ใบแจ้งหนี้</a>
+          <a href="/ar/billing-notes" class="sidebar-link text-xs {% if '/ar/billing-note' in request.url.path %}active{% endif %}">ใบวางบิล</a>
           <a href="/ar/invoices/new" class="sidebar-link text-xs">สร้างใบแจ้งหนี้</a>
           <a href="/ar/receipts/new" class="sidebar-link text-xs">รับชำระเงิน</a>
         </div>

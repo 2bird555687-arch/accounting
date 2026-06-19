@@ -1,0 +1,121 @@
+{% extends "base.html" %}
+{% block title %}ใบเสนอราคา{% endblock %}
+{% block page_title %}AR — ใบเสนอราคา (Quotations){% endblock %}
+
+{% block content %}
+<div x-data="qtList()" x-init="init()">
+
+  <div class="mb-4 flex items-center justify-between">
+    <div class="flex items-center gap-3">
+      <input
+        type="text" placeholder="ค้นหา..." x-model="search"
+        @input.debounce.400ms="load(1)"
+        class="border border-gray-200 rounded-lg px-3 py-2 text-sm w-56 focus:outline-none focus:ring-2 focus:ring-brand/40"
+      />
+      <select x-model="filterStatus" @change="load(1)"
+        class="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand/40">
+        <option value="">ทุกสถานะ</option>
+        <option value="draft">แบบร่าง</option>
+        <option value="sent">ส่งแล้ว</option>
+        <option value="accepted">ได้รับการยอมรับ</option>
+        <option value="rejected">ปฏิเสธ</option>
+        <option value="converted">แปลงเป็น Invoice แล้ว</option>
+        <option value="expired">หมดอายุ</option>
+      </select>
+    </div>
+    <a href="/ar/quotations/new"
+      class="px-4 py-2 bg-brand text-white rounded-lg text-sm font-medium hover:bg-brand-dark transition-colors">
+      + สร้างใบเสนอราคา
+    </a>
+  </div>
+
+  <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+    <table class="w-full text-sm">
+      <thead class="bg-gray-50 border-b border-gray-100">
+        <tr>
+          <th class="text-left px-4 py-3 text-gray-500 font-medium">เลขที่</th>
+          <th class="text-left px-4 py-3 text-gray-500 font-medium">วันที่</th>
+          <th class="text-left px-4 py-3 text-gray-500 font-medium">ลูกค้า</th>
+          <th class="text-left px-4 py-3 text-gray-500 font-medium">ใช้ได้ถึง</th>
+          <th class="text-right px-4 py-3 text-gray-500 font-medium">ยอดรวม</th>
+          <th class="text-center px-4 py-3 text-gray-500 font-medium">สถานะ</th>
+          <th class="px-4 py-3"></th>
+        </tr>
+      </thead>
+      <tbody>
+        <template x-if="loading">
+          <tr>
+            <td colspan="7" class="px-4 py-8 text-center text-gray-400">
+              <svg class="animate-spin w-6 h-6 mx-auto" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+              </svg>
+            </td>
+          </tr>
+        </template>
+        <template x-if="!loading && items.length === 0">
+          <tr>
+            <td colspan="7" class="px-4 py-8 text-center text-gray-400">ไม่พบใบเสนอราคา</td>
+          </tr>
+        </template>
+        <template x-for="q in items" :key="q.id">
+          <tr class="border-b border-gray-50 hover:bg-gray-50 transition-colors">
+            <td class="px-4 py-3 font-mono font-medium text-gray-800" x-text="q.quotation_no"></td>
+            <td class="px-4 py-3 text-gray-600" x-text="q.quotation_date"></td>
+            <td class="px-4 py-3 text-gray-700" x-text="q.contact_name"></td>
+            <td class="px-4 py-3" :class="q.is_expired && q.status === 'sent' ? 'text-red-500' : 'text-gray-600'" x-text="q.valid_until"></td>
+            <td class="px-4 py-3 text-right font-mono text-gray-800" x-text="fmt(q.total_amount)"></td>
+            <td class="px-4 py-3 text-center">
+              <span :class="statusClass(q.status)" class="px-2 py-0.5 rounded-full text-xs font-medium" x-text="statusLabel(q.status)"></span>
+            </td>
+            <td class="px-4 py-3 text-right">
+              <a :href="'/ar/quotations/' + q.id" class="text-brand hover:underline text-xs">ดูรายละเอียด</a>
+            </td>
+          </tr>
+        </template>
+      </tbody>
+    </table>
+
+    <!-- Pagination -->
+    <div class="px-4 py-3 border-t border-gray-100 flex items-center justify-between text-sm text-gray-500">
+      <span x-text="`แสดง ${items.length} จาก ${total} รายการ`"></span>
+      <div class="flex gap-2">
+        <button @click="load(page - 1)" :disabled="page <= 1"
+          class="px-3 py-1 border border-gray-200 rounded-lg disabled:opacity-40 hover:bg-gray-50">ก่อนหน้า</button>
+        <button @click="load(page + 1)" :disabled="page * pageSize >= total"
+          class="px-3 py-1 border border-gray-200 rounded-lg disabled:opacity-40 hover:bg-gray-50">ถัดไป</button>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function qtList() {
+  return {
+    items: [], total: 0, loading: true, page: 1, pageSize: 50,
+    search: '', filterStatus: '',
+    async init() { await this.load(1); },
+    async load(p) {
+      this.loading = true; this.page = p;
+      const token = document.cookie.match(/access_token=([^;]+)/)?.[1] || '';
+      const params = new URLSearchParams({ page: p, page_size: this.pageSize });
+      if (this.filterStatus) params.set('status', this.filterStatus);
+      const r = await fetch('/api/v1/ar/quotations?' + params, { headers: { Authorization: 'Bearer ' + token } });
+      const d = await r.json();
+      this.items = d.data?.items || d.items || [];
+      this.total = d.data?.total || d.total || 0;
+      this.loading = false;
+    },
+    statusLabel(s) {
+      return { draft:'แบบร่าง', sent:'ส่งแล้ว', accepted:'ยอมรับแล้ว', rejected:'ปฏิเสธ', converted:'แปลงเป็น INV แล้ว', expired:'หมดอายุ' }[s] || s;
+    },
+    statusClass(s) {
+      return { draft:'bg-gray-100 text-gray-600', sent:'bg-blue-100 text-blue-700', accepted:'bg-green-100 text-green-700', rejected:'bg-red-100 text-red-600', converted:'bg-purple-100 text-purple-700', expired:'bg-orange-100 text-orange-600' }[s] || 'bg-gray-100 text-gray-600';
+    },
+    fmt(v) { return new Intl.NumberFormat('th-TH', { minimumFractionDigits: 2 }).format(v || 0); },
+  };
+}
+</script>
+{% endblock %}
