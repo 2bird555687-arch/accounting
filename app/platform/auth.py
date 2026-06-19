@@ -163,18 +163,32 @@ _bearer = HTTPBearer(auto_error=False)
 
 
 async def get_current_claims(
+    request: Request,
     credentials: Annotated[
         Optional[HTTPAuthorizationCredentials], Depends(_bearer)
     ] = None,
 ) -> TokenClaims:
-    """FastAPI Dependency: ดึง TokenClaims จาก Bearer token."""
-    if credentials is None:
+    """FastAPI Dependency: ดึง TokenClaims จาก Bearer token หรือ cookie.
+
+    ลำดับ:
+      1. Authorization: Bearer <token>  (API clients / HTMX hx-headers)
+      2. Cookie: access_token            (fallback สำหรับ browser session)
+    """
+    token: Optional[str] = None
+
+    if credentials is not None:
+        token = credentials.credentials
+    else:
+        # fallback: อ่านจาก httpOnly cookie (HTMX requests จาก browser)
+        token = request.cookies.get("access_token")
+
+    if not token:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="กรุณาเข้าสู่ระบบก่อน",
             headers={"WWW-Authenticate": "Bearer"},
         )
-    return verify_access_token(credentials.credentials)
+    return verify_access_token(token)
 
 
 async def get_app_context(
