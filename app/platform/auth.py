@@ -176,10 +176,10 @@ async def get_current_claims(
     """
     token: Optional[str] = None
 
-    if credentials is not None:
+    if credentials is not None and credentials.credentials:
         token = credentials.credentials
     else:
-        # fallback: อ่านจาก httpOnly cookie (HTMX requests จาก browser)
+        # fallback: อ่านจาก httpOnly cookie (browser requests — httpOnly cookie ไม่อ่านได้จาก JS)
         token = request.cookies.get("access_token")
 
     if not token:
