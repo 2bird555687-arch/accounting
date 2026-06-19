@@ -5,166 +5,135 @@
 {% block content %}
 <div x-data="invoiceForm()" x-init="init()">
 
-  <div class="mb-4">
-    <a href="/ar/invoices" class="text-sm text-gray-500 hover:text-gray-700 flex items-center gap-1">
-      <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
-      </svg>
-      กลับรายการใบแจ้งหนี้
-    </a>
+  <div style="margin-bottom:12px;">
+    <a href="/ar/invoices" class="btn btn-ghost btn-sm">← กลับรายการใบแจ้งหนี้</a>
   </div>
 
-  <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+  <div class="grid2">
 
     <!-- Main form -->
-    <div class="lg:col-span-2 space-y-4">
+    <div style="display:flex;flex-direction:column;gap:16px;">
 
       <!-- Header -->
-      <div class="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
-        <h2 class="font-semibold text-gray-800 mb-4">ข้อมูลหัว</h2>
-        <div class="grid grid-cols-2 gap-4">
-          <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">ลูกค้า <span class="text-red-500">*</span></label>
-            <input type="text" x-model="contactSearch" @input.debounce.300ms="searchContacts()"
-              placeholder="พิมพ์ชื่อลูกค้า..."
-              class="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"/>
-            <!-- Dropdown results -->
-            <div x-show="contacts.length > 0" class="absolute z-10 bg-white border border-gray-200 rounded-lg shadow-lg mt-1 w-64 max-h-48 overflow-auto">
+      <div class="panel">
+        <div class="panel-head"><span class="panel-title">ข้อมูลหัว</span></div>
+        <div class="form-grid">
+          <div class="form-group">
+            <label>ลูกค้า <span style="color:var(--red)">*</span></label>
+            <input type="text" x-model="contactSearch" @input.debounce.300ms="searchContacts()" placeholder="พิมพ์ชื่อลูกค้า..." />
+            <div x-show="contacts.length > 0" style="position:absolute;z-index:10;background:var(--surface);border:1px solid var(--border);border-radius:var(--r);box-shadow:0 4px 12px rgba(0,0,0,.1);margin-top:36px;width:240px;max-height:180px;overflow-y:auto;">
               <template x-for="c in contacts" :key="c.id">
-                <div @click="selectContact(c)" class="px-3 py-2 hover:bg-gray-50 cursor-pointer text-sm">
-                  <div class="font-medium" x-text="c.name"></div>
-                  <div class="text-xs text-gray-400" x-text="c.tax_id || ''"></div>
+                <div @click="selectContact(c)" style="padding:8px 12px;cursor:pointer;font-size:13px;" onmouseover="this.style.background='var(--bg)'" onmouseout="this.style.background=''">
+                  <div style="font-weight:500" x-text="c.name"></div>
+                  <div style="font-size:11px;color:var(--text3)" x-text="c.tax_id || ''"></div>
                 </div>
               </template>
             </div>
-            <p x-show="form.contact_id" class="text-xs text-green-600 mt-1" x-text="'✓ ' + selectedContactName"></p>
+            <span x-show="form.contact_id" style="font-size:11px;color:var(--green)" x-text="'✓ ' + selectedContactName"></span>
           </div>
 
-          <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">วันที่ออกใบแจ้งหนี้</label>
-            <input type="date" x-model="form.invoice_date"
-              class="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"/>
+          <div class="form-group">
+            <label>วันที่ออกใบแจ้งหนี้</label>
+            <input type="date" x-model="form.invoice_date" />
           </div>
 
-          <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">วันครบกำหนด</label>
-            <input type="date" x-model="form.due_date"
-              class="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"/>
+          <div class="form-group">
+            <label>วันครบกำหนด</label>
+            <input type="date" x-model="form.due_date" />
           </div>
 
-          <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">เลขที่อ้างอิง</label>
-            <input type="text" x-model="form.reference" placeholder="PO / เลขที่สัญญา..."
-              class="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"/>
+          <div class="form-group">
+            <label>เลขที่อ้างอิง</label>
+            <input type="text" x-model="form.reference" placeholder="PO / เลขที่สัญญา..." />
           </div>
         </div>
       </div>
 
       <!-- Line items -->
-      <div class="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
-        <div class="flex items-center justify-between mb-4">
-          <h2 class="font-semibold text-gray-800">รายการสินค้า/บริการ</h2>
-          <button @click="addLine()" class="text-sm text-blue-600 hover:underline flex items-center gap-1">
-            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
-            </svg>
-            เพิ่มรายการ
-          </button>
+      <div class="panel">
+        <div class="panel-head">
+          <span class="panel-title">รายการสินค้า/บริการ</span>
+          <button @click="addLine()" class="btn btn-ghost btn-sm">+ เพิ่มรายการ</button>
         </div>
-
-        <table class="w-full text-sm">
-          <thead class="border-b border-gray-100">
-            <tr>
-              <th class="text-left py-2 font-medium text-gray-600">คำอธิบาย</th>
-              <th class="text-right py-2 font-medium text-gray-600 w-20">จำนวน</th>
-              <th class="text-right py-2 font-medium text-gray-600 w-28">ราคา/หน่วย</th>
-              <th class="text-right py-2 font-medium text-gray-600 w-28">รวม</th>
-              <th class="w-8"></th>
-            </tr>
-          </thead>
-          <tbody>
-            <template x-for="(line, i) in form.lines" :key="i">
-              <tr class="border-b border-gray-50">
-                <td class="py-2 pr-2">
-                  <input type="text" x-model="line.description" placeholder="รายการ..."
-                    class="w-full px-2 py-1.5 rounded border border-gray-200 text-sm focus:outline-none focus:ring-1 focus:ring-blue-400"/>
-                </td>
-                <td class="py-2 px-2">
-                  <input type="number" x-model.number="line.quantity" @input="calcLine(i)" min="0" step="0.01"
-                    class="w-full px-2 py-1.5 rounded border border-gray-200 text-sm text-right focus:outline-none focus:ring-1 focus:ring-blue-400"/>
-                </td>
-                <td class="py-2 px-2">
-                  <input type="number" x-model.number="line.unit_price" @input="calcLine(i)" min="0" step="0.01"
-                    class="w-full px-2 py-1.5 rounded border border-gray-200 text-sm text-right focus:outline-none focus:ring-1 focus:ring-blue-400"/>
-                </td>
-                <td class="py-2 pl-2 text-right font-mono text-gray-700" x-text="fmt(line.amount)"></td>
-                <td class="py-2 pl-2">
-                  <button @click="removeLine(i)" class="text-gray-300 hover:text-red-500">
-                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
-                    </svg>
-                  </button>
-                </td>
+        <div class="panel-body">
+          <table>
+            <thead>
+              <tr>
+                <th>คำอธิบาย</th>
+                <th class="num" style="width:80px">จำนวน</th>
+                <th class="num" style="width:110px">ราคา/หน่วย</th>
+                <th class="num" style="width:110px">รวม</th>
+                <th style="width:30px"></th>
               </tr>
-            </template>
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              <template x-for="(line, i) in form.lines" :key="i">
+                <tr>
+                  <td><input type="text" x-model="line.description" placeholder="รายการ..." /></td>
+                  <td><input type="number" x-model.number="line.quantity" @input="calcLine(i)" min="0" step="0.01" style="text-align:right" /></td>
+                  <td><input type="number" x-model.number="line.unit_price" @input="calcLine(i)" min="0" step="0.01" style="text-align:right" /></td>
+                  <td class="num" x-text="fmt(line.amount)"></td>
+                  <td>
+                    <button @click="removeLine(i)" style="background:none;border:none;cursor:pointer;color:var(--text3);font-size:16px;" onmouseover="this.style.color='var(--red)'" onmouseout="this.style.color='var(--text3)'">×</button>
+                  </td>
+                </tr>
+              </template>
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
 
     <!-- Summary sidebar -->
-    <div class="space-y-4">
-      <div class="bg-white rounded-xl p-5 shadow-sm border border-gray-100">
-        <h2 class="font-semibold text-gray-800 mb-4">สรุปยอด</h2>
-        <div class="space-y-2 text-sm">
-          <div class="flex justify-between text-gray-600">
+    <div>
+      <div class="panel">
+        <div class="panel-head"><span class="panel-title">สรุปยอด</span></div>
+        <div style="padding:16px;display:flex;flex-direction:column;gap:10px;">
+          <div style="display:flex;justify-content:space-between;font-size:13px;color:var(--text2)">
             <span>ยอดก่อนภาษี</span>
-            <span class="font-mono" x-text="fmt(totals.subtotal)"></span>
+            <span style="font-family:var(--mono)" x-text="fmt(totals.subtotal)"></span>
           </div>
-          <div class="flex items-center justify-between text-gray-600">
-            <div class="flex items-center gap-2">
+          <div style="display:flex;justify-content:space-between;align-items:center;font-size:13px;color:var(--text2)">
+            <div style="display:flex;align-items:center;gap:8px;">
               <span>VAT</span>
-              <select x-model.number="form.vat_rate" @change="calcTotals()"
-                class="text-xs border border-gray-200 rounded px-1 py-0.5">
+              <select x-model.number="form.vat_rate" @change="calcTotals()" style="width:auto;padding:3px 6px;font-size:12px;">
                 <option value="0">0%</option>
                 <option value="7">7%</option>
               </select>
             </div>
-            <span class="font-mono" x-text="fmt(totals.vat)"></span>
+            <span style="font-family:var(--mono)" x-text="fmt(totals.vat)"></span>
           </div>
-          <div class="flex justify-between text-gray-600">
+          <div style="display:flex;justify-content:space-between;font-size:13px;color:var(--text2)">
             <span>หัก ณ ที่จ่าย</span>
-            <span class="font-mono text-red-500" x-text="'(' + fmt(totals.wht) + ')'"></span>
+            <span style="font-family:var(--mono);color:var(--red)" x-text="'(' + fmt(totals.wht) + ')'"></span>
           </div>
-          <div class="border-t border-gray-100 pt-2 flex justify-between font-bold text-gray-800">
+          <div style="display:flex;justify-content:space-between;font-size:15px;font-weight:700;color:var(--text1);border-top:1px solid var(--border);padding-top:10px;">
             <span>ยอดสุทธิ</span>
-            <span class="font-mono text-lg" x-text="fmt(totals.total)"></span>
+            <span style="font-family:var(--mono)" x-text="fmt(totals.total)"></span>
           </div>
         </div>
 
-        <div class="mt-4">
-          <label class="block text-sm font-medium text-gray-700 mb-1">หมายเหตุ</label>
-          <textarea x-model="form.notes" rows="3" placeholder="หมายเหตุ..."
-            class="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"></textarea>
+        <div style="padding:0 16px 16px;">
+          <div class="form-group">
+            <label>หมายเหตุ</label>
+            <textarea x-model="form.notes" rows="3" placeholder="หมายเหตุ..." style="resize:none;"></textarea>
+          </div>
         </div>
 
-        <div class="mt-4 space-y-2">
-          <button @click="save('draft')" :disabled="saving"
-            class="w-full py-2 rounded-lg border border-gray-300 text-gray-700 text-sm font-medium hover:bg-gray-50 disabled:opacity-50">
+        <div class="form-actions" style="flex-direction:column;gap:8px;">
+          <button @click="save('draft')" :disabled="saving" class="btn btn-ghost" style="width:100%;justify-content:center;">
             บันทึกแบบร่าง
           </button>
-          <button @click="save('open')" :disabled="saving || !form.contact_id"
-            class="w-full py-2 rounded-lg bg-blue-700 text-white text-sm font-medium hover:bg-blue-800 disabled:opacity-50">
+          <button @click="save('open')" :disabled="saving || !form.contact_id" class="btn btn-primary" style="width:100%;justify-content:center;">
             <span x-text="saving ? 'กำลังบันทึก...' : 'ออกใบแจ้งหนี้'"></span>
           </button>
         </div>
 
-        <!-- Error -->
-        <div x-show="error" class="mt-3 p-2 bg-red-50 rounded text-red-600 text-xs" x-text="error"></div>
-        <!-- Success -->
-        <div x-show="success" class="mt-3 p-2 bg-green-50 rounded text-green-600 text-xs">บันทึกสำเร็จ</div>
+        <div x-show="error" style="margin:0 16px 16px;padding:10px;background:var(--red-l);border-radius:var(--r);font-size:12px;color:var(--red)" x-text="error"></div>
+        <div x-show="success" style="margin:0 16px 16px;padding:10px;background:var(--green-l);border-radius:var(--r);font-size:12px;color:var(--green)">บันทึกสำเร็จ</div>
       </div>
     </div>
+
   </div>
 </div>
 {% endblock %}
@@ -189,9 +158,7 @@ function invoiceForm() {
     async searchContacts() {
       if (this.contactSearch.length < 2) { this.contacts = []; return; }
       const token = document.cookie.match(/access_token=([^;]+)/)?.[1] || '';
-      const r = await fetch('/api/v1/contacts?q=' + encodeURIComponent(this.contactSearch) + '&contact_type=customer', {
-        headers: { Authorization: 'Bearer ' + token }
-      });
+      const r = await fetch('/api/v1/contacts?q=' + encodeURIComponent(this.contactSearch) + '&contact_type=customer', { headers: { Authorization: 'Bearer ' + token } });
       const d = await r.json();
       this.contacts = d.items || d.data || d || [];
     },
@@ -203,14 +170,8 @@ function invoiceForm() {
       this.contacts = [];
     },
 
-    addLine() {
-      this.form.lines.push({ description: '', quantity: 1, unit_price: 0, amount: 0 });
-    },
-
-    removeLine(i) {
-      this.form.lines.splice(i, 1);
-      this.calcTotals();
-    },
+    addLine() { this.form.lines.push({ description: '', quantity: 1, unit_price: 0, amount: 0 }); },
+    removeLine(i) { this.form.lines.splice(i, 1); this.calcTotals(); },
 
     calcLine(i) {
       const l = this.form.lines[i];
@@ -227,12 +188,11 @@ function invoiceForm() {
     async save(status) {
       this.saving = true; this.error = ''; this.success = false;
       const token = document.cookie.match(/access_token=([^;]+)/)?.[1] || '';
-      const payload = { ...this.form, status };
       try {
         const r = await fetch('/api/v1/ar/invoices', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
-          body: JSON.stringify(payload),
+          body: JSON.stringify({ ...this.form, status }),
         });
         if (!r.ok) { const e = await r.json(); this.error = e.detail || 'เกิดข้อผิดพลาด'; }
         else { this.success = true; setTimeout(() => window.location = '/ar/invoices', 1500); }

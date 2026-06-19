@@ -5,114 +5,74 @@
 {% block content %}
 <div x-data="journalList()" x-init="init()">
 
-  <!-- Tabs -->
-  <div class="flex gap-1 mb-4 bg-white rounded-xl p-1 shadow-sm border border-gray-100 w-fit">
-    {% for t in [('', 'ทั้งหมด'), ('GJ', 'ทั่วไป (GJ)'), ('SJ', 'ขาย (SJ)'), ('PJ', 'ซื้อ (PJ)'), ('CR', 'รับเงิน (CR)'), ('CP', 'จ่ายเงิน (CP)')] %}
-    <button
-      @click="setType('{{ t[0] }}')"
-      :class="jtype === '{{ t[0] }}' ? 'bg-blue-700 text-white' : 'text-gray-600 hover:bg-gray-100'"
-      class="px-3 py-1.5 rounded-lg text-sm font-medium transition-colors"
-    >{{ t[1] }}</button>
-    {% endfor %}
-  </div>
-
-  <!-- Toolbar -->
-  <div class="flex items-center gap-3 mb-4">
-    <div class="relative flex-1 max-w-sm">
-      <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
-      </svg>
-      <input
-        type="text"
-        x-model="search"
-        @input.debounce.400ms="loadData()"
-        placeholder="ค้นหา เลขที่ / คำอธิบาย..."
-        class="w-full pl-9 pr-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-      />
+  <div class="panel">
+    <!-- Tabs -->
+    <div class="tabs">
+      {% for t in [('', 'ทั้งหมด'), ('GJ', 'ทั่วไป (GJ)'), ('SJ', 'ขาย (SJ)'), ('PJ', 'ซื้อ (PJ)'), ('CR', 'รับเงิน (CR)'), ('CP', 'จ่ายเงิน (CP)')] %}
+      <div class="tab" :class="jtype === '{{ t[0] }}' ? 'active' : ''" @click="setType('{{ t[0] }}')">{{ t[1] }}</div>
+      {% endfor %}
     </div>
-    <input
-      type="date" x-model="dateFrom" @change="loadData()"
-      class="px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-    />
-    <span class="text-gray-400 text-sm">ถึง</span>
-    <input
-      type="date" x-model="dateTo" @change="loadData()"
-      class="px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-    />
-    <a href="/journals/new" class="px-4 py-2 bg-blue-700 text-white rounded-lg text-sm font-medium hover:bg-blue-800 transition-colors flex items-center gap-2">
-      <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
-      </svg>
-      บันทึกใหม่
-    </a>
-  </div>
 
-  <!-- Table -->
-  <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-    <table class="w-full text-sm">
-      <thead class="bg-gray-50 border-b border-gray-100">
-        <tr>
-          <th class="text-left px-4 py-3 font-medium text-gray-600">เลขที่</th>
-          <th class="text-left px-4 py-3 font-medium text-gray-600">วันที่</th>
-          <th class="text-left px-4 py-3 font-medium text-gray-600">ประเภท</th>
-          <th class="text-left px-4 py-3 font-medium text-gray-600">คำอธิบาย</th>
-          <th class="text-right px-4 py-3 font-medium text-gray-600">ยอดเดบิต</th>
-          <th class="text-center px-4 py-3 font-medium text-gray-600">สถานะ</th>
-          <th class="px-4 py-3"></th>
-        </tr>
-      </thead>
-      <tbody>
-        <template x-if="loading">
+    <!-- Toolbar -->
+    <div class="panel-head">
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+        <input type="text" x-model="search" @input.debounce.400ms="loadData()" placeholder="ค้นหา เลขที่ / คำอธิบาย..." style="width:220px;" />
+        <input type="date" x-model="dateFrom" @change="loadData()" />
+        <span style="color:var(--text3);font-size:12px;">ถึง</span>
+        <input type="date" x-model="dateTo" @change="loadData()" />
+      </div>
+      <a href="/journals/new" class="btn btn-primary">+ บันทึกใหม่</a>
+    </div>
+
+    <!-- Table -->
+    <div class="panel-body">
+      <table>
+        <thead>
           <tr>
-            <td colspan="7" class="px-4 py-8 text-center text-gray-400">
-              <svg class="animate-spin w-6 h-6 mx-auto" fill="none" viewBox="0 0 24 24">
-                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
-              </svg>
-            </td>
+            <th>เลขที่</th>
+            <th>วันที่</th>
+            <th>ประเภท</th>
+            <th>คำอธิบาย</th>
+            <th class="num">ยอดเดบิต</th>
+            <th style="text-align:center">สถานะ</th>
+            <th></th>
           </tr>
-        </template>
-        <template x-if="!loading && entries.length === 0">
-          <tr>
-            <td colspan="7" class="px-4 py-8 text-center text-gray-400">ไม่พบรายการ</td>
-          </tr>
-        </template>
-        <template x-for="e in entries" :key="e.entry_no">
-          <tr class="border-b border-gray-50 hover:bg-gray-50 cursor-pointer" @click="window.location='/journals/'+e.entry_no">
-            <td class="px-4 py-3 font-mono text-blue-600 font-medium" x-text="e.entry_no"></td>
-            <td class="px-4 py-3 text-gray-600" x-text="e.entry_date"></td>
-            <td class="px-4 py-3">
-              <span class="inline-flex px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-700" x-text="e.journal_type"></span>
-            </td>
-            <td class="px-4 py-3 text-gray-700 max-w-xs truncate" x-text="e.description"></td>
-            <td class="px-4 py-3 text-right font-mono text-gray-800" x-text="fmt(e.total_debit)"></td>
-            <td class="px-4 py-3 text-center">
-              <span
-                :class="e.status === 'posted' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'"
-                class="inline-flex px-2 py-0.5 rounded-full text-xs font-medium"
-                x-text="e.status === 'posted' ? 'บันทึกแล้ว' : e.status"
-              ></span>
-            </td>
-            <td class="px-4 py-3 text-right">
-              <svg class="w-4 h-4 text-gray-400 inline" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
-              </svg>
-            </td>
-          </tr>
-        </template>
-      </tbody>
-    </table>
+        </thead>
+        <tbody>
+          <template x-if="loading">
+            <tr><td colspan="7" class="empty">กำลังโหลด...</td></tr>
+          </template>
+          <template x-if="!loading && entries.length === 0">
+            <tr><td colspan="7" class="empty">ไม่พบรายการ</td></tr>
+          </template>
+          <template x-for="e in entries" :key="e.entry_no">
+            <tr style="cursor:pointer" @click="window.location='/journals/'+e.entry_no">
+              <td style="font-family:var(--mono);color:var(--accent)" x-text="e.entry_no"></td>
+              <td x-text="e.entry_date"></td>
+              <td><span class="badge b-gray" x-text="e.journal_type"></span></td>
+              <td style="max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" x-text="e.description"></td>
+              <td class="num" x-text="fmt(e.total_debit)"></td>
+              <td style="text-align:center">
+                <span class="badge" :class="e.status === 'posted' ? 'b-blue' : 'b-gray'" x-text="e.status === 'posted' ? 'บันทึกแล้ว' : e.status"></span>
+              </td>
+              <td style="text-align:right;color:var(--text3)">›</td>
+            </tr>
+          </template>
+        </tbody>
+      </table>
+    </div>
 
     <!-- Pagination -->
-    <div class="flex items-center justify-between px-4 py-3 border-t border-gray-100 text-sm text-gray-500">
-      <span x-text="'แสดง ' + entries.length + ' จาก ' + total + ' รายการ'"></span>
-      <div class="flex gap-2">
-        <button @click="prevPage()" :disabled="page <= 1" class="px-3 py-1.5 rounded border border-gray-200 hover:bg-gray-50 disabled:opacity-40">← ก่อนหน้า</button>
-        <span class="px-3 py-1.5 text-gray-700 font-medium" x-text="page + ' / ' + Math.ceil(total / pageSize)"></span>
-        <button @click="nextPage()" :disabled="page >= Math.ceil(total / pageSize)" class="px-3 py-1.5 rounded border border-gray-200 hover:bg-gray-50 disabled:opacity-40">ถัดไป →</button>
+    <div class="panel-head" style="justify-content:space-between;">
+      <span style="font-size:12px;color:var(--text2)" x-text="'แสดง ' + entries.length + ' จาก ' + total + ' รายการ'"></span>
+      <div style="display:flex;gap:6px;">
+        <button class="btn btn-ghost btn-sm" @click="prevPage()" :disabled="page <= 1">← ก่อนหน้า</button>
+        <span style="padding:4px 10px;font-size:12px;color:var(--text2)" x-text="page + ' / ' + Math.max(1, Math.ceil(total / pageSize))"></span>
+        <button class="btn btn-ghost btn-sm" @click="nextPage()" :disabled="page >= Math.ceil(total / pageSize)">ถัดไป →</button>
       </div>
     </div>
   </div>
+
 </div>
 {% endblock %}
 
@@ -121,56 +81,33 @@
 function journalList() {
   return {
     jtype: '{{ jtype }}',
-    search: '',
-    dateFrom: '',
-    dateTo: '',
-    entries: [],
-    total: 0,
-    page: 1,
-    pageSize: 20,
-    loading: false,
+    search: '', dateFrom: '', dateTo: '',
+    entries: [], total: 0, page: 1, pageSize: 20, loading: false,
 
-    async init() {
-      await this.loadData();
-    },
+    async init() { await this.loadData(); },
 
-    setType(t) {
-      this.jtype = t;
-      this.page = 1;
-      this.loadData();
-    },
+    setType(t) { this.jtype = t; this.page = 1; this.loadData(); },
 
     async loadData() {
       this.loading = true;
-      const params = new URLSearchParams({
-        page: this.page,
-        page_size: this.pageSize,
-      });
+      const params = new URLSearchParams({ page: this.page, page_size: this.pageSize });
       if (this.jtype) params.set('journal_type', this.jtype);
       if (this.search) params.set('q', this.search);
       if (this.dateFrom) params.set('date_from', this.dateFrom);
       if (this.dateTo) params.set('date_to', this.dateTo);
-
       const token = document.cookie.match(/access_token=([^;]+)/)?.[1] || '';
       try {
-        const resp = await fetch('/api/v1/journals?' + params, {
-          headers: { 'Authorization': 'Bearer ' + token }
-        });
+        const resp = await fetch('/api/v1/journals?' + params, { headers: { 'Authorization': 'Bearer ' + token } });
         const data = await resp.json();
         this.entries = data.items || data.data || data || [];
         this.total = data.total || this.entries.length;
-      } catch {
-        this.entries = [];
-      }
+      } catch { this.entries = []; }
       this.loading = false;
     },
 
     prevPage() { if (this.page > 1) { this.page--; this.loadData(); } },
     nextPage() { if (this.page < Math.ceil(this.total / this.pageSize)) { this.page++; this.loadData(); } },
-
-    fmt(v) {
-      return new Intl.NumberFormat('th-TH', { minimumFractionDigits: 2 }).format(v || 0);
-    },
+    fmt(v) { return new Intl.NumberFormat('th-TH', { minimumFractionDigits: 2 }).format(v || 0); },
   };
 }
 </script>

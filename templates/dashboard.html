@@ -10,176 +10,161 @@
 <div x-data="dashboard()" x-init="init()">
 
   <!-- KPI Cards -->
-  <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-
-    <!-- Revenue -->
-    <div class="bg-white rounded-xl p-5 shadow-sm border border-gray-100">
-      <div class="flex items-start justify-between">
-        <div>
-          <p class="text-xs text-gray-500 font-medium uppercase tracking-wide">รายได้เดือนนี้</p>
-          <p class="text-2xl font-bold text-gray-900 mt-1" x-text="fmt(kpi.revenue)">—</p>
-          <p class="text-xs text-green-600 mt-1 flex items-center gap-1">
-            <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M5.293 9.707a1 1 0 010-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 01-1.414 1.414L11 7.414V15a1 1 0 11-2 0V7.414L6.707 9.707a1 1 0 01-1.414 0z" clip-rule="evenodd"/></svg>
-            รวมงวดปัจจุบัน
-          </p>
-        </div>
-        <div class="w-10 h-10 bg-blue-50 rounded-lg flex items-center justify-center">
-          <svg class="w-5 h-5 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
-          </svg>
-        </div>
-      </div>
+  <div class="stat-grid">
+    <div class="stat-card">
+      <div class="stat-label">รายได้เดือนนี้</div>
+      <div class="stat-value" x-text="fmt(kpi.revenue)">—</div>
+      <div class="stat-change up">รวมงวดปัจจุบัน</div>
     </div>
-
-    <!-- Expenses -->
-    <div class="bg-white rounded-xl p-5 shadow-sm border border-gray-100">
-      <div class="flex items-start justify-between">
-        <div>
-          <p class="text-xs text-gray-500 font-medium uppercase tracking-wide">ค่าใช้จ่ายเดือนนี้</p>
-          <p class="text-2xl font-bold text-gray-900 mt-1" x-text="fmt(kpi.expenses)">—</p>
-          <p class="text-xs text-gray-500 mt-1">รวมงวดปัจจุบัน</p>
-        </div>
-        <div class="w-10 h-10 bg-orange-50 rounded-lg flex items-center justify-center">
-          <svg class="w-5 h-5 text-orange-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 14l6-6m-5.5.5h.01m4.99 5h.01M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16l3.5-2 3.5 2 3.5-2 3.5 2z"/>
-          </svg>
-        </div>
-      </div>
+    <div class="stat-card">
+      <div class="stat-label">ค่าใช้จ่ายเดือนนี้</div>
+      <div class="stat-value" x-text="fmt(kpi.expenses)">—</div>
+      <div class="stat-change" style="color:var(--text3)">รวมงวดปัจจุบัน</div>
     </div>
-
-    <!-- AR Outstanding -->
-    <div class="bg-white rounded-xl p-5 shadow-sm border border-gray-100">
-      <div class="flex items-start justify-between">
-        <div>
-          <p class="text-xs text-gray-500 font-medium uppercase tracking-wide">ลูกหนี้ค้างชำระ</p>
-          <p class="text-2xl font-bold text-gray-900 mt-1" x-text="fmt(kpi.ar_outstanding)">—</p>
-          <p class="text-xs text-amber-600 mt-1" x-text="(kpi.ar_overdue || 0) + ' รายการเกินกำหนด'"></p>
-        </div>
-        <div class="w-10 h-10 bg-green-50 rounded-lg flex items-center justify-center">
-          <svg class="w-5 h-5 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"/>
-          </svg>
-        </div>
-      </div>
+    <div class="stat-card">
+      <div class="stat-label">ลูกหนี้ค้างชำระ</div>
+      <div class="stat-value" x-text="fmt(kpi.ar_outstanding)">—</div>
+      <div class="stat-change down" x-text="(kpi.ar_overdue || 0) + ' รายการเกินกำหนด'"></div>
     </div>
-
-    <!-- AP Outstanding -->
-    <div class="bg-white rounded-xl p-5 shadow-sm border border-gray-100">
-      <div class="flex items-start justify-between">
-        <div>
-          <p class="text-xs text-gray-500 font-medium uppercase tracking-wide">เจ้าหนี้ค้างจ่าย</p>
-          <p class="text-2xl font-bold text-gray-900 mt-1" x-text="fmt(kpi.ap_outstanding)">—</p>
-          <p class="text-xs text-red-500 mt-1" x-text="(kpi.ap_overdue || 0) + ' รายการเกินกำหนด'"></p>
-        </div>
-        <div class="w-10 h-10 bg-purple-50 rounded-lg flex items-center justify-center">
-          <svg class="w-5 h-5 text-purple-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"/>
-          </svg>
-        </div>
-      </div>
+    <div class="stat-card">
+      <div class="stat-label">เจ้าหนี้ค้างจ่าย</div>
+      <div class="stat-value" x-text="fmt(kpi.ap_outstanding)">—</div>
+      <div class="stat-change down" x-text="(kpi.ap_overdue || 0) + ' รายการเกินกำหนด'"></div>
     </div>
   </div>
 
-  <!-- Chart + Todo -->
-  <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+  <!-- Chart + Deadlines -->
+  <div class="grid2" style="margin-bottom:16px;">
 
     <!-- Revenue Chart -->
-    <div class="lg:col-span-2 bg-white rounded-xl p-5 shadow-sm border border-gray-100">
-      <div class="flex items-center justify-between mb-4">
-        <h2 class="font-semibold text-gray-800">รายได้ vs ค่าใช้จ่าย (6 เดือนล่าสุด)</h2>
-        <span class="text-xs text-gray-400">บาท</span>
+    <div class="panel">
+      <div class="panel-head">
+        <span class="panel-title">รายได้ vs ค่าใช้จ่าย (6 เดือนล่าสุด)</span>
+        <span style="font-size:11px;color:var(--text3)">บาท</span>
       </div>
-      <div class="relative h-56">
-        <canvas id="revenueChart"></canvas>
+      <div class="panel-body" style="padding:16px;">
+        <div style="position:relative;height:220px;">
+          <canvas id="revenueChart"></canvas>
+        </div>
       </div>
     </div>
 
-    <!-- Quick Actions + Deadlines -->
-    <div class="bg-white rounded-xl p-5 shadow-sm border border-gray-100">
-      <h2 class="font-semibold text-gray-800 mb-4">กำหนดชำระภาษี</h2>
-      <div
+    <!-- Deadlines -->
+    <div class="panel">
+      <div class="panel-head">
+        <span class="panel-title">กำหนดชำระภาษี</span>
+      </div>
+      <div class="panel-body"
         hx-get="/api/v1/deadlines?limit=5"
         hx-trigger="load"
         hx-target="this"
         hx-headers='{"Authorization": "Bearer {{ request.cookies.get("access_token", "") }}"}'
-        class="space-y-2"
+        style="padding:16px;"
       >
-        <div class="animate-pulse space-y-2">
-          <div class="h-10 bg-gray-100 rounded-lg"></div>
-          <div class="h-10 bg-gray-100 rounded-lg"></div>
-          <div class="h-10 bg-gray-100 rounded-lg"></div>
+        <div class="empty">
+          <div class="empty-icon">📅</div>
+          ยังไม่มีกำหนดชำระที่ใกล้ถึง
         </div>
       </div>
     </div>
   </div>
 
   <!-- Recent Journals + Quotation Widget -->
-  <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+  <div class="grid2">
 
     <!-- Recent Journals -->
-    <div class="lg:col-span-2 bg-white rounded-xl shadow-sm border border-gray-100">
-      <div class="flex items-center justify-between px-5 py-4 border-b border-gray-100">
-        <h2 class="font-semibold text-gray-800">รายการบันทึกบัญชีล่าสุด</h2>
-        <a href="/journals" class="text-sm text-blue-600 hover:underline">ดูทั้งหมด →</a>
+    <div class="panel" x-data="recentJournals()" x-init="init()">
+      <div class="panel-head">
+        <span class="panel-title">รายการบันทึกบัญชีล่าสุด</span>
+        <a href="/journals" class="btn btn-ghost btn-sm">ดูทั้งหมด →</a>
       </div>
-      <div
-        hx-get="/api/v1/journals?page=1&page_size=8"
-        hx-trigger="load"
-        hx-target="this"
-        hx-headers='{"Authorization": "Bearer {{ request.cookies.get("access_token", "") }}"}'
-      >
-        <div class="p-5 animate-pulse space-y-3">
-          <div class="h-8 bg-gray-100 rounded"></div>
-          <div class="h-8 bg-gray-100 rounded"></div>
-          <div class="h-8 bg-gray-100 rounded"></div>
-        </div>
+      <div class="panel-body">
+        <template x-if="loading">
+          <div class="empty">กำลังโหลด...</div>
+        </template>
+        <template x-if="!loading && entries.length === 0">
+          <div class="empty">
+            <div class="empty-icon">📒</div>
+            ยังไม่มีรายการ
+          </div>
+        </template>
+        <template x-if="!loading && entries.length > 0">
+          <table>
+            <thead>
+              <tr>
+                <th>เลขที่</th>
+                <th>วันที่</th>
+                <th>คำอธิบาย</th>
+                <th class="num">ยอดเดบิต</th>
+                <th>สถานะ</th>
+              </tr>
+            </thead>
+            <tbody>
+              <template x-for="e in entries" :key="e.entry_no">
+                <tr style="cursor:pointer" @click="window.location='/journals/'+e.entry_no">
+                  <td style="font-family:var(--mono);color:var(--accent)" x-text="e.entry_no"></td>
+                  <td x-text="e.entry_date"></td>
+                  <td style="max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" x-text="e.description"></td>
+                  <td class="num" x-text="fmt(e.total_debit)"></td>
+                  <td>
+                    <span class="badge" :class="e.status === 'posted' ? 'b-blue' : 'b-gray'" x-text="e.status === 'posted' ? 'บันทึกแล้ว' : e.status"></span>
+                  </td>
+                </tr>
+              </template>
+            </tbody>
+          </table>
+        </template>
       </div>
     </div>
 
     <!-- Quotation Widget -->
-    <div class="bg-white rounded-xl shadow-sm border border-gray-100" x-data="qtWidget()" x-init="init()">
-      <div class="flex items-center justify-between px-5 py-4 border-b border-gray-100">
-        <h2 class="font-semibold text-gray-800">ใบเสนอราคาล่าสุด</h2>
-        <a href="/ar/quotations" class="text-sm text-blue-600 hover:underline">ดูทั้งหมด →</a>
+    <div class="panel" x-data="qtWidget()" x-init="init()">
+      <div class="panel-head">
+        <span class="panel-title">ใบเสนอราคาล่าสุด</span>
+        <a href="/ar/quotations" class="btn btn-ghost btn-sm">ดูทั้งหมด →</a>
       </div>
-      <div class="p-4 space-y-2">
+      <div class="panel-body">
         <template x-if="loading">
-          <div class="animate-pulse space-y-2">
-            <div class="h-10 bg-gray-100 rounded"></div>
-            <div class="h-10 bg-gray-100 rounded"></div>
-            <div class="h-10 bg-gray-100 rounded"></div>
-          </div>
+          <div class="empty">กำลังโหลด...</div>
         </template>
         <template x-if="!loading && items.length === 0">
-          <div class="text-center py-6">
-            <p class="text-sm text-gray-400 mb-3">ยังไม่มีใบเสนอราคา</p>
-            <a href="/ar/quotations/new" class="text-sm text-brand hover:underline font-medium">+ สร้างใบเสนอราคา</a>
+          <div class="empty">
+            <div class="empty-icon">🧾</div>
+            ยังไม่มีใบเสนอราคา
+            <br/><a href="/ar/quotations/new" class="btn btn-primary btn-sm" style="margin-top:10px;">+ สร้างใบเสนอราคา</a>
           </div>
         </template>
-        <template x-for="q in items" :key="q.id">
-          <a :href="'/ar/quotations/' + q.id"
-            class="flex items-center justify-between p-2.5 rounded-lg hover:bg-gray-50 transition-colors group">
-            <div class="min-w-0">
-              <p class="text-sm font-medium text-gray-800 font-mono" x-text="q.quotation_no"></p>
-              <p class="text-xs text-gray-500 truncate" x-text="q.contact_name"></p>
-            </div>
-            <div class="text-right shrink-0 ml-2">
-              <p class="text-sm font-mono font-medium text-gray-700" x-text="fmt(q.total_amount)"></p>
-              <span :class="statusClass(q.status)" class="text-xs px-1.5 py-0.5 rounded-full font-medium" x-text="statusLabel(q.status)"></span>
-            </div>
-          </a>
+        <template x-if="!loading && items.length > 0">
+          <table>
+            <thead>
+              <tr>
+                <th>เลขที่</th>
+                <th>ลูกค้า</th>
+                <th class="num">ยอดรวม</th>
+                <th>สถานะ</th>
+              </tr>
+            </thead>
+            <tbody>
+              <template x-for="q in items" :key="q.id">
+                <tr style="cursor:pointer" @click="window.location='/ar/quotations/'+q.id">
+                  <td style="font-family:var(--mono)" x-text="q.quotation_no"></td>
+                  <td x-text="q.contact_name"></td>
+                  <td class="num" x-text="fmt(q.total_amount)"></td>
+                  <td>
+                    <span class="badge" :class="statusClass(q.status)" x-text="statusLabel(q.status)"></span>
+                  </td>
+                </tr>
+              </template>
+            </tbody>
+          </table>
         </template>
-        <div class="pt-2 border-t border-gray-100" x-show="!loading">
-          <a href="/ar/quotations/new"
-            class="block w-full text-center text-sm text-brand hover:text-brand-dark font-medium py-1.5 rounded-lg hover:bg-blue-50 transition-colors">
-            + สร้างใบเสนอราคาใหม่
-          </a>
-        </div>
+      </div>
+      <div style="padding:10px 16px;border-top:1px solid var(--border);">
+        <a href="/ar/quotations/new" class="btn btn-primary btn-sm">+ สร้างใบเสนอราคาใหม่</a>
       </div>
     </div>
 
   </div>
-
 </div>
 {% endblock %}
 
@@ -189,61 +174,52 @@ function dashboard() {
   return {
     kpi: { revenue: 0, expenses: 0, ar_outstanding: 0, ap_outstanding: 0, ar_overdue: 0, ap_overdue: 0 },
     chart: null,
-
     async init() {
       await this.loadKpi();
       this.initChart();
     },
-
     async loadKpi() {
-      // Placeholder KPI — in production fetch from /api/v1/reports/...
       this.kpi = { revenue: 1250000, expenses: 830000, ar_outstanding: 425000, ap_outstanding: 210000, ar_overdue: 3, ap_overdue: 1 };
     },
-
     initChart() {
       const ctx = document.getElementById('revenueChart');
       if (!ctx) return;
-      const months = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.'];
-      this.chart = new Chart(ctx, {
+      new Chart(ctx, {
         type: 'bar',
         data: {
-          labels: months,
+          labels: ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.'],
           datasets: [
-            {
-              label: 'รายได้',
-              data: [980000, 1120000, 890000, 1340000, 1150000, 1250000],
-              backgroundColor: 'rgba(59,130,246,0.7)',
-              borderRadius: 6,
-            },
-            {
-              label: 'ค่าใช้จ่าย',
-              data: [720000, 810000, 680000, 950000, 800000, 830000],
-              backgroundColor: 'rgba(249,115,22,0.6)',
-              borderRadius: 6,
-            },
+            { label: 'รายได้', data: [980000, 1120000, 890000, 1340000, 1150000, 1250000], backgroundColor: 'rgba(26,86,160,0.7)', borderRadius: 4 },
+            { label: 'ค่าใช้จ่าย', data: [720000, 810000, 680000, 950000, 800000, 830000], backgroundColor: 'rgba(146,64,14,0.5)', borderRadius: 4 },
           ],
         },
         options: {
-          responsive: true,
-          maintainAspectRatio: false,
+          responsive: true, maintainAspectRatio: false,
           plugins: { legend: { position: 'top', labels: { font: { size: 11 } } } },
           scales: {
-            y: {
-              ticks: {
-                callback: v => (v / 1000) + 'K',
-                font: { size: 10 },
-              },
-              grid: { color: 'rgba(0,0,0,0.04)' },
-            },
+            y: { ticks: { callback: v => (v/1000)+'K', font: { size: 10 } }, grid: { color: 'rgba(0,0,0,0.04)' } },
             x: { grid: { display: false } },
           },
         },
       });
     },
+    fmt(v) { return new Intl.NumberFormat('th-TH', { minimumFractionDigits: 0 }).format(v || 0); },
+  };
+}
 
-    fmt(v) {
-      return new Intl.NumberFormat('th-TH', { style: 'currency', currency: 'THB', minimumFractionDigits: 0 }).format(v || 0);
+function recentJournals() {
+  return {
+    entries: [], loading: true,
+    async init() {
+      const token = document.cookie.match(/access_token=([^;]+)/)?.[1] || '';
+      try {
+        const r = await fetch('/api/v1/journals?page=1&page_size=8', { headers: { Authorization: 'Bearer ' + token } });
+        const d = await r.json();
+        this.entries = d.items || d.data?.items || d.data || [];
+      } catch { this.entries = []; }
+      this.loading = false;
     },
+    fmt(v) { return new Intl.NumberFormat('th-TH', { minimumFractionDigits: 2 }).format(v || 0); },
   };
 }
 
@@ -263,7 +239,7 @@ function qtWidget() {
       return { draft:'แบบร่าง', sent:'ส่งแล้ว', accepted:'ยอมรับ', rejected:'ปฏิเสธ', converted:'แปลงแล้ว', expired:'หมดอายุ' }[s] || s;
     },
     statusClass(s) {
-      return { draft:'bg-gray-100 text-gray-500', sent:'bg-blue-100 text-blue-600', accepted:'bg-green-100 text-green-600', rejected:'bg-red-100 text-red-500', converted:'bg-purple-100 text-purple-600', expired:'bg-orange-100 text-orange-500' }[s] || 'bg-gray-100 text-gray-500';
+      return { draft:'b-gray', sent:'b-teal', accepted:'b-green', rejected:'b-red', converted:'b-purple', expired:'b-amber' }[s] || 'b-gray';
     },
     fmt(v) { return new Intl.NumberFormat('th-TH', { minimumFractionDigits: 0 }).format(v || 0); },
   };

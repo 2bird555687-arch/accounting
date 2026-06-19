@@ -5,7 +5,8 @@
       "name": "acccloud-dev",
       "runtimeExecutable": "D:\\accounting\\.venv\\Scripts\\python.exe",
       "runtimeArgs": ["-m", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"],
-      "port": 8000
+      "port": 8000,
+      "autoPort": false
     }
   ]
 }
