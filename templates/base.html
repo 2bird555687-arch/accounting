@@ -74,10 +74,10 @@
     <span class="sb-group-chev {% if '/ap/' in request.url.path %}open{% endif %}">▶</span>
   </div>
   <div class="sb-sub {% if '/ap/' in request.url.path %}open{% endif %}">
+    <a href="/ap/po" class="sb-item {% if '/ap/po' in request.url.path %}active{% endif %}">ใบสั่งซื้อ (PO)</a>
+    <a href="/ap/purchases/new" class="sb-item {% if '/ap/purchases/new' in request.url.path %}active{% endif %}">บันทึกซื้อ</a>
     <a href="/ap/purchases" class="sb-item {% if '/ap/purchase' in request.url.path and 'new' not in request.url.path %}active{% endif %}">ใบแจ้งหนี้ซื้อ</a>
-    <a href="/ap/purchases/new" class="sb-item">+ บันทึกซื้อ</a>
-    <a href="/ap/payments/new" class="sb-item">จ่ายชำระ</a>
-    <a href="/ap/po" class="sb-item {% if '/ap/po' in request.url.path %}active{% endif %}">PO</a>
+    <a href="/ap/payments/new" class="sb-item {% if '/ap/payment' in request.url.path %}active{% endif %}">จ่ายชำระ</a>
   </div>
 
   <div class="sb-section">เครื่องมือ</div>
