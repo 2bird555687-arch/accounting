@@ -386,6 +386,41 @@ for db_path in glob.glob("data/firm_*/company_*/db.sqlite"):
                 print(f"  + ALTER TABLE fa_assets ADD COLUMN {col}")
                 c.execute(f"ALTER TABLE fa_assets ADD COLUMN {col} {ddl}")
 
+        # 7b. Fixed Assets — book vs tax depreciation columns
+        fa_cols = {r[1] for r in c.execute("PRAGMA table_info(fa_assets)")}
+        booktax_cols = {
+            "asset_type": "TEXT",
+            "book_useful_life_years": "INTEGER",
+            "book_monthly_depreciation": "REAL",
+            "tax_useful_life_years": "INTEGER",
+            "tax_depreciable_cost": "REAL",
+            "tax_monthly_depreciation": "REAL",
+            "depreciation_basis": "TEXT NOT NULL DEFAULT 'BOOK_ONLY'",
+        }
+        added_booktax = False
+        for col, ddl in booktax_cols.items():
+            if col not in fa_cols:
+                print(f"  + ALTER TABLE fa_assets ADD COLUMN {col}")
+                c.execute(f"ALTER TABLE fa_assets ADD COLUMN {col} {ddl}")
+                added_booktax = True
+        if added_booktax:
+            # backfill existing rows from useful_life_months / cost
+            print("  ~ backfill book/tax depreciation for existing fa_assets")
+            c.execute("""
+                UPDATE fa_assets SET
+                    book_useful_life_years = CASE WHEN useful_life_months > 0
+                        THEN CAST(useful_life_months / 12 AS INTEGER) ELSE NULL END,
+                    tax_useful_life_years = CASE WHEN useful_life_months > 0
+                        THEN CAST(useful_life_months / 12 AS INTEGER) ELSE NULL END,
+                    book_monthly_depreciation = CASE WHEN useful_life_months > 0
+                        THEN (cost - salvage_value) / useful_life_months ELSE 0 END,
+                    tax_monthly_depreciation = CASE WHEN useful_life_months > 0
+                        THEN (cost - salvage_value) / useful_life_months ELSE 0 END,
+                    tax_depreciable_cost = cost,
+                    depreciation_basis = 'BOOK_ONLY'
+                WHERE book_monthly_depreciation IS NULL
+            """)
+
     if "hp_installments" not in tables:
         print("  + CREATE TABLE hp_installments")
         c.execute("""

@@ -31,6 +31,12 @@ class AssetCreate(BaseModel):
     depr_method: str = Field("straight_line", pattern="^(straight_line|declining_balance)$")
     declining_rate: Optional[Decimal] = None
 
+    # ค่าเสื่อมทางบัญชี vs ทางภาษี
+    asset_type: Optional[str] = None
+    book_useful_life_years: Optional[int] = Field(None, gt=0)
+    tax_useful_life_years: Optional[int] = Field(None, gt=0)
+    depreciation_basis: str = Field("BOOK_ONLY", pattern="^(BOOK_ONLY|BOTH)$")
+
     # แหล่งเงินทุน
     funding_type: str = Field(
         "cash_bank",
@@ -98,6 +104,14 @@ class AssetOut(BaseModel):
     book_value: Decimal
     months_depreciated: int
     status: str
+    asset_type: Optional[str] = None
+    book_useful_life_years: Optional[int] = None
+    book_monthly_depreciation: Optional[Decimal] = None
+    tax_useful_life_years: Optional[int] = None
+    tax_depreciable_cost: Optional[Decimal] = None
+    tax_monthly_depreciation: Optional[Decimal] = None
+    depreciation_basis: str = "BOOK_ONLY"
+    tax_warning: Optional[str] = None
     funding_type: str
     bank_account_id: Optional[int]
     hp_total_price: Optional[Decimal]
@@ -155,3 +169,37 @@ class PostDepreciationIn(BaseModel):
     fiscal_year: int
     month: int = Field(ge=1, le=12)
     asset_ids: Optional[list[int]] = None  # None = post ทุกสินทรัพย์ที่ active
+
+
+# ── Asset Type Defaults / Tax Depreciation Report ──────────────────────────────
+
+class AssetTypeDefaultOut(BaseModel):
+    asset_type: str
+    label_th: str
+    asset_account_code: str
+    accum_dep_account_code: str
+    tax_max_rate_pct: float
+    tax_min_life_years: int
+    default_life_years: int
+    has_cost_cap: bool
+    cost_cap_amount: Optional[int]
+    depreciable: bool
+    category: str
+
+
+class TaxDeprReportItem(BaseModel):
+    asset_id: int
+    asset_code: str
+    asset_name: str
+    book_depreciation: Decimal
+    tax_depreciation: Decimal
+    difference: Decimal
+    has_cost_cap: bool
+
+
+class TaxDeprReportOut(BaseModel):
+    fiscal_year: int
+    items: list[TaxDeprReportItem]
+    total_book: Decimal
+    total_tax: Decimal
+    total_difference: Decimal

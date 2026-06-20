@@ -54,7 +54,11 @@ class DepreciationService:
             )
 
             if asset.depr_method == "straight_line":
-                depr_amount = asset.monthly_depr_straight_line()
+                # JE ใช้ค่าเสื่อมทางบัญชี (book) เสมอ — ไม่ใช่ทางภาษี
+                if asset.book_monthly_depreciation is not None:
+                    depr_amount = asset.book_monthly_depreciation
+                else:
+                    depr_amount = asset.monthly_depr_straight_line()
             else:
                 depr_amount = asset.monthly_depr_declining()
 
@@ -157,6 +161,54 @@ class DepreciationService:
             records.append(DepreciationRecordOut.model_validate(rec))
 
         return records
+
+    @staticmethod
+    async def get_tax_depreciation_schedule(
+        ctx: AppContext, db: AsyncSession, fiscal_year: int
+    ) -> dict:
+        """สรุปค่าเสื่อมทางบัญชี vs ทางภาษี รายสินทรัพย์สำหรับปีภาษี."""
+        assets = await db.scalars(
+            select(FixedAsset).where(
+                FixedAsset.company_id == ctx.company_id,
+                FixedAsset.status.in_(("active", "fully_depreciated")),
+            )
+        )
+        results: list[dict] = []
+        for asset in assets:
+            year_entries = await db.scalars(
+                select(AssetDepreciation).where(
+                    AssetDepreciation.asset_id == asset.id,
+                    AssetDepreciation.fiscal_year == fiscal_year,
+                )
+            )
+            entries_list = list(year_entries)
+            if not entries_list:
+                continue
+            book_total = sum((e.depr_amount for e in entries_list), Decimal(0))
+            months = len(entries_list)
+            tax_monthly = asset.tax_monthly_depreciation or Decimal(0)
+            tax_total = (tax_monthly * months).quantize(Decimal("0.01"), ROUND_HALF_UP)
+
+            results.append({
+                "asset_id": asset.id,
+                "asset_code": asset.asset_code,
+                "asset_name": asset.asset_name,
+                "book_depreciation": book_total,
+                "tax_depreciation": tax_total,
+                "difference": book_total - tax_total,
+                "has_cost_cap": bool(
+                    asset.tax_depreciable_cost is not None
+                    and asset.tax_depreciable_cost < asset.cost
+                ),
+            })
+
+        return {
+            "fiscal_year": fiscal_year,
+            "items": results,
+            "total_book": sum((r["book_depreciation"] for r in results), Decimal(0)),
+            "total_tax": sum((r["tax_depreciation"] for r in results), Decimal(0)),
+            "total_difference": sum((r["difference"] for r in results), Decimal(0)),
+        }
 
     @staticmethod
     async def list_records(

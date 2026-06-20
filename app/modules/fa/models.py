@@ -92,6 +92,16 @@ class FixedAsset(Base):
     status: Mapped[str] = mapped_column(String(20), nullable=False, default="active")
     # "active" | "fully_depreciated" | "disposed"
 
+    # ── ค่าเสื่อมทางบัญชี vs ทางภาษี (book vs tax depreciation) ─────────────────
+    asset_type: Mapped[Optional[str]] = mapped_column(String(30))            # key จาก ASSET_TYPE_DEFAULTS
+    book_useful_life_years: Mapped[Optional[int]] = mapped_column(Integer)   # อายุทางบัญชี (ปี)
+    book_monthly_depreciation: Mapped[Optional[Decimal]] = mapped_column(Numeric(15, 2))
+    tax_useful_life_years: Mapped[Optional[int]] = mapped_column(Integer)    # อายุทางภาษี (ปี, ขั้นต่ำตามกฎหมาย)
+    tax_depreciable_cost: Mapped[Optional[Decimal]] = mapped_column(Numeric(15, 2))  # min(cost, cap)
+    tax_monthly_depreciation: Mapped[Optional[Decimal]] = mapped_column(Numeric(15, 2))
+    depreciation_basis: Mapped[str] = mapped_column(String(20), nullable=False, default="BOOK_ONLY")
+    # "BOOK_ONLY" | "BOTH"
+
     # แหล่งเงินทุน
     funding_type: Mapped[str] = mapped_column(
         String(30), nullable=False, default=FundingType.CASH_BANK.value

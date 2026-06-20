@@ -11,6 +11,7 @@ from app.context import AppContext
 from app.modules.fa.schemas import (
     AssetCreate,
     AssetOut,
+    AssetTypeDefaultOut,
     AssetUpdate,
     DeprScheduleItem,
     DepreciationRecordOut,
@@ -18,7 +19,9 @@ from app.modules.fa.schemas import (
     HirePurchaseInstallmentOut,
     PayInstallmentIn,
     PostDepreciationIn,
+    TaxDeprReportOut,
 )
+from app.modules.fa.asset_defaults import asset_type_list
 from app.modules.fa.asset_service import AssetService
 from app.modules.fa.depreciation_service import DepreciationService
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -30,6 +33,11 @@ DB = CompanyDB
 
 
 # โ”€โ”€ Assets โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€
+
+@router.get("/type-defaults", response_model=list[AssetTypeDefaultOut])
+async def get_type_defaults():
+    return asset_type_list()
+
 
 @router.get("/assets", response_model=list[AssetOut])
 async def list_assets(
@@ -132,4 +140,14 @@ async def list_depr_records(
     fiscal_year: Optional[int] = None,
 ):
     return await DepreciationService.list_records(ctx, db, asset_id=asset_id, fiscal_year=fiscal_year)
+
+
+# โ”€โ”€ Reports โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€
+
+@router.get("/reports/tax-depreciation", response_model=TaxDeprReportOut)
+async def tax_depreciation_report(
+    ctx: Ctx, db: DB,
+    fiscal_year: int = Query(...),
+):
+    return await DepreciationService.get_tax_depreciation_schedule(ctx, db, fiscal_year)
 

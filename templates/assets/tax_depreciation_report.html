@@ -1,0 +1,89 @@
+{% extends "base.html" %}
+{% block title %}รายงานค่าเสื่อมราคาทางภาษี{% endblock %}
+{% block page_title %}สินทรัพย์ถาวร — รายงานค่าเสื่อมราคา บัญชี vs ภาษี{% endblock %}
+
+{% block content %}
+<div x-data="taxDeprReport()" x-init="init()">
+
+  <div class="flex items-center justify-between gap-2 mb-4">
+    <div class="flex items-center gap-2">
+      <label class="text-sm text-gray-600">ปีภาษี</label>
+      <input type="number" x-model.number="fiscalYear" @change="load()"
+        class="w-28 px-3 py-2 rounded-lg border border-gray-200 text-sm"/>
+    </div>
+    <a href="/assets" class="px-4 py-2 rounded-lg text-sm font-medium border border-gray-200">← กลับทะเบียนสินทรัพย์</a>
+  </div>
+
+  <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+    <table class="w-full text-sm">
+      <thead class="bg-gray-50 border-b border-gray-100">
+        <tr>
+          <th class="text-left px-4 py-3 font-medium text-gray-600">ชื่อสินทรัพย์</th>
+          <th class="text-right px-4 py-3 font-medium text-gray-600">ค่าเสื่อมทางบัญชี</th>
+          <th class="text-right px-4 py-3 font-medium text-gray-600">ค่าเสื่อมทางภาษี</th>
+          <th class="text-right px-4 py-3 font-medium text-gray-600">ผลต่าง</th>
+        </tr>
+      </thead>
+      <tbody>
+        <template x-if="loading">
+          <tr><td colspan="4" class="px-4 py-8 text-center text-gray-400">กำลังโหลด...</td></tr>
+        </template>
+        <template x-if="!loading && (!data.items || data.items.length === 0)">
+          <tr><td colspan="4" class="px-4 py-8 text-center text-gray-400">ไม่มีข้อมูลค่าเสื่อมในปีนี้</td></tr>
+        </template>
+        <template x-for="r in (data.items || [])" :key="r.asset_id">
+          <tr class="border-b border-gray-50 hover:bg-gray-50">
+            <td class="px-4 py-3 text-gray-700 font-medium">
+              <span x-text="r.asset_name"></span>
+              <span class="text-xs text-gray-400 font-mono ml-1" x-text="r.asset_code"></span>
+              <span x-show="r.has_cost_cap" title="มีเพดานราคาทุนทางภาษี" class="ml-1">⚖️</span>
+            </td>
+            <td class="px-4 py-3 text-right font-mono" x-text="fmt(r.book_depreciation)"></td>
+            <td class="px-4 py-3 text-right font-mono" x-text="fmt(r.tax_depreciation)"></td>
+            <td class="px-4 py-3 text-right font-mono font-medium"
+              :class="Number(r.difference) > 0 ? 'text-red-600' : 'text-gray-600'"
+              x-text="fmt(r.difference)"></td>
+          </tr>
+        </template>
+      </tbody>
+      <tfoot x-show="data.items && data.items.length" class="bg-gray-50 border-t border-gray-100 font-semibold">
+        <tr>
+          <td class="px-4 py-3 text-gray-700">รวม</td>
+          <td class="px-4 py-3 text-right font-mono" x-text="fmt(data.total_book)"></td>
+          <td class="px-4 py-3 text-right font-mono" x-text="fmt(data.total_tax)"></td>
+          <td class="px-4 py-3 text-right font-mono"
+            :class="Number(data.total_difference) > 0 ? 'text-red-600' : 'text-gray-600'"
+            x-text="fmt(data.total_difference)"></td>
+        </tr>
+      </tfoot>
+    </table>
+  </div>
+
+  <div class="mt-4 bg-blue-50 border border-blue-200 rounded-lg p-3 text-xs text-blue-800">
+    หมายเหตุ: ผลต่างบวก = รายจ่ายทางบัญชีมากกว่าทางภาษี → ต้องบวกกลับเมื่อคำนวณกำไรสุทธิทางภาษีใน ภ.ง.ด.50
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function taxDeprReport() {
+  return {
+    fiscalYear: new Date().getFullYear(),
+    data: { items: [] }, loading: false,
+    token() { return document.cookie.match(/access_token=([^;]+)/)?.[1] || ''; },
+    hdr() { return { Authorization: 'Bearer ' + this.token() }; },
+    async init() { await this.load(); },
+    async load() {
+      this.loading = true;
+      try {
+        const r = await fetch('/api/v1/fa/reports/tax-depreciation?fiscal_year=' + this.fiscalYear, { headers: this.hdr() });
+        this.data = await r.json() || { items: [] };
+      } catch { this.data = { items: [] }; }
+      this.loading = false;
+    },
+    fmt(v) { return new Intl.NumberFormat('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(v || 0); },
+  };
+}
+</script>
+{% endblock %}

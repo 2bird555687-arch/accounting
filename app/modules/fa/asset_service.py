@@ -16,6 +16,7 @@ from app.core.engine import (
     PostingError,
 )
 from app.modules.bank.models import BankAccount
+from app.modules.fa.asset_defaults import ASSET_TYPE_DEFAULTS
 from app.modules.fa.models import (
     ASSET_CATEGORY_ACCOUNTS,
     FixedAsset,
@@ -83,6 +84,37 @@ class AssetService:
         funding = data.funding_type
         cost = data.cost
 
+        # ── ค่าเสื่อมทางบัญชี vs ทางภาษี (book vs tax) ─────────────────────────
+        cfg = ASSET_TYPE_DEFAULTS.get(data.asset_type) if data.asset_type else None
+
+        book_life_years = data.book_useful_life_years
+        tax_life_years = data.tax_useful_life_years
+        if book_life_years is None and cfg and cfg.depreciable:
+            book_life_years = cfg.default_life_years
+        if tax_life_years is None and cfg and cfg.depreciable:
+            tax_life_years = cfg.tax_min_life_years
+
+        # เพดานราคาทุนทางภาษีสำหรับรถยนต์นั่งส่วนบุคคล
+        tax_depreciable_cost = cost
+        tax_warning = None
+        if cfg and cfg.has_cost_cap and cfg.cost_cap_amount and cost > cfg.cost_cap_amount:
+            tax_depreciable_cost = Decimal(cfg.cost_cap_amount)
+            tax_warning = (
+                f"ค่าเสื่อมทางภาษีคำนวณได้เฉพาะ 1,000,000 บาทแรกตาม มาตรา 5 "
+                f"พ.ร.ฎ. 145/2527 ส่วนต่าง {cost - tax_depreciable_cost:,.2f} บาท "
+                f"ไม่สามารถหักเป็นรายจ่ายทางภาษีได้"
+            )
+
+        salvage = data.salvage_value
+        book_monthly = (
+            _q((cost - salvage) / (book_life_years * 12))
+            if book_life_years else Decimal(0)
+        )
+        tax_monthly = (
+            _q((tax_depreciable_cost - salvage) / (tax_life_years * 12))
+            if tax_life_years else Decimal(0)
+        )
+
         # ── คำนวณค่าเช่าซื้อ (ถ้า hire_purchase) ──────────────────────────────
         hp_total_price = hp_down_payment = hp_monthly_payment = hp_interest_total = None
         hp_installments = None
@@ -123,6 +155,13 @@ class AssetService:
             book_value=cost,
             months_depreciated=0,
             status="active",
+            asset_type=data.asset_type,
+            book_useful_life_years=book_life_years,
+            book_monthly_depreciation=book_monthly,
+            tax_useful_life_years=tax_life_years,
+            tax_depreciable_cost=tax_depreciable_cost,
+            tax_monthly_depreciation=tax_monthly,
+            depreciation_basis=data.depreciation_basis,
             funding_type=funding,
             bank_account_id=data.bank_account_id,
             hp_total_price=hp_total_price,
@@ -218,7 +257,9 @@ class AssetService:
 
         await db.flush()
         await db.refresh(asset)
-        return AssetOut.model_validate(asset)
+        out = AssetOut.model_validate(asset)
+        out.tax_warning = tax_warning
+        return out
 
     @staticmethod
     async def list_assets(

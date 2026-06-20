@@ -297,6 +297,15 @@ async def asset_list(request: Request):
     return _r("assets/asset_list.html", request, _ctx(ctx))
 
 
+@router.get("/assets/tax-depreciation-report", response_class=HTMLResponse)
+async def tax_depreciation_report_page(request: Request):
+    try:
+        ctx = await get_ui_context(request)
+    except UIRedirectException as e:
+        return RedirectResponse(url=e.url, status_code=302)
+    return _r("assets/tax_depreciation_report.html", request, _ctx(ctx))
+
+
 @router.get("/assets/{asset_id}", response_class=HTMLResponse)
 async def asset_detail(request: Request, asset_id: int):
     try:

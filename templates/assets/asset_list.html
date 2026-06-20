@@ -23,6 +23,10 @@
 
   <!-- Toolbar -->
   <div class="flex items-center justify-end gap-2 mb-4">
+    <a href="/assets/tax-depreciation-report"
+      class="px-4 py-2 rounded-lg text-sm font-medium border border-gray-200">
+      ⚖️ รายงานค่าเสื่อมภาษี
+    </a>
     <button @click="runDepr()"
       class="px-4 py-2 rounded-lg text-sm font-medium border border-gray-200">
       📉 บันทึกค่าเสื่อมเดือนนี้
@@ -61,6 +65,8 @@
             <td class="px-4 py-3 text-gray-700 font-medium">
               <span x-text="a.asset_name"></span>
               <span class="text-xs text-gray-400 font-mono ml-1" x-text="a.asset_code"></span>
+              <span x-show="hasBookTaxDiff(a)" title="ค่าเสื่อมบัญชี ≠ ภาษี"
+                class="ml-1">⚖️</span>
             </td>
             <td class="px-4 py-3 text-center font-mono text-blue-600" x-text="a.asset_account"></td>
             <td class="px-4 py-3 text-center text-gray-600" x-text="a.purchase_date"></td>
@@ -96,13 +102,11 @@
         <div class="grid grid-cols-2 gap-3">
           <div>
             <label class="block text-xs text-gray-500 mb-1">ประเภทสินทรัพย์</label>
-            <select x-model="form.category" class="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm">
-              <option value="vehicle">ยานพาหนะ (1260)</option>
-              <option value="it">คอมพิวเตอร์ (1250)</option>
-              <option value="equipment">เครื่องจักร (1240)</option>
-              <option value="building">อาคาร (1230)</option>
-              <option value="furniture">เครื่องตกแต่ง (1250)</option>
-              <option value="land">ที่ดิน (1220)</option>
+            <select x-model="form.asset_type" @change="onTypeChange()"
+              class="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm">
+              <template x-for="t in typeDefaults" :key="t.asset_type">
+                <option :value="t.asset_type" x-text="t.label_th + ' (' + t.asset_account_code + ')'"></option>
+              </template>
             </select>
           </div>
           <div>
@@ -110,18 +114,41 @@
             <input type="date" x-model="form.purchase_date" class="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm"/>
           </div>
         </div>
+        <p x-show="currentCfg()" class="text-xs text-gray-500 -mt-1"
+           x-text="cfgHint()"></p>
         <div class="grid grid-cols-3 gap-3">
           <div>
             <label class="block text-xs text-gray-500 mb-1">ราคาทุน</label>
             <input type="number" x-model.number="form.cost" class="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm"/>
           </div>
           <div>
-            <label class="block text-xs text-gray-500 mb-1">อายุ (ปี)</label>
-            <input type="number" x-model.number="form.life_years" class="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm"/>
+            <label class="block text-xs text-gray-500 mb-1">อายุทางบัญชี (ปี)</label>
+            <input type="number" x-model.number="form.book_useful_life_years"
+              :disabled="currentCfg() && !currentCfg().depreciable"
+              class="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm"/>
           </div>
           <div>
             <label class="block text-xs text-gray-500 mb-1">มูลค่าซาก</label>
             <input type="number" x-model.number="form.salvage_value" class="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm"/>
+          </div>
+        </div>
+
+        <!-- คำเตือนเพดานราคารถยนต์นั่งส่วนบุคคล -->
+        <div x-show="isPassengerCar() && form.cost > 1000000"
+          class="bg-yellow-50 border border-yellow-200 rounded p-2 text-xs text-yellow-800">
+          ⚠️ ราคาทุนเกิน 1 ล้านบาท — ค่าเสื่อมทางภาษีคำนวณได้เฉพาะ 1,000,000 บาทแรกตามกฎหมาย (มาตรา 5) ส่วนต่าง <span x-text="fmt(form.cost - 1000000)"></span> บาท จะไม่สามารถหักเป็นรายจ่ายทางภาษีได้
+        </div>
+
+        <!-- ตั้งค่าขั้นสูง: ค่าเสื่อมทางภาษี -->
+        <div x-show="currentCfg() && currentCfg().depreciable">
+          <button type="button" @click="showAdvTax = !showAdvTax"
+            class="text-xs text-blue-600 underline">
+            ตั้งค่าขั้นสูง: ค่าเสื่อมทางภาษี
+          </button>
+          <div x-show="showAdvTax" class="mt-2">
+            <label class="block text-xs text-gray-500 mb-1">อายุทางภาษี (ปี) — ขั้นต่ำตามกฎหมาย</label>
+            <input type="number" x-model.number="form.tax_useful_life_years"
+              class="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm"/>
           </div>
         </div>
         <!-- แหล่งเงินทุน -->
@@ -197,9 +224,11 @@
               <span class="text-xs text-gray-400">= ราคารวม − ราคาทุน − ดาวน์</span></div>
           </div>
         </div>
-        <div class="bg-gray-50 rounded-lg p-3 text-sm">
-          ค่าเสื่อม/เดือน = <span class="font-mono font-medium" style="color:var(--accent)" x-text="fmt(previewMonthly())"></span>
-          <span class="text-xs text-gray-400">= (ราคาทุน − ซาก) / (อายุ × 12)</span>
+        <div class="bg-gray-50 rounded-lg p-3 text-sm space-y-1">
+          <div>ค่าเสื่อมทางบัญชี/เดือน = <span class="font-mono font-medium" style="color:var(--accent)" x-text="fmt(previewBookMonthly())"></span>
+            <span class="text-xs text-gray-400">= (ราคาทุน − ซาก) / (อายุบัญชี × 12)</span></div>
+          <div>ค่าเสื่อมทางภาษี/เดือน = <span class="font-mono font-medium text-orange-600" x-text="fmt(previewTaxMonthly())"></span>
+            <span class="text-xs text-gray-400">= (ราคาทุนภาษี − ซาก) / (อายุภาษี × 12)</span></div>
         </div>
         <p x-show="error" x-text="error" class="text-sm text-red-600"></p>
       </div>
@@ -216,10 +245,38 @@
 <script>
 function assetList() {
   return {
-    items: [], banks: [], loading: false, showCreate: false, error: '', form: {},
+    items: [], banks: [], typeDefaults: [], loading: false, showCreate: false, showAdvTax: false, error: '', form: {},
     token() { return document.cookie.match(/access_token=([^;]+)/)?.[1] || ''; },
     hdr() { return { Authorization: 'Bearer ' + this.token() }; },
-    async init() { await this.load(); await this.loadBanks(); },
+    async init() { await this.load(); await this.loadBanks(); await this.loadTypeDefaults(); },
+    async loadTypeDefaults() {
+      try {
+        const r = await fetch('/api/v1/fa/type-defaults', { headers: this.hdr() });
+        this.typeDefaults = await r.json() || [];
+      } catch { this.typeDefaults = []; }
+    },
+    currentCfg() { return this.typeDefaults.find(t => t.asset_type === this.form.asset_type) || null; },
+    isPassengerCar() { return this.form.asset_type === 'vehicle_passenger'; },
+    cfgHint() {
+      const c = this.currentCfg();
+      if (!c || !c.depreciable) return 'ที่ดินไม่คิดค่าเสื่อมราคา';
+      return `ตามเพดานสรรพากร: ไม่เกิน ${c.tax_max_rate_pct}%/ปี (ขั้นต่ำ ${c.tax_min_life_years} ปี)`;
+    },
+    onTypeChange() {
+      const c = this.currentCfg();
+      if (!c) return;
+      if (c.depreciable) {
+        this.form.book_useful_life_years = c.default_life_years;
+        this.form.tax_useful_life_years = c.tax_min_life_years;
+      } else {
+        this.form.book_useful_life_years = 0;
+        this.form.tax_useful_life_years = 0;
+      }
+    },
+    hasBookTaxDiff(a) {
+      const b = Number(a.book_monthly_depreciation || 0), t = Number(a.tax_monthly_depreciation || 0);
+      return Math.abs(b - t) > 0.005;
+    },
     async load() {
       this.loading = true;
       try {
@@ -239,11 +296,20 @@ function assetList() {
     totalCost() { return this.items.reduce((s, a) => s + Number(a.cost || 0), 0); },
     totalBookValue() { return this.items.reduce((s, a) => s + Number(a.book_value || 0), 0); },
     monthlyDepr(a) {
+      if (a.book_monthly_depreciation != null) return Number(a.book_monthly_depreciation);
       if (!a.useful_life_months) return 0;
       return (Number(a.cost) - Number(a.salvage_value)) / a.useful_life_months;
     },
-    previewMonthly() {
-      const c = Number(this.form.cost || 0), s = Number(this.form.salvage_value || 0), y = Number(this.form.life_years || 0);
+    previewBookMonthly() {
+      const c = Number(this.form.cost || 0), s = Number(this.form.salvage_value || 0), y = Number(this.form.book_useful_life_years || 0);
+      if (y <= 0) return 0;
+      return (c - s) / (y * 12);
+    },
+    previewTaxMonthly() {
+      let c = Number(this.form.cost || 0);
+      const cfg = this.currentCfg();
+      if (cfg && cfg.has_cost_cap && cfg.cost_cap_amount && c > cfg.cost_cap_amount) c = cfg.cost_cap_amount;
+      const s = Number(this.form.salvage_value || 0), y = Number(this.form.tax_useful_life_years || 0);
       if (y <= 0) return 0;
       return (c - s) / (y * 12);
     },
@@ -263,7 +329,9 @@ function assetList() {
     },
     openCreate() {
       this.error = '';
-      this.form = { asset_code: '', asset_name: '', category: 'vehicle', purchase_date: '{{ today }}', cost: 0, life_years: 5, salvage_value: 0, funding_type: 'cash_bank', bank_account_id: null, hp_total_price: 0, hp_down_payment: 0, hp_installments: 12 };
+      this.showAdvTax = false;
+      this.form = { asset_code: '', asset_name: '', asset_type: 'vehicle', purchase_date: '{{ today }}', cost: 0, book_useful_life_years: 5, tax_useful_life_years: 5, salvage_value: 0, funding_type: 'cash_bank', bank_account_id: null, hp_total_price: 0, hp_down_payment: 0, hp_installments: 12 };
+      this.onTypeChange();
       this.showCreate = true;
     },
     async save() {
@@ -276,14 +344,19 @@ function assetList() {
         if (!(this.form.hp_total_price > 0) || !(this.form.hp_installments >= 1)) { this.error = 'กรุณากรอกราคารวมและจำนวนงวด'; return; }
         if (Number(this.form.hp_down_payment) > 0 && !this.form.bank_account_id) { this.error = 'มีเงินดาวน์ ต้องเลือกบัญชีธนาคาร'; return; }
       }
+      const cfg = this.currentCfg();
+      const months = Math.round((this.form.book_useful_life_years || 1) * 12) || 1;
       const payload = {
         asset_code: this.form.asset_code,
         asset_name: this.form.asset_name,
-        category: this.form.category,
+        category: cfg ? cfg.category : 'other',
+        asset_type: this.form.asset_type,
         purchase_date: this.form.purchase_date,
         cost: this.form.cost,
         salvage_value: this.form.salvage_value,
-        useful_life_months: Math.round(this.form.life_years * 12),
+        useful_life_months: months,
+        book_useful_life_years: this.form.book_useful_life_years || null,
+        tax_useful_life_years: this.form.tax_useful_life_years || null,
         funding_type: ft,
         bank_account_id: this.form.bank_account_id || null,
       };
