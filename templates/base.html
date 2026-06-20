@@ -60,7 +60,7 @@
   </div>
   <div class="sb-sub {% if '/ar/' in request.url.path %}open{% endif %}">
     <a href="/ar/quotations" class="sb-item {% if '/ar/quotation' in request.url.path %}active{% endif %}">ใบเสนอราคา</a>
-    <a href="/ar/invoices" class="sb-item {% if '/ar/invoice' in request.url.path %}active{% endif %}">ใบแจ้งหนี้</a>
+    <a href="/ar/invoices" class="sb-item {% if '/ar/invoice' in request.url.path %}active{% endif %}">ใบแจ้งหนี้ (สด/เชื่อ)</a>
     <a href="/ar/billing-notes" class="sb-item {% if '/ar/billing-note' in request.url.path %}active{% endif %}">ใบวางบิล</a>
     <a href="/ar/receipts/new" class="sb-item {% if '/ar/receipt' in request.url.path %}active{% endif %}">รับชำระ</a>
   </div>
@@ -76,7 +76,7 @@
   <div class="sb-sub {% if '/ap/' in request.url.path %}open{% endif %}">
     <a href="/ap/po" class="sb-item {% if '/ap/po' in request.url.path %}active{% endif %}">ใบสั่งซื้อ (PO)</a>
     <a href="/ap/purchases/new" class="sb-item {% if '/ap/purchases/new' in request.url.path %}active{% endif %}">บันทึกซื้อ</a>
-    <a href="/ap/purchases" class="sb-item {% if '/ap/purchase' in request.url.path and 'new' not in request.url.path %}active{% endif %}">ใบแจ้งหนี้ซื้อ</a>
+    <a href="/ap/purchases" class="sb-item {% if '/ap/purchase' in request.url.path and 'new' not in request.url.path %}active{% endif %}">ใบแจ้งหนี้ซื้อ (สด/เชื่อ)</a>
     <a href="/ap/payments/new" class="sb-item {% if '/ap/payment' in request.url.path %}active{% endif %}">จ่ายชำระ</a>
   </div>
 
