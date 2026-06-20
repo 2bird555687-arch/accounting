@@ -259,6 +259,17 @@ async def ocr_review(request: Request, history_id: int):
 
 # ── Reports ───────────────────────────────────────────────────────────────────
 
+@router.get("/ledger", response_class=HTMLResponse)
+async def report_ledger(request: Request):
+    try:
+        ctx = await get_ui_context(request)
+    except UIRedirectException as e:
+        return RedirectResponse(url=e.url, status_code=302)
+    today = date.today()
+    return _r("reports/ledger.html", request,
+              _ctx(ctx, default_date_from=str(today.replace(day=1)), default_date_to=str(today)))
+
+
 @router.get("/reports/trial-balance", response_class=HTMLResponse)
 async def report_trial_balance(request: Request):
     try:

@@ -48,30 +48,30 @@
         <!-- Revenue -->
         <div class="mb-6">
           <p class="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">รายได้</p>
-          <template x-for="l in report.revenue_lines || []" :key="l.account_code">
+          <template x-for="l in (report.revenue?.lines || [])" :key="l.account_code">
             <div class="flex justify-between py-1.5 text-sm border-b border-gray-50">
               <span class="text-gray-700 pl-4" x-text="l.account_code + ' ' + l.account_name"></span>
-              <span class="font-mono text-gray-800" x-text="fmt(l.amount)"></span>
+              <span class="font-mono text-gray-800" x-text="fmt(l.current_amount)"></span>
             </div>
           </template>
           <div class="flex justify-between py-2 font-medium border-t border-gray-200 text-sm mt-1">
             <span>รวมรายได้</span>
-            <span class="font-mono text-green-700 font-bold" x-text="fmt(report.total_revenue)"></span>
+            <span class="font-mono text-green-700 font-bold" x-text="fmt(report.revenue?.total)"></span>
           </div>
         </div>
 
         <!-- COGS -->
-        <div class="mb-6" x-show="(report.cogs_lines || []).length > 0">
+        <div class="mb-6" x-show="(report.cost_of_sales?.lines || []).length > 0">
           <p class="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">ต้นทุนขาย</p>
-          <template x-for="l in report.cogs_lines || []" :key="l.account_code">
+          <template x-for="l in (report.cost_of_sales?.lines || [])" :key="l.account_code">
             <div class="flex justify-between py-1.5 text-sm border-b border-gray-50">
               <span class="text-gray-700 pl-4" x-text="l.account_code + ' ' + l.account_name"></span>
-              <span class="font-mono text-gray-800" x-text="fmt(l.amount)"></span>
+              <span class="font-mono text-gray-800" x-text="fmt(l.current_amount)"></span>
             </div>
           </template>
           <div class="flex justify-between py-2 font-medium border-t border-gray-200 text-sm mt-1">
             <span>รวมต้นทุนขาย</span>
-            <span class="font-mono text-red-700" x-text="fmt(report.total_cogs)"></span>
+            <span class="font-mono text-red-700" x-text="fmt(report.cost_of_sales?.total)"></span>
           </div>
         </div>
 
@@ -84,15 +84,15 @@
         <!-- Expenses -->
         <div class="mb-6">
           <p class="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">ค่าใช้จ่าย</p>
-          <template x-for="l in report.expense_lines || []" :key="l.account_code">
+          <template x-for="l in (report.expenses?.lines || [])" :key="l.account_code">
             <div class="flex justify-between py-1.5 text-sm border-b border-gray-50">
               <span class="text-gray-700 pl-4" x-text="l.account_code + ' ' + l.account_name"></span>
-              <span class="font-mono text-gray-800" x-text="fmt(l.amount)"></span>
+              <span class="font-mono text-gray-800" x-text="fmt(l.current_amount)"></span>
             </div>
           </template>
           <div class="flex justify-between py-2 font-medium border-t border-gray-200 text-sm mt-1">
             <span>รวมค่าใช้จ่าย</span>
-            <span class="font-mono text-red-700" x-text="fmt(report.total_expenses)"></span>
+            <span class="font-mono text-red-700" x-text="fmt(report.expenses?.total)"></span>
           </div>
         </div>
 

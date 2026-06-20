@@ -53,37 +53,31 @@
         <tr>
           <th class="text-left px-4 py-3 font-medium text-gray-600">รหัสบัญชี</th>
           <th class="text-left px-4 py-3 font-medium text-gray-600">ชื่อบัญชี</th>
-          <th class="text-right px-4 py-3 font-medium text-gray-600">ยอดยกมา</th>
           <th class="text-right px-4 py-3 font-medium text-gray-600">เดบิต</th>
           <th class="text-right px-4 py-3 font-medium text-gray-600">เครดิต</th>
-          <th class="text-right px-4 py-3 font-medium text-gray-600">ยอดคงเหลือ</th>
         </tr>
       </thead>
       <tbody>
         <template x-if="!loading && lines.length === 0">
-          <tr><td colspan="6" class="px-4 py-8 text-center text-gray-400">ไม่มีข้อมูลงวดนี้</td></tr>
+          <tr><td colspan="4" class="px-4 py-8 text-center text-gray-400">ไม่มีข้อมูลงวดนี้</td></tr>
         </template>
         <template x-for="l in lines" :key="l.account_code">
           <tr class="border-b border-gray-50 hover:bg-gray-50">
             <td class="px-4 py-2.5 font-mono text-gray-600" x-text="l.account_code"></td>
             <td class="px-4 py-2.5 text-gray-800" x-text="l.account_name"></td>
-            <td class="px-4 py-2.5 text-right font-mono text-gray-600" x-text="l.opening_balance != 0 ? fmt(l.opening_balance) : ''"></td>
-            <td class="px-4 py-2.5 text-right font-mono text-gray-700" x-text="l.total_debit != 0 ? fmt(l.total_debit) : ''"></td>
-            <td class="px-4 py-2.5 text-right font-mono text-gray-700" x-text="l.total_credit != 0 ? fmt(l.total_credit) : ''"></td>
-            <td class="px-4 py-2.5 text-right font-mono font-medium text-gray-800" x-text="fmt(l.closing_balance)"></td>
+            <td class="px-4 py-2.5 text-right font-mono text-gray-700" x-text="l.debit_balance > 0 ? fmt(l.debit_balance) : ''"></td>
+            <td class="px-4 py-2.5 text-right font-mono text-gray-700" x-text="l.credit_balance > 0 ? fmt(l.credit_balance) : ''"></td>
           </tr>
         </template>
       </tbody>
       <tfoot x-show="lines.length > 0" class="border-t-2 border-gray-300 bg-gray-50 font-bold">
         <tr>
           <td colspan="2" class="px-4 py-3 text-gray-700">รวมทั้งสิ้น</td>
-          <td class="px-4 py-3 text-right font-mono" x-text="fmt(totals.opening)"></td>
           <td class="px-4 py-3 text-right font-mono" x-text="fmt(totals.debit)"></td>
           <td class="px-4 py-3 text-right font-mono" x-text="fmt(totals.credit)"></td>
-          <td class="px-4 py-3 text-right font-mono" x-text="fmt(totals.closing)"></td>
         </tr>
         <tr>
-          <td colspan="6" class="px-4 py-2 text-center text-sm" :class="isBalanced ? 'text-green-600' : 'text-red-600'"
+          <td colspan="4" class="px-4 py-2 text-center text-sm" :class="isBalanced ? 'text-green-600' : 'text-red-600'"
             x-text="isBalanced ? '✓ งบทดลองสมดุล' : '✗ งบทดลองไม่สมดุล — ตรวจสอบรายการ'"></td>
         </tr>
       </tfoot>
@@ -115,10 +109,8 @@ function trialBalance(initYear, initMonth) {
         this.lines = d.lines || [];
         this.isBalanced = d.is_balanced ?? true;
         this.totals = {
-          opening: this.lines.reduce((s, l) => s + (l.opening_balance || 0), 0),
-          debit: this.lines.reduce((s, l) => s + (l.total_debit || 0), 0),
-          credit: this.lines.reduce((s, l) => s + (l.total_credit || 0), 0),
-          closing: this.lines.reduce((s, l) => s + (l.closing_balance || 0), 0),
+          debit: d.total_debit || this.lines.reduce((s, l) => s + (l.debit_balance || 0), 0),
+          credit: d.total_credit || this.lines.reduce((s, l) => s + (l.credit_balance || 0), 0),
         };
       } catch { this.lines = []; }
       this.loading = false;

@@ -59,7 +59,7 @@
             <td class="px-4 py-2.5 text-right font-mono text-orange-500" x-text="row.days_60 > 0 ? fmt(row.days_60) : ''"></td>
             <td class="px-4 py-2.5 text-right font-mono text-red-500" x-text="row.days_90 > 0 ? fmt(row.days_90) : ''"></td>
             <td class="px-4 py-2.5 text-right font-mono text-red-700 font-medium" x-text="row.over_90 > 0 ? fmt(row.over_90) : ''"></td>
-            <td class="px-4 py-2.5 text-right font-mono font-bold text-gray-800" x-text="fmt(row.total)"></td>
+            <td class="px-4 py-2.5 text-right font-mono font-bold text-gray-800" x-text="fmt(row.total_due)"></td>
           </tr>
         </template>
         <template x-if="!loading && (!report?.rows || report.rows.length === 0)">

@@ -1,0 +1,179 @@
+{% extends "base.html" %}
+{% block title %}บัญชีแยกประเภท{% endblock %}
+{% block page_title %}รายงาน — บัญชีแยกประเภท (General Ledger){% endblock %}
+
+{% block content %}
+<div x-data="ledgerReport('{{ default_date_from }}', '{{ default_date_to }}')" x-init="init()">
+
+  <!-- Filter bar -->
+  <div class="bg-white rounded-xl p-4 shadow-sm border border-gray-100 mb-4 flex items-center gap-3 flex-wrap">
+    <div class="flex items-center gap-2">
+      <label class="text-sm font-medium text-gray-700">บัญชี</label>
+      <select x-model="accountCode"
+        class="px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 min-w-[260px]">
+        <option value="">-- เลือกบัญชี --</option>
+        <template x-for="a in accounts" :key="a.code">
+          <option :value="a.code" x-text="a.code + ' — ' + a.name"></option>
+        </template>
+      </select>
+    </div>
+    <div class="flex items-center gap-2">
+      <label class="text-sm font-medium text-gray-700">จาก</label>
+      <input type="date" x-model="dateFrom"
+        class="px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"/>
+    </div>
+    <div class="flex items-center gap-2">
+      <label class="text-sm font-medium text-gray-700">ถึง</label>
+      <input type="date" x-model="dateTo"
+        class="px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"/>
+    </div>
+    <button @click="load()" :disabled="!accountCode"
+      class="px-4 py-2 bg-blue-700 text-white rounded-lg text-sm font-medium hover:bg-blue-800 disabled:opacity-50 disabled:cursor-not-allowed">
+      แสดงรายงาน
+    </button>
+  </div>
+
+  <!-- Summary cards -->
+  <template x-if="stmt">
+    <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
+      <div class="bg-white rounded-lg p-3 border border-gray-100 shadow-sm">
+        <p class="text-xs text-gray-500">บัญชี</p>
+        <p class="font-semibold text-gray-800 text-sm mt-0.5" x-text="stmt.account_code + ' ' + stmt.account_name"></p>
+      </div>
+      <div class="bg-white rounded-lg p-3 border border-gray-100 shadow-sm">
+        <p class="text-xs text-gray-500">ยอดยกมา</p>
+        <p class="font-mono font-semibold text-gray-800 mt-0.5" x-text="fmt(stmt.opening_balance)"></p>
+      </div>
+      <div class="bg-white rounded-lg p-3 border border-gray-100 shadow-sm">
+        <p class="text-xs text-gray-500">รวมเดบิต / เครดิต</p>
+        <p class="font-mono text-sm mt-0.5">
+          <span class="text-blue-700" x-text="fmt(stmt.total_debit)"></span>
+          <span class="text-gray-400 mx-1">/</span>
+          <span class="text-orange-600" x-text="fmt(stmt.total_credit)"></span>
+        </p>
+      </div>
+      <div class="bg-white rounded-lg p-3 border border-gray-100 shadow-sm">
+        <p class="text-xs text-gray-500">ยอดคงเหลือ</p>
+        <p class="font-mono font-bold text-gray-800 mt-0.5" x-text="fmt(stmt.closing_balance)"></p>
+      </div>
+    </div>
+  </template>
+
+  <!-- Table -->
+  <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+    <div class="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
+      <h2 class="font-semibold text-gray-800"
+        x-text="stmt ? ('รายการ: ' + stmt.account_code + ' ' + stmt.account_name) : 'เลือกบัญชีเพื่อแสดงรายการ'"></h2>
+      <div x-show="loading">
+        <svg class="animate-spin w-5 h-5 text-blue-600" fill="none" viewBox="0 0 24 24">
+          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+        </svg>
+      </div>
+    </div>
+
+    <table class="w-full text-sm">
+      <thead class="bg-gray-50 border-b border-gray-100">
+        <tr>
+          <th class="text-left px-4 py-3 font-medium text-gray-600 w-28">วันที่</th>
+          <th class="text-left px-4 py-3 font-medium text-gray-600 w-32">เลขที่</th>
+          <th class="text-left px-4 py-3 font-medium text-gray-600">รายการ</th>
+          <th class="text-right px-4 py-3 font-medium text-gray-600 w-32">เดบิต</th>
+          <th class="text-right px-4 py-3 font-medium text-gray-600 w-32">เครดิต</th>
+          <th class="text-right px-4 py-3 font-medium text-gray-600 w-32">ยอดคงเหลือ</th>
+        </tr>
+      </thead>
+      <tbody>
+        <!-- Opening balance row -->
+        <template x-if="stmt && stmt.opening_balance != 0">
+          <tr class="border-b border-gray-50 bg-blue-50">
+            <td class="px-4 py-2 text-gray-500 text-xs" x-text="stmt.date_from"></td>
+            <td class="px-4 py-2 text-gray-500 text-xs">—</td>
+            <td class="px-4 py-2 text-gray-500 text-xs italic">ยอดยกมา</td>
+            <td class="px-4 py-2 text-right font-mono text-xs text-gray-500"></td>
+            <td class="px-4 py-2 text-right font-mono text-xs text-gray-500"></td>
+            <td class="px-4 py-2 text-right font-mono text-sm font-medium text-blue-700" x-text="fmt(stmt.opening_balance)"></td>
+          </tr>
+        </template>
+
+        <template x-if="!loading && stmt && stmt.lines.length === 0">
+          <tr><td colspan="6" class="px-4 py-8 text-center text-gray-400">ไม่มีรายการในช่วงนี้</td></tr>
+        </template>
+        <template x-if="!loading && !stmt && !loading">
+          <tr><td colspan="6" class="px-4 py-8 text-center text-gray-400">เลือกบัญชีและกด "แสดงรายงาน"</td></tr>
+        </template>
+
+        <template x-for="ln in (stmt?.lines || [])" :key="ln.entry_no + ln.entry_date">
+          <tr class="border-b border-gray-50 hover:bg-gray-50">
+            <td class="px-4 py-2.5 text-gray-600 text-xs font-mono" x-text="ln.entry_date"></td>
+            <td class="px-4 py-2.5 text-blue-700 text-xs font-mono" x-text="ln.entry_no"></td>
+            <td class="px-4 py-2.5 text-gray-700">
+              <span x-text="ln.description"></span>
+              <span x-show="ln.line_description" class="text-gray-400 text-xs ml-1" x-text="'(' + ln.line_description + ')'"></span>
+            </td>
+            <td class="px-4 py-2.5 text-right font-mono text-blue-700" x-text="ln.debit_amount > 0 ? fmt(ln.debit_amount) : ''"></td>
+            <td class="px-4 py-2.5 text-right font-mono text-orange-600" x-text="ln.credit_amount > 0 ? fmt(ln.credit_amount) : ''"></td>
+            <td class="px-4 py-2.5 text-right font-mono font-medium text-gray-800" x-text="fmt(ln.running_balance)"></td>
+          </tr>
+        </template>
+      </tbody>
+      <tfoot x-show="stmt && stmt.lines.length > 0" class="border-t-2 border-gray-300 bg-gray-50 font-bold">
+        <tr>
+          <td colspan="3" class="px-4 py-3 text-gray-700">รวม</td>
+          <td class="px-4 py-3 text-right font-mono text-blue-700" x-text="fmt(stmt?.total_debit)"></td>
+          <td class="px-4 py-3 text-right font-mono text-orange-600" x-text="fmt(stmt?.total_credit)"></td>
+          <td class="px-4 py-3 text-right font-mono text-gray-800" x-text="fmt(stmt?.closing_balance)"></td>
+        </tr>
+      </tfoot>
+    </table>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function ledgerReport(initFrom, initTo) {
+  return {
+    accountCode: '',
+    dateFrom: initFrom,
+    dateTo: initTo,
+    accounts: [],
+    stmt: null,
+    loading: false,
+
+    async init() {
+      await this.loadAccounts();
+    },
+
+    async loadAccounts() {
+      const token = document.cookie.match(/access_token=([^;]+)/)?.[1] || '';
+      try {
+        const r = await fetch('/api/v1/coa/?include_headers=false', {
+          headers: { Authorization: 'Bearer ' + token }
+        });
+        const d = await r.json();
+        this.accounts = (d.data || d || []).filter(a => !a.is_header && a.is_active);
+        this.accounts.sort((a, b) => a.code.localeCompare(b.code));
+      } catch { this.accounts = []; }
+    },
+
+    async load() {
+      if (!this.accountCode) return;
+      this.loading = true;
+      const token = document.cookie.match(/access_token=([^;]+)/)?.[1] || '';
+      const params = new URLSearchParams({ date_from: this.dateFrom, date_to: this.dateTo });
+      try {
+        const r = await fetch(`/api/v1/ledger/${this.accountCode}?${params}`, {
+          headers: { Authorization: 'Bearer ' + token }
+        });
+        const d = await r.json();
+        this.stmt = d.data || d;
+      } catch { this.stmt = null; }
+      this.loading = false;
+    },
+
+    fmt(v) { return new Intl.NumberFormat('th-TH', { minimumFractionDigits: 2 }).format(v || 0); },
+  };
+}
+</script>
+{% endblock %}

@@ -88,12 +88,13 @@
   <div class="sb-section">รายงาน</div>
 
   <!-- Reports group -->
-  <div class="sb-group-head {% if '/reports' in request.url.path %}open{% endif %}" onclick="toggleGroup(this)">
+  <div class="sb-group-head {% if '/reports' in request.url.path or request.url.path == '/ledger' %}open{% endif %}" onclick="toggleGroup(this)">
     <span class="sb-item-icon">📊</span>
     รายงาน
     <span class="sb-group-chev {% if '/reports' in request.url.path %}open{% endif %}">▶</span>
   </div>
-  <div class="sb-sub {% if '/reports' in request.url.path %}open{% endif %}">
+  <div class="sb-sub {% if '/reports' in request.url.path or request.url.path == '/ledger' %}open{% endif %}">
+    <a href="/ledger" class="sb-item {% if request.url.path == '/ledger' %}active{% endif %}">บัญชีแยกประเภท</a>
     <a href="/reports/trial-balance" class="sb-item {% if '/reports/trial-balance' in request.url.path %}active{% endif %}">งบทดลอง</a>
     <a href="/reports/balance-sheet" class="sb-item {% if '/reports/balance-sheet' in request.url.path %}active{% endif %}">งบดุล</a>
     <a href="/reports/income" class="sb-item {% if '/reports/income' in request.url.path %}active{% endif %}">งบกำไรขาดทุน</a>
