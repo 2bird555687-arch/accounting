@@ -75,7 +75,24 @@
       <div class="space-y-3">
         <div>
           <label class="block text-xs text-gray-500 mb-1">ชื่อธนาคาร</label>
-          <input x-model="form.bank_name" class="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm"/>
+          <input x-model="form.bank_name" list="thai-banks-list" placeholder="เลือกหรือพิมพ์ชื่อธนาคาร..."
+            class="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm"/>
+          <datalist id="thai-banks-list">
+            <option value="ธนาคารกรุงเทพ (BBL)">
+            <option value="ธนาคารกสิกรไทย (KBANK)">
+            <option value="ธนาคารกรุงไทย (KTB)">
+            <option value="ธนาคารไทยพาณิชย์ (SCB)">
+            <option value="ธนาคารกรุงศรีอยุธยา (BAY)">
+            <option value="ธนาคารทหารไทยธนชาต (TTB)">
+            <option value="ธนาคารเกียรตินาคินภัทร (KKP)">
+            <option value="ธนาคารซีไอเอ็มบีไทย (CIMBT)">
+            <option value="ธนาคารยูโอบี (UOB)">
+            <option value="ธนาคารออมสิน (GSB)">
+            <option value="ธนาคารอาคารสงเคราะห์ (GHB)">
+            <option value="ธนาคารเพื่อการเกษตรและสหกรณ์การเกษตร (BAAC)">
+            <option value="ธนาคารอิสลามแห่งประเทศไทย (iBank)">
+            <option value="ธนาคารไทยเครดิต (CREDIT)">
+          </datalist>
         </div>
         <div class="grid grid-cols-2 gap-3">
           <div>
