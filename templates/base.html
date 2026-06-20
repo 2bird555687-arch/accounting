@@ -93,6 +93,17 @@
     <a href="/inventory/movements" class="sb-item {% if '/inventory/movements' in request.url.path %}active{% endif %}">ความเคลื่อนไหว</a>
   </div>
 
+  <div class="sb-section">ธนาคาร</div>
+  <div class="sb-group-head {% if '/bank/' in request.url.path %}open{% endif %}" onclick="toggleGroup(this)">
+    <span class="sb-item-icon">🏦</span>
+    ธนาคาร
+    <span class="sb-group-chev {% if '/bank/' in request.url.path %}open{% endif %}">▶</span>
+  </div>
+  <div class="sb-sub {% if '/bank/' in request.url.path %}open{% endif %}">
+    <a href="/bank/accounts" class="sb-item {% if '/bank/accounts' in request.url.path %}active{% endif %}">บัญชีธนาคาร</a>
+    <a href="/bank/transfers" class="sb-item {% if '/bank/transfers' in request.url.path %}active{% endif %}">โอนเงิน</a>
+  </div>
+
   <div class="sb-section">เครื่องมือ</div>
   <a href="/ocr" class="sb-item {% if '/ocr' in request.url.path %}active{% endif %}">
     <span class="sb-item-icon">📷</span>OCR สแกนเอกสาร

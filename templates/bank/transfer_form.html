@@ -1,0 +1,145 @@
+{% extends "base.html" %}
+{% block title %}โอนเงิน{% endblock %}
+{% block page_title %}ธนาคาร — โอนเงินระหว่างบัญชี{% endblock %}
+
+{% block content %}
+<div x-data="bankTransfer()" x-init="init()">
+
+  <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+
+    <!-- Form -->
+    <div class="lg:col-span-1 bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+      <h2 class="text-base font-bold mb-4">โอนเงิน</h2>
+      <div class="space-y-3">
+        <div>
+          <label class="block text-xs text-gray-500 mb-1">จากบัญชี</label>
+          <select x-model="form.from_bank_account_id" class="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm">
+            <option value="">— เลือกบัญชีต้นทาง —</option>
+            <template x-for="a in accounts" :key="a.id">
+              <option :value="a.id" x-text="a.bank_name + ' (' + a.coa_account_code + ') — ' + fmt(a.balance)"></option>
+            </template>
+          </select>
+        </div>
+        <div>
+          <label class="block text-xs text-gray-500 mb-1">ไปยังบัญชี</label>
+          <select x-model="form.to_bank_account_id" class="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm">
+            <option value="">— เลือกบัญชีปลายทาง —</option>
+            <template x-for="a in accounts" :key="a.id">
+              <option :value="a.id" x-text="a.bank_name + ' (' + a.coa_account_code + ')'"></option>
+            </template>
+          </select>
+        </div>
+        <div>
+          <label class="block text-xs text-gray-500 mb-1">จำนวนเงิน</label>
+          <input type="number" x-model="form.amount" class="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm text-right font-mono"/>
+        </div>
+        <div>
+          <label class="block text-xs text-gray-500 mb-1">วันที่</label>
+          <input type="date" x-model="form.transfer_date" class="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm"/>
+        </div>
+        <div>
+          <label class="block text-xs text-gray-500 mb-1">หมายเหตุ</label>
+          <textarea x-model="form.note" rows="2" class="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm resize-none"></textarea>
+        </div>
+
+        <!-- Preview JE -->
+        <div class="rounded-lg p-3 text-sm" style="background:var(--accent-l);" x-show="fromCoa() && toCoa()">
+          <div class="text-xs text-gray-500 mb-1">รายการบัญชีที่จะบันทึก</div>
+          <div class="font-mono">Dr <span x-text="toCoa()"></span> | Cr <span x-text="fromCoa()"></span></div>
+        </div>
+
+        <p x-show="error" x-text="error" class="text-sm text-red-600"></p>
+        <p x-show="success" class="text-sm" style="color:var(--green)">โอนเงินสำเร็จ</p>
+
+        <button @click="submit()" :disabled="saving || !form.from_bank_account_id || !form.to_bank_account_id || !(form.amount > 0)"
+          class="w-full py-2 rounded-lg bg-blue-700 text-white text-sm font-medium hover:bg-blue-800 disabled:opacity-50">
+          <span x-text="saving ? 'กำลังบันทึก...' : 'โอนเงิน'"></span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Recent transfers -->
+    <div class="lg:col-span-2 bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+      <div class="px-4 py-3 border-b border-gray-100 font-medium text-gray-700">ประวัติการโอนเงินล่าสุด</div>
+      <table class="w-full text-sm">
+        <thead class="bg-gray-50 border-b border-gray-100">
+          <tr>
+            <th class="text-left px-4 py-3 font-medium text-gray-600">วันที่</th>
+            <th class="text-left px-4 py-3 font-medium text-gray-600">จาก</th>
+            <th class="text-left px-4 py-3 font-medium text-gray-600">ไปยัง</th>
+            <th class="text-right px-4 py-3 font-medium text-gray-600">จำนวน</th>
+            <th class="text-left px-4 py-3 font-medium text-gray-600">เลขที่ JE</th>
+          </tr>
+        </thead>
+        <tbody>
+          <template x-if="transfers.length === 0">
+            <tr><td colspan="5" class="px-4 py-8 text-center text-gray-400">ยังไม่มีรายการโอนเงิน</td></tr>
+          </template>
+          <template x-for="t in transfers" :key="t.id">
+            <tr class="border-b border-gray-50">
+              <td class="px-4 py-3 text-gray-600" x-text="t.transfer_date"></td>
+              <td class="px-4 py-3 text-gray-700"><span x-text="t.from_name"></span> <span class="font-mono text-xs text-gray-400" x-text="'('+t.from_coa+')'"></span></td>
+              <td class="px-4 py-3 text-gray-700"><span x-text="t.to_name"></span> <span class="font-mono text-xs text-gray-400" x-text="'('+t.to_coa+')'"></span></td>
+              <td class="px-4 py-3 text-right font-mono font-medium" x-text="fmt(t.amount)"></td>
+              <td class="px-4 py-3 font-mono text-xs text-blue-600" x-text="t.journal_ref || '-'"></td>
+            </tr>
+          </template>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function bankTransfer() {
+  return {
+    accounts: [], transfers: [], saving: false, error: '', success: false,
+    form: { from_bank_account_id: '', to_bank_account_id: '', amount: 0, transfer_date: '{{ today }}', note: '' },
+    token() { return document.cookie.match(/access_token=([^;]+)/)?.[1] || ''; },
+    async init() { await this.loadAccounts(); await this.loadTransfers(); },
+    async loadAccounts() {
+      try {
+        const r = await fetch('/api/v1/bank/accounts', { headers: { Authorization: 'Bearer ' + this.token() } });
+        const d = await r.json();
+        this.accounts = d.data || d || [];
+      } catch { this.accounts = []; }
+    },
+    async loadTransfers() {
+      try {
+        const r = await fetch('/api/v1/bank/transfers', { headers: { Authorization: 'Bearer ' + this.token() } });
+        const d = await r.json();
+        this.transfers = d.data || d || [];
+      } catch { this.transfers = []; }
+    },
+    acct(id) { return this.accounts.find(a => String(a.id) === String(id)); },
+    fromCoa() { const a = this.acct(this.form.from_bank_account_id); return a ? a.coa_account_code : ''; },
+    toCoa() { const a = this.acct(this.form.to_bank_account_id); return a ? a.coa_account_code : ''; },
+    async submit() {
+      this.error = ''; this.success = false; this.saving = true;
+      try {
+        const payload = {
+          from_bank_account_id: Number(this.form.from_bank_account_id),
+          to_bank_account_id: Number(this.form.to_bank_account_id),
+          amount: Number(this.form.amount),
+          transfer_date: this.form.transfer_date,
+          note: this.form.note || null,
+        };
+        const r = await fetch('/api/v1/bank/transfers', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + this.token() },
+          body: JSON.stringify(payload),
+        });
+        if (!r.ok) { const d = await r.json(); this.error = d.detail || 'โอนเงินไม่สำเร็จ'; this.saving = false; return; }
+        this.success = true;
+        this.form.amount = 0; this.form.note = '';
+        await this.loadAccounts(); await this.loadTransfers();
+      } catch (e) { this.error = String(e); }
+      this.saving = false;
+    },
+    fmt(v) { return new Intl.NumberFormat('th-TH', { minimumFractionDigits: 2 }).format(v || 0); },
+  };
+}
+</script>
+{% endblock %}

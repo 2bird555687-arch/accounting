@@ -266,6 +266,26 @@ async def inv_product_detail(request: Request, product_id: int):
     return _r("inventory/product_detail.html", request, _ctx(ctx, product_id=product_id))
 
 
+# ── Bank ──────────────────────────────────────────────────────────────────────
+
+@router.get("/bank/accounts", response_class=HTMLResponse)
+async def bank_account_list(request: Request):
+    try:
+        ctx = await get_ui_context(request)
+    except UIRedirectException as e:
+        return RedirectResponse(url=e.url, status_code=302)
+    return _r("bank/account_list.html", request, _ctx(ctx))
+
+
+@router.get("/bank/transfers", response_class=HTMLResponse)
+async def bank_transfer_page(request: Request):
+    try:
+        ctx = await get_ui_context(request)
+    except UIRedirectException as e:
+        return RedirectResponse(url=e.url, status_code=302)
+    return _r("bank/transfer_form.html", request, _ctx(ctx))
+
+
 # ── OCR ───────────────────────────────────────────────────────────────────────
 
 @router.get("/ocr", response_class=HTMLResponse)

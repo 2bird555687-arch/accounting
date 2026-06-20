@@ -271,6 +271,44 @@ for db_path in glob.glob("data/firm_*/company_*/db.sqlite"):
         c.execute("CREATE INDEX ix_inv_stock_movements_company_id ON inv_stock_movements(company_id)")
         c.execute("CREATE INDEX ix_inv_stock_movements_product_id ON inv_stock_movements(product_id)")
 
+    # 5. Bank Accounts / Transfers — create if missing
+    tables = {r[0] for r in c.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+
+    if "bank_accounts" not in tables:
+        print("  + CREATE TABLE bank_accounts")
+        c.execute("""
+            CREATE TABLE bank_accounts (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                company_id INTEGER NOT NULL,
+                bank_name VARCHAR(100) NOT NULL,
+                account_number VARCHAR(30),
+                account_name VARCHAR(200),
+                account_type VARCHAR(10) NOT NULL DEFAULT 'current',
+                coa_account_code VARCHAR(10) NOT NULL,
+                is_active BOOLEAN NOT NULL DEFAULT 1,
+                created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+        c.execute("CREATE INDEX ix_bank_accounts_company_id ON bank_accounts(company_id)")
+
+    if "bank_transfers" not in tables:
+        print("  + CREATE TABLE bank_transfers")
+        c.execute("""
+            CREATE TABLE bank_transfers (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                company_id INTEGER NOT NULL,
+                from_bank_account_id INTEGER NOT NULL REFERENCES bank_accounts(id),
+                to_bank_account_id INTEGER NOT NULL REFERENCES bank_accounts(id),
+                amount NUMERIC(15,2) NOT NULL,
+                transfer_date DATE NOT NULL,
+                journal_ref VARCHAR(20),
+                note TEXT,
+                created_by INTEGER NOT NULL,
+                created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+        c.execute("CREATE INDEX ix_bank_transfers_company_id ON bank_transfers(company_id)")
+
     c.commit()
     c.close()
     print(f"  Done: {db_path}")

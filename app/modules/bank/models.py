@@ -1,14 +1,90 @@
-"""Bank Reconciliation models."""
+"""Bank Reconciliation + Bank Account / Transfer models."""
 
 from __future__ import annotations
 
+import enum
 from datetime import date, datetime
 from decimal import Decimal
 
-from sqlalchemy import Boolean, Date, DateTime, Integer, Numeric, String, Text, func
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy import Boolean, Date, DateTime, ForeignKey, Integer, Numeric, String, Text, func
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import CompanyBase as Base
+
+
+# ── Bank Account ──────────────────────────────────────────────────────────────
+
+class BankAccountType(str, enum.Enum):
+    """ประเภทบัญชีธนาคาร."""
+
+    CURRENT = "current"   # กระแสรายวัน
+    SAVINGS = "savings"   # ออมทรัพย์
+    CASH = "cash"         # เงินสดในมือ
+
+
+class BankAccount(Base):
+    """
+    บัญชีธนาคาร / เงินสด — ผูกกับรหัสบัญชีใน COA (เช่น 1101, 1102, 1103).
+
+    ยอดคงเหลือคำนวณจาก ledger ของ coa_account_code ไม่เก็บใน table นี้.
+    """
+
+    __tablename__ = "bank_accounts"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    company_id: Mapped[int] = mapped_column(Integer, nullable=False, index=True)
+
+    bank_name: Mapped[str] = mapped_column(String(100), nullable=False)
+    account_number: Mapped[str | None] = mapped_column(String(30))
+    account_name: Mapped[str | None] = mapped_column(String(200))
+    account_type: Mapped[str] = mapped_column(
+        String(10), nullable=False, default=BankAccountType.CURRENT.value
+    )
+    coa_account_code: Mapped[str] = mapped_column(String(10), nullable=False)
+
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+
+class BankTransfer(Base):
+    """
+    โอนเงินระหว่างบัญชีธนาคาร/เงินสด.
+
+    Journal (GJ): Dr [to.coa_account_code] | Cr [from.coa_account_code]
+    """
+
+    __tablename__ = "bank_transfers"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    company_id: Mapped[int] = mapped_column(Integer, nullable=False, index=True)
+
+    from_bank_account_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("bank_accounts.id"), nullable=False
+    )
+    to_bank_account_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("bank_accounts.id"), nullable=False
+    )
+    amount: Mapped[Decimal] = mapped_column(Numeric(15, 2), nullable=False)
+    transfer_date: Mapped[date] = mapped_column(Date, nullable=False)
+    journal_ref: Mapped[str | None] = mapped_column(String(20))
+    note: Mapped[str | None] = mapped_column(Text)
+
+    created_by: Mapped[int] = mapped_column(Integer, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+    from_account: Mapped[BankAccount] = relationship(
+        "BankAccount", foreign_keys=[from_bank_account_id]
+    )
+    to_account: Mapped[BankAccount] = relationship(
+        "BankAccount", foreign_keys=[to_bank_account_id]
+    )
+
+
+# ── Bank Reconciliation ───────────────────────────────────────────────────────
 
 
 class BankReconciliation(Base):
