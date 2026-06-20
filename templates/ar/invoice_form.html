@@ -172,7 +172,7 @@ function invoiceForm() {
   const today = new Date().toISOString().slice(0, 10);
   const due = new Date(Date.now() + 30 * 86400000).toISOString().slice(0, 10);
   return {
-    mode: 'credit',
+    mode: new URLSearchParams(location.search).get('mode') === 'cash' ? 'cash' : 'credit',
     form: {
       contact_id: null, invoice_date: today, due_date: due,
       reference: '', vat_rate: 7, notes: '',

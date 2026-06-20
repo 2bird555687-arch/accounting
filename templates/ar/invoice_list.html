@@ -25,12 +25,15 @@
       <option value="voided">ยกเลิก</option>
     </select>
 
-    <a href="/ar/invoices/new"
-      class="px-4 py-2 bg-blue-700 text-white rounded-lg text-sm font-medium hover:bg-blue-800 flex items-center gap-2">
-      <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
-      </svg>
-      ใบแจ้งหนี้ใหม่
+    <a href="/ar/invoices/new?mode=cash"
+      class="px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-1"
+      style="background:var(--teal-l);color:var(--teal);border:1px solid var(--teal);">
+      💵 ขายสด
+    </a>
+    <a href="/ar/invoices/new?mode=credit"
+      class="px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-1"
+      style="background:var(--accent-l);color:var(--accent);border:1px solid var(--accent);">
+      📅 ขายเชื่อ
     </a>
     <a href="/ar/receipts/new"
       class="px-4 py-2 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700 flex items-center gap-2">

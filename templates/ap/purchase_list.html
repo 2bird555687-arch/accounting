@@ -20,11 +20,15 @@
       <option value="paid">จ่ายแล้ว</option>
       <option value="voided">ยกเลิก</option>
     </select>
-    <a href="/ap/purchases/new" class="px-4 py-2 bg-blue-700 text-white rounded-lg text-sm font-medium hover:bg-blue-800 flex items-center gap-2">
-      <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
-      </svg>
-      บันทึกซื้อใหม่
+    <a href="/ap/purchases/new?mode=cash"
+      class="px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-1"
+      style="background:var(--teal-l);color:var(--teal);border:1px solid var(--teal);">
+      💵 ซื้อสด
+    </a>
+    <a href="/ap/purchases/new?mode=credit"
+      class="px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-1"
+      style="background:var(--accent-l);color:var(--accent);border:1px solid var(--accent);">
+      📅 ซื้อเชื่อ
     </a>
     <a href="/ap/payments/new" class="px-4 py-2 bg-orange-600 text-white rounded-lg text-sm font-medium hover:bg-orange-700">จ่ายชำระ</a>
     <a href="/ap/po" class="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-50">ใบสั่งซื้อ (PO)</a>
