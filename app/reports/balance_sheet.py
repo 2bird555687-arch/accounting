@@ -103,7 +103,19 @@ async def generate(
         )
     )
     if not period:
-        raise ValueError(f"ไม่พบงวดสำหรับวันที่ {as_of_date}")
+        return BalanceSheetReport(
+            as_of_date=str(as_of_date),
+            current_assets=BSSection(label="สินทรัพย์หมุนเวียน", lines=[], total=Decimal(0)),
+            non_current_assets=BSSection(label="สินทรัพย์ไม่หมุนเวียน", lines=[], total=Decimal(0)),
+            total_assets=Decimal(0),
+            current_liabilities=BSSection(label="หนี้สินหมุนเวียน", lines=[], total=Decimal(0)),
+            non_current_liabilities=BSSection(label="หนี้สินไม่หมุนเวียน", lines=[], total=Decimal(0)),
+            total_liabilities=Decimal(0),
+            equity=BSSection(label="ส่วนของเจ้าของ", lines=[], total=Decimal(0)),
+            total_equity=Decimal(0),
+            total_liabilities_equity=Decimal(0),
+            is_balanced=True,
+        )
 
     rows = await get_account_balances([period.id], branches, db, category_filter=["1", "2", "3"])
 

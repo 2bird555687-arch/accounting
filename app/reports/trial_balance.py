@@ -59,7 +59,13 @@ async def generate(
     """สร้าง Trial Balance สำหรับงวดที่ระบุ."""
     period = await get_period(year, month, db)
     if not period:
-        raise ValueError(f"ไม่พบงวด {year}/{month:02d}")
+        return TrialBalanceReport(
+            period=f"{year}/{month:02d}",
+            lines=[],
+            total_debit=Decimal(0),
+            total_credit=Decimal(0),
+            is_balanced=True,
+        )
 
     branches = branch_ids or [ctx.branch_id]
     rows = await get_account_balances([period.id], branches, db)
