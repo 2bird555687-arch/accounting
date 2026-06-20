@@ -1,0 +1,241 @@
+{% extends "base.html" %}
+{% block title %}ทะเบียนสินทรัพย์{% endblock %}
+{% block page_title %}สินทรัพย์ถาวร — ทะเบียนสินทรัพย์{% endblock %}
+
+{% block content %}
+<div x-data="assetList()" x-init="init()">
+
+  <!-- Stat cards -->
+  <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+    <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
+      <div class="text-xs text-gray-500">จำนวนสินทรัพย์</div>
+      <div class="text-2xl font-bold text-gray-800" x-text="items.length"></div>
+    </div>
+    <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
+      <div class="text-xs text-gray-500">ราคาทุนรวม</div>
+      <div class="text-2xl font-bold text-gray-800" x-text="fmt(totalCost())"></div>
+    </div>
+    <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
+      <div class="text-xs text-gray-500">มูลค่าตามบัญชีรวม</div>
+      <div class="text-2xl font-bold" style="color:var(--accent)" x-text="fmt(totalBookValue())"></div>
+    </div>
+  </div>
+
+  <!-- Toolbar -->
+  <div class="flex items-center justify-end gap-2 mb-4">
+    <button @click="runDepr()"
+      class="px-4 py-2 rounded-lg text-sm font-medium border border-gray-200">
+      📉 บันทึกค่าเสื่อมเดือนนี้
+    </button>
+    <button @click="openCreate()"
+      class="px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-1"
+      style="background:var(--accent-l);color:var(--accent);border:1px solid var(--accent);">
+      ➕ เพิ่มสินทรัพย์
+    </button>
+  </div>
+
+  <!-- Table -->
+  <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+    <table class="w-full text-sm">
+      <thead class="bg-gray-50 border-b border-gray-100">
+        <tr>
+          <th class="text-left px-4 py-3 font-medium text-gray-600">ชื่อสินทรัพย์</th>
+          <th class="text-center px-4 py-3 font-medium text-gray-600">รหัส COA</th>
+          <th class="text-center px-4 py-3 font-medium text-gray-600">วันที่ซื้อ</th>
+          <th class="text-right px-4 py-3 font-medium text-gray-600">ราคาทุน</th>
+          <th class="text-right px-4 py-3 font-medium text-gray-600">ค่าเสื่อม/เดือน</th>
+          <th class="text-right px-4 py-3 font-medium text-gray-600">เสื่อมสะสม</th>
+          <th class="text-right px-4 py-3 font-medium text-gray-600">มูลค่าตามบัญชี</th>
+          <th class="text-center px-4 py-3 font-medium text-gray-600">สถานะ</th>
+        </tr>
+      </thead>
+      <tbody>
+        <template x-if="loading">
+          <tr><td colspan="8" class="px-4 py-8 text-center text-gray-400">กำลังโหลด...</td></tr>
+        </template>
+        <template x-if="!loading && items.length === 0">
+          <tr><td colspan="8" class="px-4 py-8 text-center text-gray-400">ยังไม่มีสินทรัพย์</td></tr>
+        </template>
+        <template x-for="a in items" :key="a.id">
+          <tr class="border-b border-gray-50 hover:bg-gray-50">
+            <td class="px-4 py-3 text-gray-700 font-medium">
+              <span x-text="a.asset_name"></span>
+              <span class="text-xs text-gray-400 font-mono ml-1" x-text="a.asset_code"></span>
+            </td>
+            <td class="px-4 py-3 text-center font-mono text-blue-600" x-text="a.asset_account"></td>
+            <td class="px-4 py-3 text-center text-gray-600" x-text="a.purchase_date"></td>
+            <td class="px-4 py-3 text-right font-mono" x-text="fmt(a.cost)"></td>
+            <td class="px-4 py-3 text-right font-mono text-gray-600" x-text="fmt(monthlyDepr(a))"></td>
+            <td class="px-4 py-3 text-right font-mono text-gray-600" x-text="fmt(a.accumulated_depr)"></td>
+            <td class="px-4 py-3 text-right font-mono font-medium" x-text="fmt(a.book_value)"></td>
+            <td class="px-4 py-3 text-center">
+              <span class="inline-flex px-2 py-0.5 rounded-full text-xs font-medium"
+                :class="statusClass(a.status)" x-text="statusLabel(a.status)"></span>
+            </td>
+          </tr>
+        </template>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Create Modal -->
+  <div x-show="showCreate" x-cloak class="fixed inset-0 bg-black/40 flex items-center justify-center z-50"
+       @click.self="showCreate=false">
+    <div class="bg-white rounded-xl shadow-xl w-full max-w-lg p-6">
+      <h2 class="text-lg font-bold mb-4">เพิ่มสินทรัพย์</h2>
+      <div class="space-y-3">
+        <div>
+          <label class="block text-xs text-gray-500 mb-1">รหัสสินทรัพย์</label>
+          <input x-model="form.asset_code" placeholder="เช่น FA-0001"
+            class="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm font-mono"/>
+        </div>
+        <div>
+          <label class="block text-xs text-gray-500 mb-1">ชื่อสินทรัพย์</label>
+          <input x-model="form.asset_name" class="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm"/>
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs text-gray-500 mb-1">ประเภทสินทรัพย์</label>
+            <select x-model="form.category" class="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm">
+              <option value="vehicle">ยานพาหนะ (1260)</option>
+              <option value="it">คอมพิวเตอร์ (1250)</option>
+              <option value="equipment">เครื่องจักร (1240)</option>
+              <option value="building">อาคาร (1230)</option>
+              <option value="furniture">เครื่องตกแต่ง (1250)</option>
+              <option value="land">ที่ดิน (1220)</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs text-gray-500 mb-1">วันที่ซื้อ</label>
+            <input type="date" x-model="form.purchase_date" class="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm"/>
+          </div>
+        </div>
+        <div class="grid grid-cols-3 gap-3">
+          <div>
+            <label class="block text-xs text-gray-500 mb-1">ราคาทุน</label>
+            <input type="number" x-model.number="form.cost" class="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm"/>
+          </div>
+          <div>
+            <label class="block text-xs text-gray-500 mb-1">อายุ (ปี)</label>
+            <input type="number" x-model.number="form.life_years" class="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm"/>
+          </div>
+          <div>
+            <label class="block text-xs text-gray-500 mb-1">มูลค่าซาก</label>
+            <input type="number" x-model.number="form.salvage_value" class="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm"/>
+          </div>
+        </div>
+        <div>
+          <label class="block text-xs text-gray-500 mb-1">บัญชีที่จ่าย</label>
+          <select x-model="form.credit_account" class="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm">
+            <option value="2101">เจ้าหนี้การค้า (2101)</option>
+            <template x-for="b in banks" :key="b.id">
+              <option :value="b.coa_account_code" x-text="b.bank_name + ' (' + b.coa_account_code + ')'"></option>
+            </template>
+          </select>
+        </div>
+        <div class="bg-gray-50 rounded-lg p-3 text-sm">
+          ค่าเสื่อม/เดือน = <span class="font-mono font-medium" style="color:var(--accent)" x-text="fmt(previewMonthly())"></span>
+          <span class="text-xs text-gray-400">= (ราคาทุน − ซาก) / (อายุ × 12)</span>
+        </div>
+        <p x-show="error" x-text="error" class="text-sm text-red-600"></p>
+      </div>
+      <div class="flex justify-end gap-2 mt-5">
+        <button @click="showCreate=false" class="px-4 py-2 rounded-lg border border-gray-200 text-sm">ยกเลิก</button>
+        <button @click="save()" class="px-4 py-2 rounded-lg bg-blue-600 text-white text-sm">บันทึก</button>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function assetList() {
+  return {
+    items: [], banks: [], loading: false, showCreate: false, error: '', form: {},
+    token() { return document.cookie.match(/access_token=([^;]+)/)?.[1] || ''; },
+    hdr() { return { Authorization: 'Bearer ' + this.token() }; },
+    async init() { await this.load(); await this.loadBanks(); },
+    async load() {
+      this.loading = true;
+      try {
+        const r = await fetch('/api/v1/fa/assets', { headers: this.hdr() });
+        const d = await r.json();
+        this.items = d.data || d.items || d || [];
+      } catch { this.items = []; }
+      this.loading = false;
+    },
+    async loadBanks() {
+      try {
+        const r = await fetch('/api/v1/bank/accounts', { headers: this.hdr() });
+        const d = await r.json();
+        this.banks = d.data || d.items || d || [];
+      } catch { this.banks = []; }
+    },
+    totalCost() { return this.items.reduce((s, a) => s + Number(a.cost || 0), 0); },
+    totalBookValue() { return this.items.reduce((s, a) => s + Number(a.book_value || 0), 0); },
+    monthlyDepr(a) {
+      if (!a.useful_life_months) return 0;
+      return (Number(a.cost) - Number(a.salvage_value)) / a.useful_life_months;
+    },
+    previewMonthly() {
+      const c = Number(this.form.cost || 0), s = Number(this.form.salvage_value || 0), y = Number(this.form.life_years || 0);
+      if (y <= 0) return 0;
+      return (c - s) / (y * 12);
+    },
+    statusLabel(s) { return { active: 'ใช้งาน', fully_depreciated: 'เสื่อมเต็ม', disposed: 'ตัดจำหน่าย' }[s] || s; },
+    statusClass(s) {
+      return { active: 'bg-green-100 text-green-700', fully_depreciated: 'bg-yellow-100 text-yellow-700', disposed: 'bg-gray-200 text-gray-600' }[s] || 'bg-gray-100 text-gray-600';
+    },
+    openCreate() {
+      this.error = '';
+      this.form = { asset_code: '', asset_name: '', category: 'vehicle', purchase_date: '{{ today }}', cost: 0, life_years: 5, salvage_value: 0, credit_account: '2101' };
+      this.showCreate = true;
+    },
+    async save() {
+      this.error = '';
+      if (!this.form.asset_code || !this.form.asset_name) { this.error = 'กรุณากรอกรหัสและชื่อสินทรัพย์'; return; }
+      if (!(this.form.cost > this.form.salvage_value)) { this.error = 'ราคาทุนต้องมากกว่ามูลค่าซาก'; return; }
+      const payload = {
+        asset_code: this.form.asset_code,
+        asset_name: this.form.asset_name,
+        category: this.form.category,
+        purchase_date: this.form.purchase_date,
+        cost: this.form.cost,
+        salvage_value: this.form.salvage_value,
+        useful_life_months: Math.round(this.form.life_years * 12),
+        credit_account: this.form.credit_account,
+      };
+      try {
+        const r = await fetch('/api/v1/fa/assets', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', ...this.hdr() },
+          body: JSON.stringify(payload),
+        });
+        if (!r.ok) { const d = await r.json(); this.error = d.detail || 'บันทึกไม่สำเร็จ'; return; }
+        this.showCreate = false;
+        await this.load();
+      } catch (e) { this.error = String(e); }
+    },
+    async runDepr() {
+      const now = new Date();
+      const fy = now.getFullYear(), m = now.getMonth() + 1;
+      if (!confirm(`บันทึกค่าเสื่อมราคางวด ${fy}/${String(m).padStart(2,'0')} สำหรับสินทรัพย์ที่ใช้งานอยู่?`)) return;
+      try {
+        const r = await fetch('/api/v1/fa/depreciation/post', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', ...this.hdr() },
+          body: JSON.stringify({ fiscal_year: fy, month: m }),
+        });
+        if (!r.ok) { const d = await r.json(); alert(d.detail || 'บันทึกไม่สำเร็จ'); return; }
+        const recs = await r.json();
+        const total = (recs || []).reduce((s, x) => s + Number(x.depr_amount || 0), 0);
+        alert(`บันทึกค่าเสื่อม ${(recs || []).length} รายการ รวม ${this.fmt(total)} บาท`);
+        await this.load();
+      } catch (e) { alert(String(e)); }
+    },
+    fmt(v) { return new Intl.NumberFormat('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(v || 0); },
+  };
+}
+</script>
+{% endblock %}

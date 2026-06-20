@@ -1,16 +1,22 @@
-﻿"""FA โ€” Depreciation Service (calculate / post / schedule)."""
+"""FA — Depreciation Service (calculate / post / schedule)."""
 
 from __future__ import annotations
 
+from datetime import date
 from decimal import Decimal, ROUND_HALF_UP
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.context import AppContext, DrCr, JournalType
+from app.core.engine import (
+    JournalEntryInput,
+    JournalLineInput,
+    PostingEngine,
+    PostingError,
+)
 from app.modules.fa.models import AssetDepreciation, FixedAsset
 from app.modules.fa.schemas import DeprScheduleItem, DepreciationRecordOut, PostDepreciationIn
-from app.context import AppContext
-from app.core.engine import PostingEngine, JournalLineInput as JournalLineIn
 
 
 class DepreciationService:
@@ -23,7 +29,7 @@ class DepreciationService:
         month: int,
         asset_ids: list[int] | None = None,
     ) -> list[DeprScheduleItem]:
-        """เธเธณเธเธงเธ“เธเนเธฒเน€เธชเธทเนเธญเธกเธฃเธฒเธเธฒเธเธฃเธฐเธเธณเน€เธ”เธทเธญเธ (preview เธเนเธญเธ post)."""
+        """คำนวณค่าเสื่อมราคาประจำเดือน (preview ก่อน post)."""
         q = select(FixedAsset).where(
             FixedAsset.company_id == ctx.company_id,
             FixedAsset.status == "active",
@@ -39,7 +45,6 @@ class DepreciationService:
             if asset.months_depreciated >= asset.useful_life_months:
                 continue
 
-            # เธ•เธฃเธงเธเธงเนเธฒ period เธเธตเน posted เนเธฅเนเธงเธซเธฃเธทเธญเธขเธฑเธ
             posted = await db.scalar(
                 select(AssetDepreciation).where(
                     AssetDepreciation.asset_id == asset.id,
@@ -53,7 +58,7 @@ class DepreciationService:
             else:
                 depr_amount = asset.monthly_depr_declining()
 
-            # เธญเธขเนเธฒเนเธซเนเน€เธเธดเธ book_value - salvage_value
+            # อย่าให้เกิน book_value - salvage_value
             max_depr = asset.book_value - asset.salvage_value
             depr_amount = min(depr_amount, max_depr).quantize(Decimal("0.01"), ROUND_HALF_UP)
 
@@ -81,9 +86,9 @@ class DepreciationService:
     async def post_depreciation(
         data: PostDepreciationIn, ctx: AppContext, db: AsyncSession
     ) -> list[DepreciationRecordOut]:
-        """เธเธฑเธเธ—เธถเธเธเนเธฒเน€เธชเธทเนเธญเธกเธฃเธฒเธเธฒ โ€” Dr 6505 | Cr acc_depr_account (GJ)."""
+        """บันทึกค่าเสื่อมราคา — Dr 6504 | Cr acc_depr_account (GJ)."""
         if ctx.user_role not in ("firm_admin", "accountant"):
-            raise PermissionError("เธ•เนเธญเธเธเธฒเธฃเธชเธดเธ—เธเธดเน accountant เธเธถเนเธเนเธ")
+            raise PermissionError("ต้องการสิทธิ์ accountant ขึ้นไป")
 
         schedule = await DepreciationService.get_schedule(
             ctx=ctx,
@@ -92,6 +97,11 @@ class DepreciationService:
             month=data.month,
             asset_ids=data.asset_ids,
         )
+
+        # วันที่ลงบัญชี = สิ้นเดือนของงวด
+        import calendar
+        last_day = calendar.monthrange(data.fiscal_year, data.month)[1]
+        entry_date = date(data.fiscal_year, data.month, last_day)
 
         records: list[DepreciationRecordOut] = []
 
@@ -103,21 +113,28 @@ class DepreciationService:
             if not asset or not asset.acc_depr_account:
                 continue
 
-            # Journal: Dr 6505 | Cr acc_depr_account
-            lines = [
-                JournalLineIn(account_code=asset.depr_expense_account, dr_cr="DR", amount=item.depr_amount),
-                JournalLineIn(account_code=asset.acc_depr_account, dr_cr="CR", amount=item.depr_amount),
-            ]
-            je = await PostingEngine(db).post(
-                ctx=ctx,
-                journal_type="GJ",
-                lines=lines,
-                description=f"เธเนเธฒเน€เธชเธทเนเธญเธกเธฃเธฒเธเธฒ {asset.asset_code} {data.fiscal_year}/{data.month:02d}",
-                source_module="FA",
+            entry = JournalEntryInput(
+                journal_type=JournalType.GJ,
+                entry_date=entry_date,
+                description=f"ค่าเสื่อมราคา {asset.asset_code} {data.fiscal_year}/{data.month:02d}",
+                reference="FA-DEPR",
+                source_module="fa",
                 source_id=asset.id,
+                lines=[
+                    JournalLineInput(
+                        account_code=asset.depr_expense_account, side=DrCr.DR, amount=item.depr_amount
+                    ),
+                    JournalLineInput(
+                        account_code=asset.acc_depr_account, side=DrCr.CR, amount=item.depr_amount
+                    ),
+                ],
             )
+            try:
+                entry_no = await PostingEngine(db).post(entry, ctx)
+            except PostingError as e:
+                raise ValueError(str(e))
 
-            # เธญเธฑเธเน€เธ”เธ• asset
+            # อัปเดต asset
             asset.accumulated_depr = item.accumulated_depr_after
             asset.book_value = item.book_value_after
             asset.months_depreciated += 1
@@ -125,7 +142,6 @@ class DepreciationService:
             if asset.months_depreciated >= asset.useful_life_months:
                 asset.status = "fully_depreciated"
 
-            # เธเธฑเธเธ—เธถเธ AssetDepreciation
             rec = AssetDepreciation(
                 asset_id=asset.id,
                 fiscal_year=data.fiscal_year,
@@ -133,7 +149,7 @@ class DepreciationService:
                 depr_amount=item.depr_amount,
                 accumulated_depr_after=item.accumulated_depr_after,
                 book_value_after=item.book_value_after,
-                journal_entry_no=je.entry_no,
+                journal_entry_no=entry_no,
             )
             db.add(rec)
             await db.flush()
@@ -161,5 +177,3 @@ class DepreciationService:
         q = q.order_by(AssetDepreciation.asset_id, AssetDepreciation.fiscal_year, AssetDepreciation.month)
         rows = await db.scalars(q)
         return [DepreciationRecordOut.model_validate(r) for r in rows]
-
-

@@ -17,17 +17,18 @@ from app.database import CompanyBase as Base
 
 # ── บัญชีที่ใช้ตามประเภทสินทรัพย์ ─────────────────────────────────────────────
 # (asset_account, acc_depr_account, depreciable)
+# รหัสตรงกับ COA template จริง (app/platform/coa_template.py)
 ASSET_CATEGORY_ACCOUNTS: dict[str, tuple[str, Optional[str], bool]] = {
     "land":       ("1220", None,   False),   # ที่ดิน — ไม่คิดค่าเสื่อม
-    "building":   ("1222", "1223", True),    # อาคาร + ค่าเสื่อมสะสม
-    "equipment":  ("1230", "1231", True),    # เครื่องจักร
-    "vehicle":    ("1240", "1241", True),    # ยานพาหนะ
+    "building":   ("1230", "1231", True),    # อาคาร + ค่าเสื่อมราคาสะสม-อาคาร
+    "equipment":  ("1240", "1241", True),    # เครื่องจักรและอุปกรณ์
+    "vehicle":    ("1260", "1261", True),    # ยานพาหนะ
     "furniture":  ("1250", "1251", True),    # เครื่องใช้สำนักงาน
-    "it":         ("1260", "1261", True),    # คอมพิวเตอร์/IT
-    "other":      ("1260", "1261", True),
+    "it":         ("1250", "1251", True),    # คอมพิวเตอร์/IT → เครื่องใช้สำนักงาน
+    "other":      ("1240", "1241", True),
 }
 
-DEPR_EXPENSE_ACCOUNT = "6505"   # ค่าเสื่อมราคา
+DEPR_EXPENSE_ACCOUNT = "6504"   # ค่าเสื่อมราคา (6505 = ค่าซ่อมแซม)
 
 
 # ── Fixed Asset ───────────────────────────────────────────────────────────────

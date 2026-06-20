@@ -104,6 +104,16 @@
     <a href="/bank/transfers" class="sb-item {% if '/bank/transfers' in request.url.path %}active{% endif %}">โอนเงิน</a>
   </div>
 
+  <div class="sb-section">สินทรัพย์</div>
+  <div class="sb-group-head {% if '/assets' in request.url.path %}open{% endif %}" onclick="toggleGroup(this)">
+    <span class="sb-item-icon">🏗️</span>
+    สินทรัพย์ถาวร
+    <span class="sb-group-chev {% if '/assets' in request.url.path %}open{% endif %}">▶</span>
+  </div>
+  <div class="sb-sub {% if '/assets' in request.url.path %}open{% endif %}">
+    <a href="/assets" class="sb-item {% if '/assets' in request.url.path %}active{% endif %}">ทะเบียนสินทรัพย์</a>
+  </div>
+
   <div class="sb-section">เครื่องมือ</div>
   <a href="/ocr" class="sb-item {% if '/ocr' in request.url.path %}active{% endif %}">
     <span class="sb-item-icon">📷</span>OCR สแกนเอกสาร

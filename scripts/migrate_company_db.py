@@ -309,6 +309,65 @@ for db_path in glob.glob("data/firm_*/company_*/db.sqlite"):
         """)
         c.execute("CREATE INDEX ix_bank_transfers_company_id ON bank_transfers(company_id)")
 
+    # 6. Fixed Assets — create if missing
+    tables = {r[0] for r in c.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+
+    if "fa_assets" not in tables:
+        print("  + CREATE TABLE fa_assets")
+        c.execute("""
+            CREATE TABLE fa_assets (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                company_id INTEGER NOT NULL,
+                branch_id INTEGER NOT NULL,
+                asset_code VARCHAR(20) NOT NULL,
+                asset_name VARCHAR(200) NOT NULL,
+                description TEXT,
+                serial_no VARCHAR(100),
+                location VARCHAR(200),
+                category VARCHAR(20) NOT NULL DEFAULT 'equipment',
+                asset_account VARCHAR(10) NOT NULL,
+                acc_depr_account VARCHAR(10),
+                depr_expense_account VARCHAR(10) NOT NULL DEFAULT '6504',
+                purchase_date DATE NOT NULL,
+                cost NUMERIC(15,2) NOT NULL,
+                salvage_value NUMERIC(15,2) NOT NULL DEFAULT 0,
+                useful_life_months INTEGER NOT NULL,
+                depr_method VARCHAR(20) NOT NULL DEFAULT 'straight_line',
+                declining_rate NUMERIC(5,4),
+                accumulated_depr NUMERIC(15,2) NOT NULL DEFAULT 0,
+                book_value NUMERIC(15,2) NOT NULL DEFAULT 0,
+                months_depreciated INTEGER NOT NULL DEFAULT 0,
+                status VARCHAR(20) NOT NULL DEFAULT 'active',
+                purchase_journal_no VARCHAR(20),
+                disposal_journal_no VARCHAR(20),
+                disposed_at DATE,
+                disposal_proceeds NUMERIC(15,2),
+                created_by INTEGER NOT NULL,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE(company_id, asset_code)
+            )
+        """)
+        c.execute("CREATE INDEX ix_fa_assets_company_id ON fa_assets(company_id)")
+
+    if "fa_depreciation_records" not in tables:
+        print("  + CREATE TABLE fa_depreciation_records")
+        c.execute("""
+            CREATE TABLE fa_depreciation_records (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                asset_id INTEGER NOT NULL REFERENCES fa_assets(id),
+                fiscal_year INTEGER NOT NULL,
+                month INTEGER NOT NULL,
+                depr_amount NUMERIC(15,2) NOT NULL,
+                accumulated_depr_after NUMERIC(15,2) NOT NULL,
+                book_value_after NUMERIC(15,2) NOT NULL,
+                journal_entry_no VARCHAR(20),
+                posted_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE(asset_id, fiscal_year, month)
+            )
+        """)
+        c.execute("CREATE INDEX ix_fa_depreciation_records_asset_id ON fa_depreciation_records(asset_id)")
+
     c.commit()
     c.close()
     print(f"  Done: {db_path}")
