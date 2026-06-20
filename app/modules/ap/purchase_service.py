@@ -92,6 +92,7 @@ class PurchaseService:
             vat_amount += vat_a
             line_records.append(APPurchaseLine(
                 line_no=i,
+                product_id=getattr(ln, "product_id", None),
                 description=ln.description,
                 account_code=ln.account_code,
                 unit=ln.unit,
@@ -212,7 +213,41 @@ class PurchaseService:
             purchase.status = "posted"
         await self._db.flush()
 
+        # ── Inventory integration: รับสต็อกเข้าสำหรับบรรทัดที่ผูกสินค้า ──
+        await self._receive_stock_for_lines(purchase, line_records, ctx)
+
         return _to_detail(purchase, contact, line_records)
+
+    async def _receive_stock_for_lines(
+        self, purchase: APPurchase, line_records: list[APPurchaseLine], ctx: AppContext
+    ) -> None:
+        """รับสต็อกเข้าคลังสำหรับบรรทัด purchase ที่ผูก product_id.
+
+        Additive — ไม่กระทบ logic AP เดิม. หมายเหตุ: JE รับสินค้าถูก post โดย
+        AP แล้ว (Dr 1130) จึงเรียก receive แบบ post_journal=False เพื่อเลี่ยง
+        การ post ซ้ำ — InventoryService.receive จะอัปเดต lot/cost/qty เท่านั้น.
+        """
+        product_lines = [lr for lr in line_records if getattr(lr, "product_id", None)]
+        if not product_lines:
+            return
+        from app.modules.inv.inventory_service import InventoryService
+        from app.modules.inv.schemas import ReceiveStockIn
+        for lr in product_lines:
+            await InventoryService.receive(
+                ReceiveStockIn(
+                    product_id=lr.product_id,
+                    movement_date=purchase.purchase_date,
+                    quantity=lr.quantity,
+                    unit_cost=lr.unit_price,
+                    source="purchase",
+                    source_ref=purchase.purchase_no,
+                    reference=purchase.purchase_no,
+                    ap_purchase_id=purchase.id,
+                    post_journal=False,
+                ),
+                ctx,
+                self._db,
+            )
 
     # ── List ──────────────────────────────────────────────────────────────────
 

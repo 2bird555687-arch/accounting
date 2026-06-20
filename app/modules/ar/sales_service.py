@@ -88,6 +88,7 @@ class InvoiceService:
             vat_amount += vat_a
             line_records.append(ARInvoiceLine(
                 line_no=i,
+                product_id=getattr(ln, "product_id", None),
                 description=ln.description,
                 account_code=ln.account_code,
                 unit=ln.unit,
@@ -233,7 +234,37 @@ class InvoiceService:
             invoice.status = "posted"
         await self._db.flush()
 
+        # ── Inventory integration: ตัดสต็อกสำหรับบรรทัดที่ผูกสินค้า ──
+        await self._issue_stock_for_lines(invoice, line_records, ctx)
+
         return await self._to_detail(invoice, contact)
+
+    async def _issue_stock_for_lines(
+        self, invoice: ARInvoice, line_records: list[ARInvoiceLine], ctx: AppContext
+    ) -> None:
+        """เบิกสต็อกออก (COGS) สำหรับบรรทัด invoice ที่ผูก product_id.
+
+        Additive — ไม่กระทบ logic AR เดิม. ความผิดพลาด (สต็อกไม่พอ ฯลฯ)
+        จะถูกโยนออกไปเพื่อ rollback ทั้ง transaction.
+        """
+        product_lines = [lr for lr in line_records if getattr(lr, "product_id", None)]
+        if not product_lines:
+            return
+        from app.modules.inv.inventory_service import InventoryService
+        from app.modules.inv.schemas import IssueStockIn
+        for lr in product_lines:
+            await InventoryService.issue(
+                IssueStockIn(
+                    product_id=lr.product_id,
+                    movement_date=invoice.invoice_date,
+                    quantity=lr.quantity,
+                    reference=invoice.invoice_no,
+                    source_module="ar",
+                    source_id=invoice.id,
+                ),
+                ctx,
+                self._db,
+            )
 
     # ── List ──────────────────────────────────────────────────────────────────
 

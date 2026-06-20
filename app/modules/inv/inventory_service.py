@@ -1,4 +1,7 @@
-﻿"""INV โ€” Inventory Service (receive / issue / adjust / stock balance)."""
+"""INV — Inventory Service (receive / issue / adjust / stock balance).
+
+ทุก Journal Entry ถูก post ผ่าน PostingEngine.post(JournalEntryInput, ctx) เท่านั้น.
+"""
 
 from __future__ import annotations
 
@@ -17,8 +20,11 @@ from app.modules.inv.schemas import (
     StockBalance,
     StockMovementOut,
 )
-from app.context import AppContext
-from app.core.engine import PostingEngine, JournalLineInput as JournalLineIn
+from app.context import AppContext, DrCr, JournalType
+from app.core.engine import PostingEngine, JournalEntryInput, JournalLineInput
+
+_TWO = Decimal("0.01")
+_FOUR = Decimal("0.0001")
 
 
 async def _next_movement_no(company_id: int, movement_date: date, prefix: str, db: AsyncSession) -> str:
@@ -38,9 +44,13 @@ class InventoryService:
 
     @staticmethod
     async def receive(data: ReceiveStockIn, ctx: AppContext, db: AsyncSession) -> StockMovementOut:
-        """เธฃเธฑเธเธชเธดเธเธเนเธฒเน€เธเนเธฒเธเธฅเธฑเธ โ€” Dr 1130 | Cr เธ•เธฒเธก AP/เน€เธเธดเธเธชเธ” (GJ)."""
+        """รับสินค้าเข้าคลัง — Dr 1130 | Cr 2101 (GJ).
+
+        ถ้า data.post_journal=False จะอัปเดต lot/cost/qty เท่านั้น ไม่ post JE
+        (ใช้กรณี AP สร้าง JE Dr 1130 ให้แล้ว เพื่อเลี่ยงการ post ซ้ำ).
+        """
         if ctx.user_role not in ("firm_admin", "accountant", "junior"):
-            raise PermissionError("เนเธกเนเธกเธตเธชเธดเธ—เธเธดเนเธฃเธฑเธเธชเธดเธเธเนเธฒ")
+            raise PermissionError("ไม่มีสิทธิ์รับสินค้า")
 
         product = await db.scalar(
             select(Product).where(
@@ -49,13 +59,13 @@ class InventoryService:
             )
         )
         if not product:
-            raise ValueError("เนเธกเนเธเธเธชเธดเธเธเนเธฒ")
+            raise ValueError("ไม่พบสินค้า")
 
         qty = data.quantity
         unit_cost = data.unit_cost
-        total_cost = (qty * unit_cost).quantize(Decimal("0.01"), ROUND_HALF_UP)
+        total_cost = (qty * unit_cost).quantize(_TWO, ROUND_HALF_UP)
 
-        # เธญเธฑเธเน€เธ”เธ• lot (FIFO)
+        # สร้าง lot (FIFO)
         lot: ProductLot | None = None
         if product.cost_method == "fifo":
             lot_no = data.lot_no or f"L{data.movement_date.strftime('%Y%m%d')}-{data.source_ref or 'RCV'}"
@@ -72,22 +82,22 @@ class InventoryService:
             db.add(lot)
             await db.flush()
 
-        # เธญเธฑเธเน€เธ”เธ• average cost
+        # อัปเดต average cost / stock
         old_qty = product.quantity_on_hand
-        old_value = product.total_value
         new_qty = old_qty + qty
-        new_value = old_value + total_cost
+        new_value = product.total_value + total_cost
 
         if product.cost_method == "average":
-            product.current_cost = (new_value / new_qty).quantize(Decimal("0.0001"), ROUND_HALF_UP) if new_qty else unit_cost
+            product.current_cost = (
+                (new_value / new_qty).quantize(_FOUR, ROUND_HALF_UP) if new_qty else unit_cost
+            )
         else:
-            product.current_cost = unit_cost  # FIFO เนเธเน last received cost เน€เธเนเธ approximation
+            product.current_cost = unit_cost  # FIFO: last received cost (approx)
 
         product.quantity_on_hand = new_qty
         product.total_value = new_value
 
         movement_no = await _next_movement_no(ctx.company_id, data.movement_date, "RCV", db)
-
         mv = StockMovement(
             company_id=ctx.company_id,
             branch_id=ctx.branch_id,
@@ -107,34 +117,36 @@ class InventoryService:
             source_id=data.ap_purchase_id,
             created_by=ctx.user_id,
         )
-
-        # Journal: Dr 1130 | Cr เน€เธเนเธฒเธซเธเธตเน/เน€เธเธดเธเธชเธ”
-        lines = [
-            JournalLineIn(account_code=product.inventory_account, dr_cr="DR", amount=total_cost),
-            JournalLineIn(account_code="2101", dr_cr="CR", amount=total_cost),
-        ]
-        je = await PostingEngine(db).post(
-            ctx=ctx,
-            journal_type="GJ",
-            lines=lines,
-            description=f"เธฃเธฑเธเธชเธดเธเธเนเธฒ {product.sku} x{qty} @ {unit_cost}",
-            source_module="INV",
-            source_id=None,
-        )
-        mv.journal_entry_no = je.entry_no
         db.add(mv)
+        await db.flush()
+
+        if getattr(data, "post_journal", True):
+            entry = JournalEntryInput(
+                journal_type=JournalType.GJ,
+                entry_date=data.movement_date,
+                description=f"รับสินค้า {product.sku} x{qty} @ {unit_cost}",
+                lines=[
+                    JournalLineInput(account_code=product.inventory_account, side=DrCr.DR, amount=total_cost),
+                    JournalLineInput(account_code="2101", side=DrCr.CR, amount=total_cost),
+                ],
+                reference=data.reference,
+                source_module="inv",
+                source_id=mv.id,
+            )
+            mv.journal_entry_no = await PostingEngine(db).post(entry, ctx)
+
         await db.flush()
         await db.refresh(mv)
         return StockMovementOut.model_validate(mv)
 
     @staticmethod
     async def issue(data: IssueStockIn, ctx: AppContext, db: AsyncSession) -> list[StockMovementOut]:
-        """เธเนเธฒเธขเธชเธดเธเธเนเธฒเธญเธญเธเธเธฅเธฑเธ โ€” Dr 5101 (COGS) | Cr 1130 (GJ).
+        """จ่ายสินค้าออกจากคลัง — Dr 5101 (COGS) | Cr 1130 (GJ).
 
-        เธชเธณเธซเธฃเธฑเธ FIFO เธเธฐ return เธซเธฅเธฒเธข movement (1 lot เธ•เนเธญ 1 movement)
+        FIFO จะ return หลาย movement (1 lot ต่อ 1 movement).
         """
         if ctx.user_role not in ("firm_admin", "accountant", "junior"):
-            raise PermissionError("เนเธกเนเธกเธตเธชเธดเธ—เธเธดเนเธเนเธฒเธขเธชเธดเธเธเนเธฒ")
+            raise PermissionError("ไม่มีสิทธิ์จ่ายสินค้า")
 
         product = await db.scalar(
             select(Product).where(
@@ -143,116 +155,103 @@ class InventoryService:
             )
         )
         if not product:
-            raise ValueError("เนเธกเนเธเธเธชเธดเธเธเนเธฒ")
+            raise ValueError("ไม่พบสินค้า")
 
         if product.quantity_on_hand < data.quantity:
-            raise ValueError(f"เธชเธดเธเธเนเธฒเนเธกเนเธเธญ (เธเธเน€เธซเธฅเธทเธญ {product.quantity_on_hand})")
+            raise ValueError(f"สต็อกไม่พอ มีเพียง {product.quantity_on_hand} {product.unit}")
 
         results: list[StockMovementOut] = []
-        remaining = data.quantity
 
         if product.cost_method == "fifo":
-            lots = await db.scalars(
+            remaining = data.quantity
+            lots = list(await db.scalars(
                 select(ProductLot).where(
                     ProductLot.product_id == product.id,
                     ProductLot.remaining_qty > 0,
                 ).order_by(ProductLot.received_date, ProductLot.id)
-            )
+            ))
             for lot in lots:
                 if remaining <= 0:
                     break
                 take = min(lot.remaining_qty, remaining)
-                cost = (take * lot.unit_cost).quantize(Decimal("0.01"), ROUND_HALF_UP)
+                cost = (take * lot.unit_cost).quantize(_TWO, ROUND_HALF_UP)
                 lot.remaining_qty -= take
                 remaining -= take
                 product.quantity_on_hand -= take
                 product.total_value -= cost
 
-                movement_no = await _next_movement_no(ctx.company_id, data.movement_date, "ISS", db)
-                mv = StockMovement(
-                    company_id=ctx.company_id,
-                    branch_id=ctx.branch_id,
-                    product_id=product.id,
-                    movement_no=movement_no,
-                    movement_date=data.movement_date,
-                    movement_type="issue",
-                    quantity=take,
-                    unit_cost=lot.unit_cost,
-                    total_cost=cost,
-                    qty_after=product.quantity_on_hand,
-                    value_after=product.total_value,
-                    lot_id=lot.id,
-                    reference=data.reference,
-                    reason=data.reason,
-                    source_module=data.source_module,
-                    source_id=data.source_id,
-                    created_by=ctx.user_id,
+                mv = await InventoryService._write_issue_movement(
+                    db, ctx, product, data, take, lot.unit_cost, cost, lot_id=lot.id
                 )
-                lines = [
-                    JournalLineIn(account_code=product.cogs_account, dr_cr="DR", amount=cost),
-                    JournalLineIn(account_code=product.inventory_account, dr_cr="CR", amount=cost),
-                ]
-                je = await PostingEngine(db).post(
-                    ctx=ctx, journal_type="GJ", lines=lines,
-                    description=f"เธเนเธฒเธขเธชเธดเธเธเนเธฒ {product.sku} x{take} FIFO",
-                    source_module="INV", source_id=None,
-                )
-                mv.journal_entry_no = je.entry_no
-                db.add(mv)
-                await db.flush()
-                await db.refresh(mv)
                 results.append(StockMovementOut.model_validate(mv))
         else:
-            # Average cost
             qty = data.quantity
             unit_cost = product.current_cost
-            total_cost = (qty * unit_cost).quantize(Decimal("0.01"), ROUND_HALF_UP)
+            total_cost = (qty * unit_cost).quantize(_TWO, ROUND_HALF_UP)
             product.quantity_on_hand -= qty
             product.total_value -= total_cost
             if product.total_value < 0:
                 product.total_value = Decimal(0)
 
-            movement_no = await _next_movement_no(ctx.company_id, data.movement_date, "ISS", db)
-            mv = StockMovement(
-                company_id=ctx.company_id,
-                branch_id=ctx.branch_id,
-                product_id=product.id,
-                movement_no=movement_no,
-                movement_date=data.movement_date,
-                movement_type="issue",
-                quantity=qty,
-                unit_cost=unit_cost,
-                total_cost=total_cost,
-                qty_after=product.quantity_on_hand,
-                value_after=product.total_value,
-                reference=data.reference,
-                reason=data.reason,
-                source_module=data.source_module,
-                source_id=data.source_id,
-                created_by=ctx.user_id,
+            mv = await InventoryService._write_issue_movement(
+                db, ctx, product, data, qty, unit_cost, total_cost, lot_id=None
             )
-            lines = [
-                JournalLineIn(account_code=product.cogs_account, dr_cr="DR", amount=total_cost),
-                JournalLineIn(account_code=product.inventory_account, dr_cr="CR", amount=total_cost),
-            ]
-            je = await PostingEngine(db).post(
-                ctx=ctx, journal_type="GJ", lines=lines,
-                description=f"เธเนเธฒเธขเธชเธดเธเธเนเธฒ {product.sku} x{qty} @ avg {unit_cost}",
-                source_module="INV", source_id=None,
-            )
-            mv.journal_entry_no = je.entry_no
-            db.add(mv)
-            await db.flush()
-            await db.refresh(mv)
             results.append(StockMovementOut.model_validate(mv))
 
         return results
 
     @staticmethod
+    async def _write_issue_movement(
+        db: AsyncSession, ctx: AppContext, product: Product, data: IssueStockIn,
+        qty: Decimal, unit_cost: Decimal, total_cost: Decimal, lot_id: int | None,
+    ) -> StockMovement:
+        movement_no = await _next_movement_no(ctx.company_id, data.movement_date, "ISS", db)
+        mv = StockMovement(
+            company_id=ctx.company_id,
+            branch_id=ctx.branch_id,
+            product_id=product.id,
+            movement_no=movement_no,
+            movement_date=data.movement_date,
+            movement_type="issue",
+            quantity=qty,
+            unit_cost=unit_cost,
+            total_cost=total_cost,
+            qty_after=product.quantity_on_hand,
+            value_after=product.total_value,
+            lot_id=lot_id,
+            reference=data.reference,
+            reason=data.reason,
+            source_module=data.source_module,
+            source_id=data.source_id,
+            created_by=ctx.user_id,
+        )
+        db.add(mv)
+        await db.flush()
+
+        # COGS เป็น 0 ได้ (สินค้าต้นทุน 0) — ข้าม posting ถ้า total_cost == 0
+        if total_cost > 0:
+            entry = JournalEntryInput(
+                journal_type=JournalType.GJ,
+                entry_date=data.movement_date,
+                description=f"จ่ายสินค้า {product.sku} x{qty} @ {unit_cost}",
+                lines=[
+                    JournalLineInput(account_code=product.cogs_account, side=DrCr.DR, amount=total_cost),
+                    JournalLineInput(account_code=product.inventory_account, side=DrCr.CR, amount=total_cost),
+                ],
+                reference=data.reference,
+                source_module="inv",
+                source_id=mv.id,
+            )
+            mv.journal_entry_no = await PostingEngine(db).post(entry, ctx)
+        await db.flush()
+        await db.refresh(mv)
+        return mv
+
+    @staticmethod
     async def adjust(data: AdjustStockIn, ctx: AppContext, db: AsyncSession) -> StockMovementOut:
-        """เธเธฃเธฑเธเธเธฃเธดเธกเธฒเธ“เธชเธดเธเธเนเธฒ โ€” Dr/Cr 1130 (GJ)."""
+        """ปรับปริมาณสินค้า — Dr/Cr 1130 vs 5901 (GJ)."""
         if ctx.user_role not in ("firm_admin", "accountant"):
-            raise PermissionError("เธ•เนเธญเธเธเธฒเธฃเธชเธดเธ—เธเธดเน accountant เธเธถเนเธเนเธเธชเธณเธซเธฃเธฑเธเธเธฒเธฃเธเธฃเธฑเธเธเธฃเธดเธกเธฒเธ“")
+            raise PermissionError("ต้องเป็น accountant ขึ้นไปจึงจะปรับปริมาณได้")
 
         product = await db.scalar(
             select(Product).where(
@@ -261,31 +260,30 @@ class InventoryService:
             )
         )
         if not product:
-            raise ValueError("เนเธกเนเธเธเธชเธดเธเธเนเธฒ")
+            raise ValueError("ไม่พบสินค้า")
 
         old_qty = product.quantity_on_hand
         new_qty = data.new_quantity
         diff = new_qty - old_qty
-        unit_cost = data.new_unit_cost or product.current_cost
-        total_cost = (abs(diff) * unit_cost).quantize(Decimal("0.01"), ROUND_HALF_UP)
-
         if diff == 0:
-            raise ValueError("เธเธฃเธดเธกเธฒเธ“เน€เธ—เนเธฒเน€เธ”เธดเธก เนเธกเนเธกเธตเธเธฒเธฃเธเธฃเธฑเธ")
+            raise ValueError("ปริมาณเท่าเดิม ไม่มีการปรับ")
 
+        unit_cost = data.new_unit_cost or product.current_cost
+        total_cost = (abs(diff) * unit_cost).quantize(_TWO, ROUND_HALF_UP)
         movement_type = "adjust_in" if diff > 0 else "adjust_out"
 
         if diff > 0:
             product.quantity_on_hand = new_qty
             product.total_value += total_cost
-            dr_acc, cr_acc = product.inventory_account, "5901"  # Cr เธเนเธฒเธเธฃเธฑเธเธเธฃเธดเธกเธฒเธ“
+            dr_acc, cr_acc = product.inventory_account, "5901"
         else:
             product.quantity_on_hand = new_qty
             product.total_value = max(Decimal(0), product.total_value - total_cost)
-            dr_acc, cr_acc = "5901", product.inventory_account  # Dr เธเนเธฒเธเธฃเธฑเธเธเธฃเธดเธกเธฒเธ“
+            dr_acc, cr_acc = "5901", product.inventory_account
 
         if product.quantity_on_hand > 0:
             product.current_cost = (product.total_value / product.quantity_on_hand).quantize(
-                Decimal("0.0001"), ROUND_HALF_UP
+                _FOUR, ROUND_HALF_UP
             )
 
         movement_no = await _next_movement_no(ctx.company_id, data.movement_date, "ADJ", db)
@@ -304,26 +302,29 @@ class InventoryService:
             reason=data.reason,
             created_by=ctx.user_id,
         )
-        lines = [
-            JournalLineIn(account_code=dr_acc, dr_cr="DR", amount=total_cost),
-            JournalLineIn(account_code=cr_acc, dr_cr="CR", amount=total_cost),
-        ]
-        je = await PostingEngine(db).post(
-            ctx=ctx, journal_type="GJ", lines=lines,
-            description=f"เธเธฃเธฑเธเธชเธ•เนเธญเธ {product.sku}: {old_qty} โ’ {new_qty}",
-            source_module="INV", source_id=None,
-        )
-        mv.journal_entry_no = je.entry_no
         db.add(mv)
+        await db.flush()
+
+        if total_cost > 0:
+            entry = JournalEntryInput(
+                journal_type=JournalType.GJ,
+                entry_date=data.movement_date,
+                description=f"ปรับสต็อก {product.sku}: {old_qty} -> {new_qty}",
+                lines=[
+                    JournalLineInput(account_code=dr_acc, side=DrCr.DR, amount=total_cost),
+                    JournalLineInput(account_code=cr_acc, side=DrCr.CR, amount=total_cost),
+                ],
+                source_module="inv",
+                source_id=mv.id,
+            )
+            mv.journal_entry_no = await PostingEngine(db).post(entry, ctx)
         await db.flush()
         await db.refresh(mv)
         return StockMovementOut.model_validate(mv)
 
     @staticmethod
     async def get_stock_balance(
-        ctx: AppContext,
-        db: AsyncSession,
-        product_id: int | None = None,
+        ctx: AppContext, db: AsyncSession, product_id: int | None = None,
     ) -> list[StockBalance]:
         q = select(Product).where(
             Product.company_id == ctx.company_id,
@@ -361,11 +362,8 @@ class InventoryService:
 
     @staticmethod
     async def list_movements(
-        ctx: AppContext,
-        db: AsyncSession,
-        product_id: int | None = None,
-        skip: int = 0,
-        limit: int = 100,
+        ctx: AppContext, db: AsyncSession,
+        product_id: int | None = None, skip: int = 0, limit: int = 100,
     ) -> list[StockMovementOut]:
         q = select(StockMovement).where(StockMovement.company_id == ctx.company_id)
         if product_id:
@@ -373,5 +371,3 @@ class InventoryService:
         q = q.order_by(StockMovement.movement_date.desc(), StockMovement.id.desc()).offset(skip).limit(limit)
         rows = await db.scalars(q)
         return [StockMovementOut.model_validate(r) for r in rows]
-
-

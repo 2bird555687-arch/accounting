@@ -258,6 +258,9 @@ class APPurchaseLine(Base):
     )
     line_no: Mapped[int] = mapped_column(Integer, nullable=False)
 
+    product_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("inv_products.id"), nullable=True
+    )
     description: Mapped[str] = mapped_column(String(500), nullable=False)
     account_code: Mapped[str] = mapped_column(String(10), nullable=False)
     unit: Mapped[Optional[str]] = mapped_column(String(20))

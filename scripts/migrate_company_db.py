@@ -183,6 +183,94 @@ for db_path in glob.glob("data/firm_*/company_*/db.sqlite"):
             )
         """)
 
+    # 3. AR/AP lines: add product_id if missing
+    ar_line_cols = {r[1] for r in c.execute("PRAGMA table_info(ar_invoice_lines)")}
+    if ar_line_cols and "product_id" not in ar_line_cols:
+        print("  + ALTER TABLE ar_invoice_lines ADD COLUMN product_id INTEGER")
+        c.execute("ALTER TABLE ar_invoice_lines ADD COLUMN product_id INTEGER")
+    ap_line_cols = {r[1] for r in c.execute("PRAGMA table_info(ap_purchase_lines)")}
+    if ap_line_cols and "product_id" not in ap_line_cols:
+        print("  + ALTER TABLE ap_purchase_lines ADD COLUMN product_id INTEGER")
+        c.execute("ALTER TABLE ap_purchase_lines ADD COLUMN product_id INTEGER")
+
+    # 4. Inventory tables — create if missing
+    tables = {r[0] for r in c.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+
+    if "inv_products" not in tables:
+        print("  + CREATE TABLE inv_products")
+        c.execute("""
+            CREATE TABLE inv_products (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                company_id INTEGER NOT NULL,
+                sku VARCHAR(50) NOT NULL,
+                name VARCHAR(200) NOT NULL,
+                name_en VARCHAR(200),
+                description TEXT,
+                category VARCHAR(100),
+                unit VARCHAR(20) NOT NULL DEFAULT 'ชิ้น',
+                cost_method VARCHAR(10) NOT NULL DEFAULT 'average',
+                inventory_account VARCHAR(10) NOT NULL DEFAULT '1130',
+                cogs_account VARCHAR(10) NOT NULL DEFAULT '5101',
+                current_cost NUMERIC(15,4) NOT NULL DEFAULT 0,
+                standard_cost NUMERIC(15,4) NOT NULL DEFAULT 0,
+                quantity_on_hand NUMERIC(15,4) NOT NULL DEFAULT 0,
+                total_value NUMERIC(15,2) NOT NULL DEFAULT 0,
+                reorder_point NUMERIC(15,4) NOT NULL DEFAULT 0,
+                min_stock NUMERIC(15,4) NOT NULL DEFAULT 0,
+                is_active BOOLEAN NOT NULL DEFAULT 1,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE(company_id, sku)
+            )
+        """)
+        c.execute("CREATE INDEX ix_inv_products_company_id ON inv_products(company_id)")
+
+    if "inv_product_lots" not in tables:
+        print("  + CREATE TABLE inv_product_lots")
+        c.execute("""
+            CREATE TABLE inv_product_lots (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                product_id INTEGER NOT NULL REFERENCES inv_products(id),
+                lot_no VARCHAR(30) NOT NULL,
+                received_date DATE NOT NULL,
+                quantity NUMERIC(15,4) NOT NULL,
+                remaining_qty NUMERIC(15,4) NOT NULL,
+                unit_cost NUMERIC(15,4) NOT NULL,
+                source VARCHAR(20) NOT NULL DEFAULT 'purchase',
+                source_ref VARCHAR(50)
+            )
+        """)
+        c.execute("CREATE INDEX ix_inv_product_lots_product_id ON inv_product_lots(product_id)")
+
+    if "inv_stock_movements" not in tables:
+        print("  + CREATE TABLE inv_stock_movements")
+        c.execute("""
+            CREATE TABLE inv_stock_movements (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                company_id INTEGER NOT NULL,
+                branch_id INTEGER NOT NULL,
+                product_id INTEGER NOT NULL REFERENCES inv_products(id),
+                movement_no VARCHAR(20) NOT NULL,
+                movement_date DATE NOT NULL,
+                movement_type VARCHAR(20) NOT NULL,
+                quantity NUMERIC(15,4) NOT NULL,
+                unit_cost NUMERIC(15,4) NOT NULL DEFAULT 0,
+                total_cost NUMERIC(15,2) NOT NULL DEFAULT 0,
+                qty_after NUMERIC(15,4) NOT NULL DEFAULT 0,
+                value_after NUMERIC(15,2) NOT NULL DEFAULT 0,
+                lot_id INTEGER REFERENCES inv_product_lots(id),
+                journal_entry_no VARCHAR(20),
+                reference VARCHAR(100),
+                reason TEXT,
+                source_module VARCHAR(20),
+                source_id INTEGER,
+                created_by INTEGER NOT NULL,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+        c.execute("CREATE INDEX ix_inv_stock_movements_company_id ON inv_stock_movements(company_id)")
+        c.execute("CREATE INDEX ix_inv_stock_movements_product_id ON inv_stock_movements(product_id)")
+
     c.commit()
     c.close()
     print(f"  Done: {db_path}")

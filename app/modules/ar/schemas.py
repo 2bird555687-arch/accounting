@@ -89,6 +89,7 @@ class ContactOut(BaseModel):
 # ══════════════════════════════════════════════════════════════════════════════
 
 class InvoiceLineCreate(BaseModel):
+    product_id: Optional[int] = None   # ถ้าผูกสินค้า → ตัดสต็อกอัตโนมัติ
     description: str
     account_code: str         # รหัสบัญชีรายได้ เช่น "4101"
     unit: Optional[str] = None

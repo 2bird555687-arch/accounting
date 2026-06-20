@@ -1,0 +1,91 @@
+{% extends "base.html" %}
+{% block title %}ความเคลื่อนไหวสินค้า{% endblock %}
+{% block page_title %}สินค้า/คลัง — ความเคลื่อนไหว{% endblock %}
+
+{% block content %}
+<div x-data="movementList()" x-init="init()">
+
+  <!-- Filters -->
+  <div class="flex items-center gap-3 mb-4 flex-wrap">
+    <select x-model="productId" @change="load()" class="px-3 py-2 rounded-lg border border-gray-200 text-sm">
+      <option value="">ทุกสินค้า</option>
+      <template x-for="p in products" :key="p.id">
+        <option :value="p.id" x-text="p.sku + ' — ' + p.name"></option>
+      </template>
+    </select>
+    <input type="date" x-model="dateFrom" @change="load()" class="px-3 py-2 rounded-lg border border-gray-200 text-sm"/>
+    <span class="text-gray-400">ถึง</span>
+    <input type="date" x-model="dateTo" @change="load()" class="px-3 py-2 rounded-lg border border-gray-200 text-sm"/>
+  </div>
+
+  <!-- Table -->
+  <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+    <table class="w-full text-sm">
+      <thead class="bg-gray-50 border-b border-gray-100">
+        <tr>
+          <th class="text-left px-4 py-3 font-medium text-gray-600">เลขที่</th>
+          <th class="text-left px-4 py-3 font-medium text-gray-600">วันที่</th>
+          <th class="text-center px-4 py-3 font-medium text-gray-600">ประเภท</th>
+          <th class="text-right px-4 py-3 font-medium text-gray-600">จำนวน</th>
+          <th class="text-right px-4 py-3 font-medium text-gray-600">ต้นทุน/หน่วย</th>
+          <th class="text-right px-4 py-3 font-medium text-gray-600">ต้นทุนรวม</th>
+          <th class="text-right px-4 py-3 font-medium text-gray-600">คงเหลือหลัง</th>
+          <th class="text-left px-4 py-3 font-medium text-gray-600">อ้างอิง</th>
+          <th class="text-left px-4 py-3 font-medium text-gray-600">JE</th>
+        </tr>
+      </thead>
+      <tbody>
+        <template x-if="loading"><tr><td colspan="9" class="px-4 py-8 text-center text-gray-400">กำลังโหลด...</td></tr></template>
+        <template x-if="!loading && filtered().length === 0"><tr><td colspan="9" class="px-4 py-8 text-center text-gray-400">ไม่พบรายการ</td></tr></template>
+        <template x-for="m in filtered()" :key="m.id">
+          <tr class="border-b border-gray-50 hover:bg-gray-50">
+            <td class="px-4 py-3 font-mono" x-text="m.movement_no"></td>
+            <td class="px-4 py-3 text-gray-600" x-text="m.movement_date"></td>
+            <td class="px-4 py-3 text-center"><span class="inline-flex px-2 py-0.5 rounded-full text-xs" :class="typeClass(m.movement_type)" x-text="typeLabel(m.movement_type)"></span></td>
+            <td class="px-4 py-3 text-right font-mono" x-text="fmt(m.quantity)"></td>
+            <td class="px-4 py-3 text-right font-mono" x-text="fmt(m.unit_cost)"></td>
+            <td class="px-4 py-3 text-right font-mono" x-text="fmt(m.total_cost)"></td>
+            <td class="px-4 py-3 text-right font-mono" x-text="fmt(m.qty_after)"></td>
+            <td class="px-4 py-3 text-gray-600" x-text="m.reference || '—'"></td>
+            <td class="px-4 py-3 font-mono text-xs text-blue-600" x-text="m.journal_entry_no || '—'"></td>
+          </tr>
+        </template>
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function movementList() {
+  return {
+    items: [], products: [], loading: false,
+    productId: '', dateFrom: '', dateTo: '',
+    token() { return document.cookie.match(/access_token=([^;]+)/)?.[1] || ''; },
+    hdr() { return { Authorization: 'Bearer ' + this.token() }; },
+    async init() {
+      try { const r = await fetch('/api/v1/inv/products', { headers: this.hdr() }); this.products = await r.json(); } catch {}
+      await this.load();
+    },
+    async load() {
+      this.loading = true;
+      let url = '/api/v1/inv/movements?limit=500';
+      if (this.productId) url += '&product_id=' + this.productId;
+      try { const r = await fetch(url, { headers: this.hdr() }); this.items = await r.json(); } catch { this.items = []; }
+      this.loading = false;
+    },
+    filtered() {
+      return this.items.filter(m => {
+        if (this.dateFrom && m.movement_date < this.dateFrom) return false;
+        if (this.dateTo && m.movement_date > this.dateTo) return false;
+        return true;
+      });
+    },
+    typeLabel(t) { return { receive:'รับเข้า', issue:'เบิกออก', adjust_in:'ปรับเพิ่ม', adjust_out:'ปรับลด' }[t] || t; },
+    typeClass(t) { return (t==='receive'||t==='adjust_in') ? 'bg-green-100 text-green-700' : 'bg-orange-100 text-orange-700'; },
+    fmt(v) { return new Intl.NumberFormat('th-TH', { minimumFractionDigits: 2 }).format(v || 0); },
+  };
+}
+</script>
+{% endblock %}

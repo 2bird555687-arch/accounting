@@ -237,6 +237,35 @@ async def ap_po_list(request: Request):
     return _r("ap/po_list.html", request, _ctx(ctx))
 
 
+# ── Inventory ─────────────────────────────────────────────────────────────────
+
+@router.get("/inventory/products", response_class=HTMLResponse)
+async def inv_product_list(request: Request):
+    try:
+        ctx = await get_ui_context(request)
+    except UIRedirectException as e:
+        return RedirectResponse(url=e.url, status_code=302)
+    return _r("inventory/product_list.html", request, _ctx(ctx))
+
+
+@router.get("/inventory/movements", response_class=HTMLResponse)
+async def inv_movement_list(request: Request):
+    try:
+        ctx = await get_ui_context(request)
+    except UIRedirectException as e:
+        return RedirectResponse(url=e.url, status_code=302)
+    return _r("inventory/movement_list.html", request, _ctx(ctx))
+
+
+@router.get("/inventory/products/{product_id}", response_class=HTMLResponse)
+async def inv_product_detail(request: Request, product_id: int):
+    try:
+        ctx = await get_ui_context(request)
+    except UIRedirectException as e:
+        return RedirectResponse(url=e.url, status_code=302)
+    return _r("inventory/product_detail.html", request, _ctx(ctx, product_id=product_id))
+
+
 # ── OCR ───────────────────────────────────────────────────────────────────────
 
 @router.get("/ocr", response_class=HTMLResponse)

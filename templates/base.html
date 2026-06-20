@@ -80,6 +80,19 @@
     <a href="/ap/payments/new" class="sb-item {% if '/ap/payment' in request.url.path %}active{% endif %}">จ่ายชำระ</a>
   </div>
 
+  <div class="sb-section">สินค้า/คลัง</div>
+
+  <!-- INV group -->
+  <div class="sb-group-head {% if '/inventory' in request.url.path %}open{% endif %}" onclick="toggleGroup(this)">
+    <span class="sb-item-icon">📦</span>
+    สินค้า/คลัง
+    <span class="sb-group-chev {% if '/inventory' in request.url.path %}open{% endif %}">▶</span>
+  </div>
+  <div class="sb-sub {% if '/inventory' in request.url.path %}open{% endif %}">
+    <a href="/inventory/products" class="sb-item {% if '/inventory/products' in request.url.path %}active{% endif %}">รายการสินค้า</a>
+    <a href="/inventory/movements" class="sb-item {% if '/inventory/movements' in request.url.path %}active{% endif %}">ความเคลื่อนไหว</a>
+  </div>
+
   <div class="sb-section">เครื่องมือ</div>
   <a href="/ocr" class="sb-item {% if '/ocr' in request.url.path %}active{% endif %}">
     <span class="sb-item-icon">📷</span>OCR สแกนเอกสาร

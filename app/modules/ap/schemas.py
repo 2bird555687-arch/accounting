@@ -171,6 +171,7 @@ class GRNOut(BaseModel):
 # ══════════════════════════════════════════════════════════════════════════════
 
 class PurchaseLineCreate(BaseModel):
+    product_id: Optional[int] = None   # ถ้าผูกสินค้า → รับเข้าสต็อกอัตโนมัติ
     description: str
     account_code: str
     unit: Optional[str] = None

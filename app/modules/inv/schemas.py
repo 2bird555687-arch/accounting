@@ -77,6 +77,8 @@ class ReceiveStockIn(BaseModel):
     reason: Optional[str] = None
     # ถ้ามาจาก AP purchase แล้วต้องการ link journal
     ap_purchase_id: Optional[int] = None
+    # False = ไม่ post JE (กรณี AP post Dr 1130 ให้แล้ว — แค่อัปเดต lot/cost/qty)
+    post_journal: bool = True
 
 
 class IssueStockIn(BaseModel):
