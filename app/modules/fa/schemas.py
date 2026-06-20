@@ -31,9 +31,41 @@ class AssetCreate(BaseModel):
     depr_method: str = Field("straight_line", pattern="^(straight_line|declining_balance)$")
     declining_rate: Optional[Decimal] = None
 
+    # แหล่งเงินทุน
+    funding_type: str = Field(
+        "cash_bank",
+        pattern="^(cash_bank|owner_contribution|other_payable|hire_purchase)$",
+    )
+    bank_account_id: Optional[int] = None   # ใช้กับ cash_bank และ hire_purchase (เงินดาวน์)
+
+    # เช่าซื้อ (hire_purchase)
+    hp_total_price: Optional[Decimal] = None
+    hp_down_payment: Optional[Decimal] = Decimal(0)
+    hp_installments: Optional[int] = None
+
     # สำหรับบันทึกการซื้อ (journal)
-    credit_account: str = "2101"     # Cr: เจ้าหนี้ หรือ 1102 เงินสด
     payment_reference: Optional[str] = None
+
+
+class PayInstallmentIn(BaseModel):
+    payment_date: date
+    bank_account_id: int
+
+
+class HirePurchaseInstallmentOut(BaseModel):
+    id: int
+    asset_id: int
+    installment_no: int
+    due_date: date
+    payment_amount: Decimal
+    principal_portion: Decimal
+    interest_portion: Decimal
+    status: str
+    paid_date: Optional[date]
+    journal_ref: Optional[str]
+
+    class Config:
+        from_attributes = True
 
 
 class AssetUpdate(BaseModel):
@@ -66,6 +98,13 @@ class AssetOut(BaseModel):
     book_value: Decimal
     months_depreciated: int
     status: str
+    funding_type: str
+    bank_account_id: Optional[int]
+    hp_total_price: Optional[Decimal]
+    hp_down_payment: Optional[Decimal]
+    hp_installments: Optional[int]
+    hp_monthly_payment: Optional[Decimal]
+    hp_interest_total: Optional[Decimal]
     purchase_journal_no: Optional[str]
     disposal_journal_no: Optional[str]
     disposed_at: Optional[date]

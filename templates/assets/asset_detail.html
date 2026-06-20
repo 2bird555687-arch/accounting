@@ -1,0 +1,167 @@
+{% extends "base.html" %}
+{% block title %}รายละเอียดสินทรัพย์{% endblock %}
+{% block page_title %}สินทรัพย์ถาวร — รายละเอียด{% endblock %}
+
+{% block content %}
+<div x-data="assetDetail({{ asset_id }})" x-init="init()">
+
+  <div class="mb-4">
+    <a href="/assets" class="text-sm text-blue-600">← กลับทะเบียนสินทรัพย์</a>
+  </div>
+
+  <template x-if="asset">
+    <div class="space-y-4">
+      <!-- Header card -->
+      <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+        <div class="flex items-center justify-between">
+          <div>
+            <div class="text-lg font-bold text-gray-800" x-text="asset.asset_name"></div>
+            <div class="text-xs text-gray-400 font-mono" x-text="asset.asset_code"></div>
+          </div>
+          <span class="inline-flex px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-700"
+            x-text="fundingLabel(asset.funding_type)"></span>
+        </div>
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4 text-sm">
+          <div><div class="text-xs text-gray-500">บัญชีสินทรัพย์</div><div class="font-mono" x-text="asset.asset_account"></div></div>
+          <div><div class="text-xs text-gray-500">ราคาทุน</div><div class="font-mono" x-text="fmt(asset.cost)"></div></div>
+          <div><div class="text-xs text-gray-500">เสื่อมสะสม</div><div class="font-mono" x-text="fmt(asset.accumulated_depr)"></div></div>
+          <div><div class="text-xs text-gray-500">มูลค่าตามบัญชี</div><div class="font-mono font-medium" x-text="fmt(asset.book_value)"></div></div>
+        </div>
+      </div>
+
+      <!-- Hire purchase summary + schedule -->
+      <template x-if="asset.funding_type === 'hire_purchase'">
+        <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+          <h2 class="text-base font-bold mb-3">ตารางผ่อนชำระเช่าซื้อ</h2>
+          <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4 text-sm">
+            <div><div class="text-xs text-gray-500">ราคารวม</div><div class="font-mono" x-text="fmt(asset.hp_total_price)"></div></div>
+            <div><div class="text-xs text-gray-500">เงินดาวน์</div><div class="font-mono" x-text="fmt(asset.hp_down_payment)"></div></div>
+            <div><div class="text-xs text-gray-500">ดอกเบี้ยรวม</div><div class="font-mono text-orange-600" x-text="fmt(asset.hp_interest_total)"></div></div>
+            <div><div class="text-xs text-gray-500">ค่างวด/เดือน</div><div class="font-mono" x-text="fmt(asset.hp_monthly_payment)"></div></div>
+          </div>
+
+          <table class="w-full text-sm">
+            <thead class="bg-gray-50 border-b border-gray-100">
+              <tr>
+                <th class="text-center px-3 py-2 font-medium text-gray-600">งวด</th>
+                <th class="text-center px-3 py-2 font-medium text-gray-600">ครบกำหนด</th>
+                <th class="text-right px-3 py-2 font-medium text-gray-600">ค่างวด</th>
+                <th class="text-right px-3 py-2 font-medium text-gray-600">เงินต้น</th>
+                <th class="text-right px-3 py-2 font-medium text-gray-600">ดอกเบี้ย</th>
+                <th class="text-center px-3 py-2 font-medium text-gray-600">สถานะ</th>
+                <th class="text-center px-3 py-2 font-medium text-gray-600"></th>
+              </tr>
+            </thead>
+            <tbody>
+              <template x-for="i in installments" :key="i.id">
+                <tr class="border-b border-gray-50">
+                  <td class="px-3 py-2 text-center" x-text="i.installment_no"></td>
+                  <td class="px-3 py-2 text-center text-gray-600" x-text="i.due_date"></td>
+                  <td class="px-3 py-2 text-right font-mono" x-text="fmt(i.payment_amount)"></td>
+                  <td class="px-3 py-2 text-right font-mono text-gray-600" x-text="fmt(i.principal_portion)"></td>
+                  <td class="px-3 py-2 text-right font-mono text-orange-600" x-text="fmt(i.interest_portion)"></td>
+                  <td class="px-3 py-2 text-center">
+                    <span class="inline-flex px-2 py-0.5 rounded-full text-xs font-medium"
+                      :class="i.status==='PAID' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'"
+                      x-text="i.status==='PAID' ? 'ชำระแล้ว' : 'รอชำระ'"></span>
+                  </td>
+                  <td class="px-3 py-2 text-center">
+                    <button x-show="i.status!=='PAID'" @click="pay(i)"
+                      class="px-3 py-1 rounded-lg bg-blue-600 text-white text-xs">ชำระ</button>
+                    <span x-show="i.status==='PAID'" class="text-xs text-gray-400 font-mono" x-text="i.journal_ref"></span>
+                  </td>
+                </tr>
+              </template>
+            </tbody>
+          </table>
+          <p x-show="error" x-text="error" class="text-sm text-red-600 mt-2"></p>
+        </div>
+      </template>
+    </div>
+  </template>
+
+  <!-- Pay modal -->
+  <div x-show="showPay" x-cloak class="fixed inset-0 bg-black/40 flex items-center justify-center z-50" @click.self="showPay=false">
+    <div class="bg-white rounded-xl shadow-xl w-full max-w-sm p-6">
+      <h2 class="text-lg font-bold mb-4">ชำระค่างวด <span x-text="payForm.installment_no"></span></h2>
+      <div class="space-y-3">
+        <div>
+          <label class="block text-xs text-gray-500 mb-1">วันที่ชำระ</label>
+          <input type="date" x-model="payForm.payment_date" class="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm"/>
+        </div>
+        <div>
+          <label class="block text-xs text-gray-500 mb-1">บัญชีที่จ่าย</label>
+          <select x-model.number="payForm.bank_account_id" class="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm">
+            <option :value="null">— เลือกบัญชี —</option>
+            <template x-for="b in banks" :key="b.id">
+              <option :value="b.id" x-text="b.bank_name + ' (' + b.coa_account_code + ')'"></option>
+            </template>
+          </select>
+        </div>
+        <p x-show="error" x-text="error" class="text-sm text-red-600"></p>
+      </div>
+      <div class="flex justify-end gap-2 mt-5">
+        <button @click="showPay=false" class="px-4 py-2 rounded-lg border border-gray-200 text-sm">ยกเลิก</button>
+        <button @click="confirmPay()" class="px-4 py-2 rounded-lg bg-blue-600 text-white text-sm">ยืนยันชำระ</button>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function assetDetail(assetId) {
+  return {
+    assetId, asset: null, installments: [], banks: [], error: '',
+    showPay: false, payForm: {},
+    token() { return document.cookie.match(/access_token=([^;]+)/)?.[1] || ''; },
+    hdr() { return { Authorization: 'Bearer ' + this.token() }; },
+    async init() { await this.loadAsset(); await this.loadBanks(); await this.loadInstallments(); },
+    async loadAsset() {
+      try {
+        const r = await fetch('/api/v1/fa/assets/' + this.assetId, { headers: this.hdr() });
+        this.asset = await r.json();
+      } catch (e) { this.error = String(e); }
+    },
+    async loadInstallments() {
+      try {
+        const r = await fetch('/api/v1/fa/assets/' + this.assetId + '/installments', { headers: this.hdr() });
+        const d = await r.json();
+        this.installments = Array.isArray(d) ? d : (d.data || []);
+      } catch { this.installments = []; }
+    },
+    async loadBanks() {
+      try {
+        const r = await fetch('/api/v1/bank/accounts', { headers: this.hdr() });
+        const d = await r.json();
+        this.banks = d.data || d.items || d || [];
+      } catch { this.banks = []; }
+    },
+    pay(i) {
+      this.error = '';
+      this.payForm = { installment_no: i.installment_no, payment_date: '{{ today }}', bank_account_id: null };
+      this.showPay = true;
+    },
+    async confirmPay() {
+      this.error = '';
+      if (!this.payForm.bank_account_id) { this.error = 'กรุณาเลือกบัญชี'; return; }
+      try {
+        const r = await fetch('/api/v1/fa/assets/' + this.assetId + '/installments/' + this.payForm.installment_no + '/pay', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', ...this.hdr() },
+          body: JSON.stringify({ payment_date: this.payForm.payment_date, bank_account_id: this.payForm.bank_account_id }),
+        });
+        if (!r.ok) { const d = await r.json(); this.error = d.detail || 'ชำระไม่สำเร็จ'; return; }
+        this.showPay = false;
+        await this.loadInstallments();
+      } catch (e) { this.error = String(e); }
+    },
+    fundingLabel(f) {
+      return { cash_bank: '💵 เงินสด/ธนาคาร', owner_contribution: '👤 เจ้าของลงทุนเพิ่ม', other_payable: '📋 เจ้าหนี้อื่น', hire_purchase: '📅 เช่าซื้อ' }[f] || f;
+    },
+    fmt(v) { return new Intl.NumberFormat('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(v || 0); },
+  };
+}
+</script>
+{% endblock %}

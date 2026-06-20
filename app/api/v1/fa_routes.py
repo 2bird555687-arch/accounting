@@ -15,6 +15,8 @@ from app.modules.fa.schemas import (
     DeprScheduleItem,
     DepreciationRecordOut,
     DisposeAssetIn,
+    HirePurchaseInstallmentOut,
+    PayInstallmentIn,
     PostDepreciationIn,
 )
 from app.modules.fa.asset_service import AssetService
@@ -61,6 +63,31 @@ async def get_asset(asset_id: int, ctx: Ctx, db: DB):
 async def update_asset(asset_id: int, data: AssetUpdate, ctx: Ctx, db: DB):
     try:
         return await AssetService.update_asset(asset_id, data, ctx, db)
+    except PermissionError as e:
+        raise HTTPException(status_code=403, detail=str(e))
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.get("/assets/{asset_id}/installments", response_model=list[HirePurchaseInstallmentOut])
+async def list_installments(asset_id: int, ctx: Ctx, db: DB):
+    try:
+        return await AssetService.list_installments(asset_id, ctx, db)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+
+@router.post(
+    "/assets/{asset_id}/installments/{installment_no}/pay",
+    response_model=HirePurchaseInstallmentOut,
+)
+async def pay_installment(
+    asset_id: int, installment_no: int, data: PayInstallmentIn, ctx: Ctx, db: DB
+):
+    try:
+        return await AssetService.pay_hire_purchase_installment(
+            asset_id, installment_no, data.payment_date, data.bank_account_id, ctx, db
+        )
     except PermissionError as e:
         raise HTTPException(status_code=403, detail=str(e))
     except ValueError as e:

@@ -57,7 +57,7 @@
           <tr><td colspan="8" class="px-4 py-8 text-center text-gray-400">ยังไม่มีสินทรัพย์</td></tr>
         </template>
         <template x-for="a in items" :key="a.id">
-          <tr class="border-b border-gray-50 hover:bg-gray-50">
+          <tr class="border-b border-gray-50 hover:bg-gray-50 cursor-pointer" @click="goDetail(a.id)">
             <td class="px-4 py-3 text-gray-700 font-medium">
               <span x-text="a.asset_name"></span>
               <span class="text-xs text-gray-400 font-mono ml-1" x-text="a.asset_code"></span>
@@ -124,14 +124,78 @@
             <input type="number" x-model.number="form.salvage_value" class="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm"/>
           </div>
         </div>
+        <!-- แหล่งเงินทุน -->
         <div>
-          <label class="block text-xs text-gray-500 mb-1">บัญชีที่จ่าย</label>
-          <select x-model="form.credit_account" class="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm">
-            <option value="2101">เจ้าหนี้การค้า (2101)</option>
+          <label class="block text-xs text-gray-500 mb-1">แหล่งเงินทุน</label>
+          <div class="grid grid-cols-2 gap-2">
+            <label class="cursor-pointer rounded-lg border border-gray-200 px-3 py-2 text-sm flex items-center gap-1"
+              :class="{'ring-2 ring-blue-500 border-blue-500': form.funding_type==='cash_bank'}">
+              <input type="radio" x-model="form.funding_type" value="cash_bank" class="hidden">
+              💵 เงินสด/ธนาคาร
+            </label>
+            <label class="cursor-pointer rounded-lg border border-gray-200 px-3 py-2 text-sm flex items-center gap-1"
+              :class="{'ring-2 ring-blue-500 border-blue-500': form.funding_type==='owner_contribution'}">
+              <input type="radio" x-model="form.funding_type" value="owner_contribution" class="hidden">
+              👤 เจ้าของลงทุนเพิ่ม
+            </label>
+            <label class="cursor-pointer rounded-lg border border-gray-200 px-3 py-2 text-sm flex items-center gap-1"
+              :class="{'ring-2 ring-blue-500 border-blue-500': form.funding_type==='other_payable'}">
+              <input type="radio" x-model="form.funding_type" value="other_payable" class="hidden">
+              📋 เจ้าหนี้อื่น (ซื้อเชื่อ)
+            </label>
+            <label class="cursor-pointer rounded-lg border border-gray-200 px-3 py-2 text-sm flex items-center gap-1"
+              :class="{'ring-2 ring-blue-500 border-blue-500': form.funding_type==='hire_purchase'}">
+              <input type="radio" x-model="form.funding_type" value="hire_purchase" class="hidden">
+              📅 เช่าซื้อ
+            </label>
+          </div>
+        </div>
+
+        <!-- เงื่อนไขตามแหล่งเงินทุน -->
+        <div x-show="form.funding_type==='cash_bank'">
+          <label class="block text-xs text-gray-500 mb-1">บัญชีธนาคาร/เงินสดที่จ่าย</label>
+          <select x-model.number="form.bank_account_id" class="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm">
+            <option :value="null">— เลือกบัญชี —</option>
             <template x-for="b in banks" :key="b.id">
-              <option :value="b.coa_account_code" x-text="b.bank_name + ' (' + b.coa_account_code + ')'"></option>
+              <option :value="b.id" x-text="b.bank_name + ' (' + b.coa_account_code + ')'"></option>
             </template>
           </select>
+        </div>
+        <div x-show="form.funding_type==='owner_contribution'">
+          <p class="text-sm text-gray-500">บันทึกเพิ่มทุน: Dr สินทรัพย์ / Cr บัญชีทุน (3101)</p>
+        </div>
+        <div x-show="form.funding_type==='other_payable'">
+          <p class="text-sm text-gray-500">ตั้งเจ้าหนี้อื่น: Dr สินทรัพย์ / Cr เจ้าหนี้อื่น (2102)</p>
+        </div>
+        <div x-show="form.funding_type==='hire_purchase'" class="space-y-3">
+          <div class="grid grid-cols-3 gap-3">
+            <div>
+              <label class="block text-xs text-gray-500 mb-1">ราคารวมที่ผ่อน (รวมดอกเบี้ย)</label>
+              <input type="number" x-model.number="form.hp_total_price" class="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm"/>
+            </div>
+            <div>
+              <label class="block text-xs text-gray-500 mb-1">เงินดาวน์</label>
+              <input type="number" x-model.number="form.hp_down_payment" class="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm"/>
+            </div>
+            <div>
+              <label class="block text-xs text-gray-500 mb-1">จำนวนงวด</label>
+              <input type="number" x-model.number="form.hp_installments" class="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm"/>
+            </div>
+          </div>
+          <div>
+            <label class="block text-xs text-gray-500 mb-1">บัญชีจ่ายเงินดาวน์</label>
+            <select x-model.number="form.bank_account_id" class="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm">
+              <option :value="null">— เลือกบัญชี —</option>
+              <template x-for="b in banks" :key="b.id">
+                <option :value="b.id" x-text="b.bank_name + ' (' + b.coa_account_code + ')'"></option>
+              </template>
+            </select>
+          </div>
+          <div class="bg-blue-50 rounded-lg p-3 text-sm space-y-1">
+            <div>ค่างวด/เดือน = <span class="font-mono font-medium" style="color:var(--accent)" x-text="fmt(hpMonthly())"></span></div>
+            <div>ดอกเบี้ยรวม = <span class="font-mono font-medium text-orange-600" x-text="fmt(hpInterest())"></span>
+              <span class="text-xs text-gray-400">= ราคารวม − ราคาทุน − ดาวน์</span></div>
+          </div>
         </div>
         <div class="bg-gray-50 rounded-lg p-3 text-sm">
           ค่าเสื่อม/เดือน = <span class="font-mono font-medium" style="color:var(--accent)" x-text="fmt(previewMonthly())"></span>
@@ -183,19 +247,35 @@ function assetList() {
       if (y <= 0) return 0;
       return (c - s) / (y * 12);
     },
+    hpMonthly() {
+      const t = Number(this.form.hp_total_price || 0), d = Number(this.form.hp_down_payment || 0), n = Number(this.form.hp_installments || 0);
+      if (n <= 0) return 0;
+      return (t - d) / n;
+    },
+    hpInterest() {
+      const t = Number(this.form.hp_total_price || 0), c = Number(this.form.cost || 0), d = Number(this.form.hp_down_payment || 0);
+      return Math.max(0, t - c - d);
+    },
+    goDetail(id) { window.location.href = '/assets/' + id; },
     statusLabel(s) { return { active: 'ใช้งาน', fully_depreciated: 'เสื่อมเต็ม', disposed: 'ตัดจำหน่าย' }[s] || s; },
     statusClass(s) {
       return { active: 'bg-green-100 text-green-700', fully_depreciated: 'bg-yellow-100 text-yellow-700', disposed: 'bg-gray-200 text-gray-600' }[s] || 'bg-gray-100 text-gray-600';
     },
     openCreate() {
       this.error = '';
-      this.form = { asset_code: '', asset_name: '', category: 'vehicle', purchase_date: '{{ today }}', cost: 0, life_years: 5, salvage_value: 0, credit_account: '2101' };
+      this.form = { asset_code: '', asset_name: '', category: 'vehicle', purchase_date: '{{ today }}', cost: 0, life_years: 5, salvage_value: 0, funding_type: 'cash_bank', bank_account_id: null, hp_total_price: 0, hp_down_payment: 0, hp_installments: 12 };
       this.showCreate = true;
     },
     async save() {
       this.error = '';
       if (!this.form.asset_code || !this.form.asset_name) { this.error = 'กรุณากรอกรหัสและชื่อสินทรัพย์'; return; }
       if (!(this.form.cost > this.form.salvage_value)) { this.error = 'ราคาทุนต้องมากกว่ามูลค่าซาก'; return; }
+      const ft = this.form.funding_type;
+      if ((ft === 'cash_bank') && !this.form.bank_account_id) { this.error = 'กรุณาเลือกบัญชีธนาคาร'; return; }
+      if (ft === 'hire_purchase') {
+        if (!(this.form.hp_total_price > 0) || !(this.form.hp_installments >= 1)) { this.error = 'กรุณากรอกราคารวมและจำนวนงวด'; return; }
+        if (Number(this.form.hp_down_payment) > 0 && !this.form.bank_account_id) { this.error = 'มีเงินดาวน์ ต้องเลือกบัญชีธนาคาร'; return; }
+      }
       const payload = {
         asset_code: this.form.asset_code,
         asset_name: this.form.asset_name,
@@ -204,8 +284,14 @@ function assetList() {
         cost: this.form.cost,
         salvage_value: this.form.salvage_value,
         useful_life_months: Math.round(this.form.life_years * 12),
-        credit_account: this.form.credit_account,
+        funding_type: ft,
+        bank_account_id: this.form.bank_account_id || null,
       };
+      if (ft === 'hire_purchase') {
+        payload.hp_total_price = this.form.hp_total_price;
+        payload.hp_down_payment = this.form.hp_down_payment || 0;
+        payload.hp_installments = this.form.hp_installments;
+      }
       try {
         const r = await fetch('/api/v1/fa/assets', {
           method: 'POST',

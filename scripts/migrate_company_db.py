@@ -368,6 +368,72 @@ for db_path in glob.glob("data/firm_*/company_*/db.sqlite"):
         """)
         c.execute("CREATE INDEX ix_fa_depreciation_records_asset_id ON fa_depreciation_records(asset_id)")
 
+    # 7. Fixed Assets — funding type + hire purchase columns
+    tables = {r[0] for r in c.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+    if "fa_assets" in tables:
+        fa_cols = {r[1] for r in c.execute("PRAGMA table_info(fa_assets)")}
+        new_fa_cols = {
+            "funding_type": "VARCHAR(30) NOT NULL DEFAULT 'cash_bank'",
+            "bank_account_id": "INTEGER",
+            "hp_total_price": "NUMERIC(15,2)",
+            "hp_down_payment": "NUMERIC(15,2)",
+            "hp_installments": "INTEGER",
+            "hp_monthly_payment": "NUMERIC(15,2)",
+            "hp_interest_total": "NUMERIC(15,2)",
+        }
+        for col, ddl in new_fa_cols.items():
+            if col not in fa_cols:
+                print(f"  + ALTER TABLE fa_assets ADD COLUMN {col}")
+                c.execute(f"ALTER TABLE fa_assets ADD COLUMN {col} {ddl}")
+
+    if "hp_installments" not in tables:
+        print("  + CREATE TABLE hp_installments")
+        c.execute("""
+            CREATE TABLE hp_installments (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                asset_id INTEGER NOT NULL REFERENCES fa_assets(id),
+                installment_no INTEGER NOT NULL,
+                due_date DATE NOT NULL,
+                payment_amount NUMERIC(15,2) NOT NULL,
+                principal_portion NUMERIC(15,2) NOT NULL,
+                interest_portion NUMERIC(15,2) NOT NULL,
+                status VARCHAR(20) NOT NULL DEFAULT 'PENDING',
+                paid_date DATE,
+                journal_ref VARCHAR(20),
+                UNIQUE(asset_id, installment_no)
+            )
+        """)
+        c.execute("CREATE INDEX ix_hp_installments_asset_id ON hp_installments(asset_id)")
+
+    # 8. COA — add accounts for funding types if missing (เจ้าหนี้เช่าซื้อ, ดอกเบี้ยรอตัดบัญชี)
+    coa_tables = {r[0] for r in c.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+    if "chart_of_accounts" in coa_tables:
+        existing_coa = {r[0] for r in c.execute("SELECT code FROM chart_of_accounts")}
+        # find parent id for 2100 (หนี้สินหมุนเวียน)
+        prow = c.execute("SELECT id FROM chart_of_accounts WHERE code='2100'").fetchone()
+        parent_id = prow[0] if prow else None
+        coa_cols = {r[1] for r in c.execute("PRAGMA table_info(chart_of_accounts)")}
+        new_coa = [
+            ("2103", "เจ้าหนี้เช่าซื้อ", "Hire Purchase Payable", "CR"),
+            ("2104", "ดอกเบี้ยรอตัดบัญชี", "Deferred Interest (Hire Purchase)", "DR"),
+        ]
+        for code, name, name_en, normal in new_coa:
+            if code in existing_coa:
+                continue
+            print(f"  + INSERT chart_of_accounts {code} {name}")
+            if "name_en" in coa_cols:
+                c.execute(
+                    "INSERT INTO chart_of_accounts (code, name, name_en, category, account_type, normal_balance, parent_id, is_header, is_active, is_system) "
+                    "VALUES (?, ?, ?, '2', 'liability', ?, ?, 0, 1, 1)",
+                    (code, name, name_en, normal, parent_id),
+                )
+            else:
+                c.execute(
+                    "INSERT INTO chart_of_accounts (code, name, category, account_type, normal_balance, parent_id, is_header, is_active, is_system) "
+                    "VALUES (?, ?, '2', 'liability', ?, ?, 0, 1, 1)",
+                    (code, name, normal, parent_id),
+                )
+
     c.commit()
     c.close()
     print(f"  Done: {db_path}")

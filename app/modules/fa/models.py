@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import enum
 from datetime import date, datetime
 from decimal import Decimal
 from typing import Optional
@@ -13,6 +14,15 @@ from sqlalchemy import (
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import CompanyBase as Base
+
+
+class FundingType(str, enum.Enum):
+    """แหล่งเงินที่ใช้ซื้อสินทรัพย์."""
+
+    CASH_BANK = "cash_bank"                  # เงินสด/ธนาคาร
+    OWNER_CONTRIBUTION = "owner_contribution"  # เจ้าของลงทุนเพิ่ม
+    OTHER_PAYABLE = "other_payable"          # เจ้าหนี้อื่น (ซื้อเชื่อ)
+    HIRE_PURCHASE = "hire_purchase"          # เช่าซื้อ
 
 
 # ── บัญชีที่ใช้ตามประเภทสินทรัพย์ ─────────────────────────────────────────────
@@ -82,6 +92,21 @@ class FixedAsset(Base):
     status: Mapped[str] = mapped_column(String(20), nullable=False, default="active")
     # "active" | "fully_depreciated" | "disposed"
 
+    # แหล่งเงินทุน
+    funding_type: Mapped[str] = mapped_column(
+        String(30), nullable=False, default=FundingType.CASH_BANK.value
+    )
+    bank_account_id: Mapped[Optional[int]] = mapped_column(
+        Integer, ForeignKey("bank_accounts.id"), nullable=True
+    )
+
+    # เช่าซื้อ (hire purchase)
+    hp_total_price: Mapped[Optional[Decimal]] = mapped_column(Numeric(15, 2))      # ราคารวมที่ต้องจ่าย (รวมดอกเบี้ย)
+    hp_down_payment: Mapped[Optional[Decimal]] = mapped_column(Numeric(15, 2))     # เงินดาวน์
+    hp_installments: Mapped[Optional[int]] = mapped_column(Integer)                 # จำนวนงวด
+    hp_monthly_payment: Mapped[Optional[Decimal]] = mapped_column(Numeric(15, 2))  # ค่างวดต่อเดือน
+    hp_interest_total: Mapped[Optional[Decimal]] = mapped_column(Numeric(15, 2))   # ดอกเบี้ยรวม
+
     # Journal references
     purchase_journal_no: Mapped[Optional[str]] = mapped_column(String(20))   # GJ/CP ตอนซื้อ
     disposal_journal_no: Mapped[Optional[str]] = mapped_column(String(20))   # GJ ตอนขาย/ตัดจำหน่าย
@@ -97,6 +122,11 @@ class FixedAsset(Base):
     # Relationships
     depreciation_records: Mapped[list[AssetDepreciation]] = relationship(
         "AssetDepreciation", back_populates="asset", order_by="AssetDepreciation.fiscal_year, AssetDepreciation.month"
+    )
+    installments: Mapped[list[HirePurchaseInstallment]] = relationship(
+        "HirePurchaseInstallment", back_populates="asset",
+        order_by="HirePurchaseInstallment.installment_no",
+        cascade="all, delete-orphan",
     )
 
     @property
@@ -145,3 +175,30 @@ class AssetDepreciation(Base):
     posted_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     asset: Mapped[FixedAsset] = relationship("FixedAsset", back_populates="depreciation_records")
+
+
+# ── Hire Purchase Installment ──────────────────────────────────────────────────
+
+class HirePurchaseInstallment(Base):
+    """งวดผ่อนชำระเช่าซื้อ."""
+
+    __tablename__ = "hp_installments"
+    __table_args__ = (
+        UniqueConstraint("asset_id", "installment_no", name="uq_hp_installment_no"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    asset_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("fa_assets.id"), nullable=False, index=True
+    )
+    installment_no: Mapped[int] = mapped_column(Integer, nullable=False)
+    due_date: Mapped[date] = mapped_column(Date, nullable=False)
+    payment_amount: Mapped[Decimal] = mapped_column(Numeric(15, 2), nullable=False)
+    principal_portion: Mapped[Decimal] = mapped_column(Numeric(15, 2), nullable=False)
+    interest_portion: Mapped[Decimal] = mapped_column(Numeric(15, 2), nullable=False)
+    status: Mapped[str] = mapped_column(String(20), nullable=False, default="PENDING")
+    # PENDING | PAID
+    paid_date: Mapped[Optional[date]] = mapped_column(Date)
+    journal_ref: Mapped[Optional[str]] = mapped_column(String(20))
+
+    asset: Mapped[FixedAsset] = relationship("FixedAsset", back_populates="installments")
