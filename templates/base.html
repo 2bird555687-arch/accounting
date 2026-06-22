@@ -106,6 +106,17 @@
     <a href="/bank/reconciliation" class="sb-item {% if request.url.path == '/bank/reconciliation' %}active{% endif %}">กระทบยอดธนาคาร</a>
   </div>
 
+  <div class="sb-section">อัตโนมัติ</div>
+  <div class="sb-group-head {% if '/automation/' in request.url.path %}open{% endif %}" onclick="toggleGroup(this)">
+    <span class="sb-item-icon">🔄</span>
+    อัตโนมัติ
+    <span class="sb-group-chev {% if '/automation/' in request.url.path %}open{% endif %}">▶</span>
+  </div>
+  <div class="sb-sub {% if '/automation/' in request.url.path %}open{% endif %}">
+    <a href="/automation/recurring" class="sb-item {% if '/automation/recurring' in request.url.path %}active{% endif %}">รายการบัญชีประจำ</a>
+    <a href="/automation/adjusting" class="sb-item {% if '/automation/adjusting' in request.url.path %}active{% endif %}">ปรับปรุงสิ้นงวด</a>
+  </div>
+
   <div class="sb-section">สินทรัพย์</div>
   <div class="sb-group-head {% if '/assets' in request.url.path %}open{% endif %}" onclick="toggleGroup(this)">
     <span class="sb-item-icon">🏗️</span>

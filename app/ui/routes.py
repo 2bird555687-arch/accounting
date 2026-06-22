@@ -418,6 +418,26 @@ async def report_aging_ap(request: Request):
               _ctx(ctx, default_date=str(date.today())))
 
 
+# ── Automation ───────────────────────────────────────────────────────────────
+
+@router.get("/automation/recurring", response_class=HTMLResponse)
+async def automation_recurring_page(request: Request):
+    try:
+        ctx = await get_ui_context(request)
+    except UIRedirectException as e:
+        return RedirectResponse(url=e.url, status_code=302)
+    return _r("automation/recurring.html", request, _ctx(ctx))
+
+
+@router.get("/automation/adjusting", response_class=HTMLResponse)
+async def automation_adjusting_page(request: Request):
+    try:
+        ctx = await get_ui_context(request)
+    except UIRedirectException as e:
+        return RedirectResponse(url=e.url, status_code=302)
+    return _r("automation/adjusting.html", request, _ctx(ctx))
+
+
 # ── Firm Dashboard ────────────────────────────────────────────────────────────
 
 @router.get("/firm", response_class=HTMLResponse)

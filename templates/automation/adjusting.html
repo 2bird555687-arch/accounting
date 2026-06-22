@@ -1,0 +1,190 @@
+{% extends "base.html" %}
+{% block title %}ปรับปรุงสิ้นงวด{% endblock %}
+{% block page_title %}อัตโนมัติ — ปรับปรุงสิ้นงวด{% endblock %}
+
+{% block content %}
+<div x-data="adjustingPage()" x-init="init()">
+
+  <div x-show="toast" x-transition class="fixed top-4 right-4 z-50 bg-gray-800 text-white px-4 py-3 rounded-lg shadow-lg text-sm" x-text="toast"></div>
+
+  <!-- Period selector -->
+  <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-4 mb-4 flex gap-3 items-end">
+    <div>
+      <label class="block text-xs text-gray-500 mb-1">งวดบัญชี</label>
+      <input type="month" x-model="period" class="px-3 py-2 rounded-lg border border-gray-200 text-sm"/>
+    </div>
+    <button @click="loadChecklist()" class="px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-medium">
+      โหลด Checklist
+    </button>
+  </div>
+
+  <!-- Loading -->
+  <div x-show="loading" class="text-center py-8 text-gray-400">กำลังโหลด...</div>
+
+  <!-- Checklist -->
+  <div x-show="!loading && checklist.length > 0" class="space-y-3">
+    <template x-for="item in checklist" :key="item.item_type">
+      <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+        <!-- Item header -->
+        <div class="px-4 py-3 flex items-center justify-between cursor-pointer hover:bg-gray-50"
+             @click="item.status === 'pending' && toggleExpand(item.item_type)">
+          <div class="flex items-center gap-3">
+            <span class="font-medium text-sm text-gray-800" x-text="TYPE_LABELS[item.item_type] || item.item_type"></span>
+            <span x-show="item.description" class="text-xs text-gray-500" x-text="'— ' + item.description"></span>
+          </div>
+          <div class="flex items-center gap-3">
+            <span x-show="item.status === 'posted'">
+              <a :href="'/journals/' + item.journal_no" @click.stop class="text-xs text-blue-600 hover:underline font-mono" x-text="item.journal_no"></a>
+            </span>
+            <span :class="statusClass(item.status)"
+              class="inline-flex px-2 py-0.5 rounded-full text-xs font-medium"
+              x-text="statusLabel(item.status)"></span>
+            <span x-show="item.status === 'pending'" class="text-gray-400 text-xs" x-text="expanded[item.item_type] ? '▲' : '▼'"></span>
+          </div>
+        </div>
+        <!-- Expand form for pending items -->
+        <div x-show="expanded[item.item_type]" class="border-t border-gray-100 p-4 bg-gray-50">
+          <div class="grid grid-cols-2 gap-3 mb-3">
+            <div>
+              <label class="block text-xs text-gray-500 mb-1">จำนวนเงิน</label>
+              <input type="number" x-model="itemForms[item.item_type].amount" min="0.01" step="0.01"
+                class="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm text-right font-mono"/>
+            </div>
+            <div>
+              <label class="block text-xs text-gray-500 mb-1">คำอธิบาย</label>
+              <input x-model="itemForms[item.item_type].description"
+                class="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm"/>
+            </div>
+            <div>
+              <label class="block text-xs text-gray-500 mb-1">บัญชี Dr</label>
+              <input x-model="itemForms[item.item_type].debit_account"
+                class="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm font-mono"/>
+            </div>
+            <div>
+              <label class="block text-xs text-gray-500 mb-1">บัญชี Cr</label>
+              <input x-model="itemForms[item.item_type].credit_account"
+                class="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm font-mono"/>
+            </div>
+          </div>
+          <div class="flex justify-end">
+            <button @click="postAdjustment(item)" :disabled="saving[item.item_type]"
+              class="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium disabled:opacity-50">
+              <span x-show="!saving[item.item_type]">บันทึก Adjusting Entry</span>
+              <span x-show="saving[item.item_type]">⏳ กำลังบันทึก...</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </template>
+  </div>
+
+  <div x-show="!loading && checklist.length === 0" class="text-center py-8 text-gray-400">
+    กด "โหลด Checklist" เพื่อแสดงรายการปรับปรุงสิ้นงวด
+  </div>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function adjustingPage() {
+  return {
+    period: new Date().toISOString().slice(0, 7),
+    checklist: [], loading: false, toast: '',
+    expanded: {},
+    itemForms: {},
+    saving: {},
+
+    PRESETS: {
+      depreciation:     { dr: '6601', cr: '1601' },
+      accrual:          { dr: '6999', cr: '2199' },
+      prepaid:          { dr: '2199', cr: '1301' },
+      deferred_revenue: { dr: '2301', cr: '4101' },
+      allowance:        { dr: '6701', cr: '1102' },
+    },
+
+    TYPE_LABELS: {
+      depreciation:     'ค่าเสื่อมราคา',
+      accrual:          'ค่าใช้จ่ายค้างจ่าย (Accruals)',
+      prepaid:          'ค่าใช้จ่ายจ่ายล่วงหน้า (Prepaid)',
+      deferred_revenue: 'รายได้รับล่วงหน้า (Deferred Revenue)',
+      allowance:        'ค่าเผื่อหนี้สงสัยจะสูญ',
+    },
+
+    token() { return document.cookie.match(/access_token=([^;]+)/)?.[1] || ''; },
+
+    async init() {},
+
+    async loadChecklist() {
+      this.loading = true;
+      this.checklist = [];
+      this.expanded = {};
+      this.itemForms = {};
+      try {
+        const periodDate = this.period + '-01';
+        const r = await fetch(`/api/v1/adjusting?period=${periodDate}`, { headers: { Authorization: 'Bearer ' + this.token() } });
+        const d = await r.json();
+        this.checklist = Array.isArray(d) ? d : (d.data || d.items || []);
+        for (const item of this.checklist) {
+          const preset = this.PRESETS[item.item_type] || { dr: '', cr: '' };
+          this.itemForms[item.item_type] = {
+            amount: item.amount ? String(item.amount) : '',
+            debit_account: preset.dr,
+            credit_account: preset.cr,
+            description: item.description || '',
+          };
+        }
+      } catch (e) {
+        this.checklist = [];
+      }
+      this.loading = false;
+    },
+
+    toggleExpand(type) {
+      this.expanded = { ...this.expanded, [type]: !this.expanded[type] };
+    },
+
+    async postAdjustment(item) {
+      this.saving = { ...this.saving, [item.item_type]: true };
+      try {
+        const f = this.itemForms[item.item_type];
+        const r = await fetch('/api/v1/adjusting', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + this.token() },
+          body: JSON.stringify({
+            item_type: item.item_type,
+            description: f.description || item.description,
+            amount: parseFloat(f.amount),
+            debit_account: f.debit_account,
+            credit_account: f.credit_account,
+          })
+        });
+        const d = await r.json();
+        if (r.ok) {
+          const jno = d.journal_no || d.data?.journal_no || '';
+          const idx = this.checklist.findIndex(i => i.item_type === item.item_type);
+          if (idx !== -1) {
+            this.checklist[idx] = { ...this.checklist[idx], status: 'posted', journal_no: jno };
+          }
+          this.expanded = { ...this.expanded, [item.item_type]: false };
+          this.toast = '✅ บันทึกสำเร็จ — ' + jno;
+          setTimeout(() => { this.toast = ''; }, 3000);
+        } else {
+          alert(d.detail || 'เกิดข้อผิดพลาด');
+        }
+      } catch (e) {
+        alert(String(e));
+      }
+      this.saving = { ...this.saving, [item.item_type]: false };
+    },
+
+    statusClass(s) {
+      return { pending: 'bg-yellow-100 text-yellow-700', posted: 'bg-green-100 text-green-700', skipped: 'bg-gray-100 text-gray-500' }[s] || 'bg-gray-100 text-gray-500';
+    },
+    statusLabel(s) {
+      return { pending: 'รอบันทึก', posted: 'บันทึกแล้ว', skipped: 'ข้าม' }[s] || s;
+    },
+  };
+}
+</script>
+{% endblock %}

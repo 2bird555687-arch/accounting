@@ -1,0 +1,298 @@
+{% extends "base.html" %}
+{% block title %}รายการบัญชีประจำ{% endblock %}
+{% block page_title %}อัตโนมัติ — รายการบัญชีประจำ{% endblock %}
+
+{% block content %}
+<div x-data="recurringPage()" x-init="init()">
+
+  <!-- Toast -->
+  <div x-show="toast" x-transition class="fixed top-4 right-4 z-50 bg-gray-800 text-white px-4 py-3 rounded-lg shadow-lg text-sm" x-text="toast"></div>
+
+  <!-- Due today banner -->
+  <div x-show="dueItems.length > 0" class="mb-4 bg-orange-50 border border-orange-200 rounded-xl px-4 py-3 flex items-center justify-between">
+    <span class="text-orange-800 text-sm font-medium">🔔 มี <span x-text="dueItems.length"></span> รายการถึงกำหนดวันนี้</span>
+    <button @click="runAllDue()" class="px-3 py-1.5 bg-orange-500 text-white rounded-lg text-xs font-medium hover:bg-orange-600">Run ทั้งหมด</button>
+  </div>
+
+  <!-- Toolbar -->
+  <div class="flex justify-end mb-4">
+    <button @click="openCreate()" class="px-4 py-2 rounded-lg text-sm font-medium" style="background:var(--accent-l);color:var(--accent);border:1px solid var(--accent)">
+      ➕ สร้างรายการใหม่
+    </button>
+  </div>
+
+  <!-- Templates table -->
+  <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+    <div class="px-4 py-3 border-b border-gray-100 font-semibold text-sm text-gray-700">รายการบัญชีประจำทั้งหมด</div>
+    <table class="w-full text-sm">
+      <thead class="bg-gray-50 border-b border-gray-100">
+        <tr>
+          <th class="text-left px-4 py-3 font-medium text-gray-600">ชื่อ</th>
+          <th class="text-left px-4 py-3 font-medium text-gray-600">ประเภท JE</th>
+          <th class="text-left px-4 py-3 font-medium text-gray-600">ความถี่</th>
+          <th class="text-center px-4 py-3 font-medium text-gray-600">วันที่ทุกเดือน</th>
+          <th class="text-left px-4 py-3 font-medium text-gray-600">รันล่าสุด</th>
+          <th class="text-left px-4 py-3 font-medium text-gray-600">รันครั้งต่อไป</th>
+          <th class="text-center px-4 py-3 font-medium text-gray-600">สถานะ</th>
+          <th class="text-center px-4 py-3 font-medium text-gray-600">จัดการ</th>
+        </tr>
+      </thead>
+      <tbody>
+        <template x-if="loading">
+          <tr><td colspan="8" class="px-4 py-8 text-center text-gray-400">กำลังโหลด...</td></tr>
+        </template>
+        <template x-if="!loading && templates.length === 0">
+          <tr><td colspan="8" class="px-4 py-8 text-center text-gray-400">ยังไม่มีรายการบัญชีประจำ</td></tr>
+        </template>
+        <template x-for="t in templates" :key="t.id">
+          <tr class="border-b border-gray-50 hover:bg-gray-50">
+            <td class="px-4 py-3 font-medium text-gray-800" x-text="t.name"></td>
+            <td class="px-4 py-3 font-mono text-gray-600" x-text="t.journal_type"></td>
+            <td class="px-4 py-3 text-gray-600" x-text="freqLabel(t.frequency)"></td>
+            <td class="px-4 py-3 text-center text-gray-600" x-text="t.day_of_month"></td>
+            <td class="px-4 py-3 text-gray-500 text-xs" x-text="t.last_run_date || '—'"></td>
+            <td class="px-4 py-3 text-gray-600 text-xs" x-text="t.next_run_date || '—'"></td>
+            <td class="px-4 py-3 text-center">
+              <span :class="t.is_active ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'"
+                class="inline-flex px-2 py-0.5 rounded-full text-xs font-medium"
+                x-text="t.is_active ? 'ใช้งาน' : 'ปิด'"></span>
+            </td>
+            <td class="px-4 py-3 text-center">
+              <button @click="runTemplate(t.id)" :disabled="running[t.id]"
+                class="px-3 py-1 bg-blue-600 text-white rounded text-xs hover:bg-blue-700 disabled:opacity-50">
+                <span x-show="!running[t.id]">▶ Run</span>
+                <span x-show="running[t.id]">⏳</span>
+              </button>
+            </td>
+          </tr>
+        </template>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Create Modal -->
+  <div x-show="showCreate" x-cloak class="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" @click.self="showCreate=false">
+    <div class="bg-white rounded-xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+      <div class="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+        <h2 class="text-lg font-bold text-gray-800">สร้างรายการบัญชีประจำ</h2>
+        <button @click="showCreate=false" class="text-gray-400 hover:text-gray-600">✕</button>
+      </div>
+      <div class="p-6 space-y-4">
+        <!-- name -->
+        <div>
+          <label class="block text-xs text-gray-500 mb-1">ชื่อรายการ *</label>
+          <input x-model="form.name" class="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm"/>
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs text-gray-500 mb-1">ประเภทสมุด</label>
+            <select x-model="form.journal_type" class="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm">
+              <option value="GJ">GJ — สมุดรายวันทั่วไป</option>
+              <option value="CP">CP — สมุดจ่ายเงิน</option>
+              <option value="CR">CR — สมุดรับเงิน</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs text-gray-500 mb-1">ความถี่</label>
+            <select x-model="form.frequency" class="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm">
+              <option value="monthly">รายเดือน</option>
+              <option value="quarterly">รายไตรมาส</option>
+              <option value="yearly">รายปี</option>
+            </select>
+          </div>
+        </div>
+        <div class="grid grid-cols-3 gap-3">
+          <div>
+            <label class="block text-xs text-gray-500 mb-1">วันที่ทุกเดือน</label>
+            <input type="number" x-model="form.day_of_month" min="1" max="28" class="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm"/>
+          </div>
+          <div>
+            <label class="block text-xs text-gray-500 mb-1">รันครั้งแรก</label>
+            <input type="date" x-model="form.next_run_date" class="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm"/>
+          </div>
+          <div>
+            <label class="block text-xs text-gray-500 mb-1">วันสิ้นสุด</label>
+            <input type="date" x-model="form.end_date" class="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm"/>
+          </div>
+        </div>
+        <div>
+          <label class="block text-xs text-gray-500 mb-1">คำอธิบาย</label>
+          <input x-model="form.description" class="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm"/>
+        </div>
+
+        <!-- Lines -->
+        <div>
+          <div class="flex items-center justify-between mb-2">
+            <label class="text-xs text-gray-500 font-medium">บรรทัดบัญชี</label>
+            <button @click="addLine()" class="text-xs text-blue-600 hover:underline">+ เพิ่มบรรทัด</button>
+          </div>
+          <div class="space-y-2">
+            <template x-for="(line, i) in form.lines" :key="i">
+              <div class="flex gap-2 items-center">
+                <input x-model="line.account_code" placeholder="รหัสบัญชี" class="w-24 px-2 py-1.5 rounded border border-gray-200 text-xs font-mono"/>
+                <select x-model="line.side" class="px-2 py-1.5 rounded border border-gray-200 text-xs">
+                  <option value="DR">DR</option>
+                  <option value="CR">CR</option>
+                </select>
+                <input type="number" x-model="line.amount" placeholder="จำนวนเงิน" class="w-28 px-2 py-1.5 rounded border border-gray-200 text-xs text-right"/>
+                <input x-model="line.description" placeholder="คำอธิบาย" class="flex-1 px-2 py-1.5 rounded border border-gray-200 text-xs"/>
+                <button @click="removeLine(i)" class="text-red-400 hover:text-red-600 text-xs">✕</button>
+              </div>
+            </template>
+          </div>
+          <!-- Dr/Cr totals -->
+          <div x-show="form.lines.length > 0" class="mt-3 flex gap-4 text-xs">
+            <span class="text-gray-500">Dr รวม: <span class="font-mono font-semibold text-gray-800" x-text="fmt(totalDr)"></span></span>
+            <span class="text-gray-500">Cr รวม: <span class="font-mono font-semibold text-gray-800" x-text="fmt(totalCr)"></span></span>
+            <span x-show="!isBalanced && form.lines.length >= 2" class="text-red-600 font-medium">⚠️ Dr ≠ Cr</span>
+            <span x-show="isBalanced" class="text-green-600 font-medium">✓ สมดุล</span>
+          </div>
+        </div>
+
+        <p x-show="error" x-text="error" class="text-sm text-red-600"></p>
+      </div>
+      <div class="px-6 py-4 border-t border-gray-100 flex justify-end gap-2">
+        <button @click="showCreate=false" class="px-4 py-2 rounded-lg border border-gray-200 text-sm">ยกเลิก</button>
+        <button @click="saveTemplate()" :disabled="saving || !form.name || !isBalanced"
+          class="px-4 py-2 rounded-lg bg-blue-600 text-white text-sm disabled:opacity-50">
+          <span x-show="!saving">บันทึก</span>
+          <span x-show="saving">⏳ กำลังบันทึก...</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function recurringPage() {
+  return {
+    templates: [], dueItems: [], loading: false, running: {}, toast: '', error: '',
+    showCreate: false,
+    form: {
+      name: '', journal_type: 'GJ', description: '', frequency: 'monthly',
+      day_of_month: 1, next_run_date: '', end_date: '',
+      lines: []
+    },
+    saving: false,
+    today: new Date().toISOString().slice(0, 10),
+
+    token() { return document.cookie.match(/access_token=([^;]+)/)?.[1] || ''; },
+
+    async init() {
+      await Promise.all([this.loadTemplates(), this.loadDue()]);
+    },
+
+    async loadTemplates() {
+      this.loading = true;
+      try {
+        const r = await fetch('/api/v1/recurring', { headers: { Authorization: 'Bearer ' + this.token() } });
+        const d = await r.json();
+        this.templates = Array.isArray(d) ? d : (d.data || d.items || []);
+      } catch { this.templates = []; }
+      this.loading = false;
+    },
+
+    async loadDue() {
+      try {
+        const r = await fetch(`/api/v1/recurring/due?as_of=${this.today}`, { headers: { Authorization: 'Bearer ' + this.token() } });
+        const d = await r.json();
+        this.dueItems = Array.isArray(d) ? d : (d.data || d.items || []);
+      } catch { this.dueItems = []; }
+    },
+
+    async runTemplate(id) {
+      this.running = { ...this.running, [id]: true };
+      try {
+        const r = await fetch(`/api/v1/recurring/${id}/execute`, {
+          method: 'POST',
+          headers: { Authorization: 'Bearer ' + this.token() }
+        });
+        const d = await r.json();
+        if (r.ok) {
+          const jno = d.journal_no || d.data?.journal_no || '';
+          this.showToast('✅ บันทึกสำเร็จ — ' + jno);
+          await this.loadTemplates();
+          await this.loadDue();
+        } else {
+          this.showToast('❌ ' + (d.detail || 'เกิดข้อผิดพลาด'));
+        }
+      } catch (e) {
+        this.showToast('❌ ' + String(e));
+      }
+      this.running = { ...this.running, [id]: false };
+    },
+
+    async runAllDue() {
+      for (const t of [...this.dueItems]) {
+        await this.runTemplate(t.id);
+      }
+    },
+
+    openCreate() {
+      this.form = { name: '', journal_type: 'GJ', description: '', frequency: 'monthly', day_of_month: 1, next_run_date: '', end_date: '', lines: [] };
+      this.error = '';
+      this.showCreate = true;
+    },
+
+    addLine() {
+      this.form.lines.push({ account_code: '', side: 'DR', amount: '', description: '' });
+    },
+
+    removeLine(i) { this.form.lines.splice(i, 1); },
+
+    get totalDr() { return this.form.lines.filter(l => l.side === 'DR').reduce((s, l) => s + (parseFloat(l.amount) || 0), 0); },
+    get totalCr() { return this.form.lines.filter(l => l.side === 'CR').reduce((s, l) => s + (parseFloat(l.amount) || 0), 0); },
+    get isBalanced() { return Math.abs(this.totalDr - this.totalCr) < 0.01 && this.form.lines.length >= 2; },
+
+    async saveTemplate() {
+      if (!this.form.name || !this.isBalanced) { this.error = 'กรุณากรอกชื่อและตรวจสอบยอด Dr=Cr'; return; }
+      this.saving = true; this.error = '';
+      try {
+        const payload = {
+          name: this.form.name,
+          journal_type: this.form.journal_type,
+          description: this.form.description || '',
+          frequency: this.form.frequency,
+          day_of_month: parseInt(this.form.day_of_month) || 1,
+          next_run_date: this.form.next_run_date || null,
+          end_date: this.form.end_date || null,
+          lines: this.form.lines.map(l => ({
+            account_code: l.account_code,
+            side: l.side,
+            amount: parseFloat(l.amount) || 0,
+            description: l.description || null,
+          })),
+        };
+        const r = await fetch('/api/v1/recurring', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + this.token() },
+          body: JSON.stringify(payload)
+        });
+        const d = await r.json();
+        if (r.ok) {
+          this.showCreate = false;
+          this.showToast('✅ สร้างรายการสำเร็จ');
+          await this.loadTemplates();
+        } else {
+          this.error = d.detail || 'บันทึกไม่สำเร็จ';
+        }
+      } catch (e) {
+        this.error = String(e);
+      }
+      this.saving = false;
+    },
+
+    showToast(msg) {
+      this.toast = msg;
+      setTimeout(() => { this.toast = ''; }, 3000);
+    },
+
+    freqLabel(f) { return { monthly: 'รายเดือน', quarterly: 'รายไตรมาส', yearly: 'รายปี' }[f] || f; },
+    fmt(v) { return new Intl.NumberFormat('th-TH', { minimumFractionDigits: 2 }).format(v || 0); },
+  };
+}
+</script>
+{% endblock %}
