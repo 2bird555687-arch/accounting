@@ -1,0 +1,250 @@
+{% extends "base.html" %}
+{% block title %}ฝาก/ถอนเร็ว{% endblock %}
+{% block page_title %}ธนาคาร — บันทึกฝาก/ถอนเร็ว{% endblock %}
+
+{% block content %}
+<div x-data="quickEntry()" x-init="init()">
+
+  <!-- Toast notification -->
+  <div x-show="toast" x-transition class="fixed top-4 right-4 z-50 bg-green-600 text-white px-4 py-3 rounded-lg shadow-lg text-sm font-medium" x-text="toast"></div>
+
+  <div class="grid grid-cols-1 md:grid-cols-5 gap-4">
+
+    <!-- LEFT: Form (2 cols) -->
+    <div class="md:col-span-2">
+      <div class="bg-white rounded-xl shadow-sm border border-gray-100">
+
+        <!-- Tab: deposit / withdraw -->
+        <div class="flex border-b border-gray-100">
+          <button @click="form.txn_type='deposit'"
+            :class="form.txn_type==='deposit' ? 'border-b-2 border-green-600 text-green-700 font-semibold' : 'text-gray-500'"
+            class="flex-1 py-3 text-sm">↓ ฝากเงิน</button>
+          <button @click="form.txn_type='withdraw'"
+            :class="form.txn_type==='withdraw' ? 'border-b-2 border-red-500 text-red-600 font-semibold' : 'text-gray-500'"
+            class="flex-1 py-3 text-sm">↑ ถอนเงิน</button>
+        </div>
+
+        <div class="p-4 space-y-3">
+          <!-- bank account dropdown -->
+          <div>
+            <label class="block text-xs text-gray-500 mb-1">บัญชีธนาคาร</label>
+            <select x-model="form.bank_account_id" class="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm">
+              <option value="">— เลือกบัญชี —</option>
+              <template x-for="a in accounts" :key="a.id">
+                <option :value="a.id" x-text="a.bank_name + ' — ' + (a.account_number || a.coa_account_code)"></option>
+              </template>
+            </select>
+          </div>
+
+          <!-- Balance display -->
+          <div x-show="selectedAccount" class="text-sm">
+            <span class="text-gray-500">ยอดคงเหลือ: </span>
+            <span :class="(selectedAccount?.balance || 0) < 0 ? 'text-red-600 font-bold' : 'text-gray-800 font-semibold'"
+              x-text="fmt(selectedAccount?.balance || 0) + ' บาท'"></span>
+          </div>
+
+          <!-- Date -->
+          <div>
+            <label class="block text-xs text-gray-500 mb-1">วันที่</label>
+            <input type="date" x-model="form.txn_date" class="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm"/>
+          </div>
+
+          <!-- Amount -->
+          <div>
+            <label class="block text-xs text-gray-500 mb-1">จำนวนเงิน (บาท)</label>
+            <input type="number" x-model="form.amount" min="0.01" step="0.01" placeholder="0.00"
+              :class="form.txn_type==='deposit' ? 'text-green-700' : 'text-red-600'"
+              class="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm text-right font-mono"/>
+          </div>
+
+          <!-- Description -->
+          <div>
+            <label class="block text-xs text-gray-500 mb-1">รายการ/คำอธิบาย</label>
+            <input type="text" x-model="form.description" placeholder="เช่น รับดอกเบี้ย ธ.ค."
+              class="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm"/>
+          </div>
+
+          <!-- Contra account -->
+          <div>
+            <label class="block text-xs text-gray-500 mb-1">บัญชีตรงข้าม</label>
+            <select x-show="form.txn_type==='deposit'" x-model="form.contra_account_code" class="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm mb-1">
+              <option value="">— เลือกหรือพิมพ์รหัสเอง —</option>
+              <optgroup label="รายได้">
+                <option value="4101">4101 ขายสินค้า</option>
+                <option value="4102">4102 รายได้บริการ</option>
+                <option value="4201">4201 ดอกเบี้ยรับ</option>
+                <option value="4199">4199 รายได้อื่น</option>
+              </optgroup>
+              <optgroup label="สินทรัพย์/ลูกหนี้">
+                <option value="1110">1110 ลูกหนี้การค้า</option>
+                <option value="1101">1101 เงินสด</option>
+              </optgroup>
+            </select>
+            <select x-show="form.txn_type==='withdraw'" x-model="form.contra_account_code" class="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm mb-1">
+              <option value="">— เลือกหรือพิมพ์รหัสเอง —</option>
+              <optgroup label="ค่าใช้จ่าย">
+                <option value="6101">6101 เงินเดือน</option>
+                <option value="6102">6102 ค่าจ้างแรงงาน</option>
+                <option value="6103">6103 ค่าสาธารณูปโภค</option>
+                <option value="6104">6104 ค่าเช่า</option>
+                <option value="6199">6199 ค่าใช้จ่ายอื่น</option>
+                <option value="7102">7102 ค่าธรรมเนียมธนาคาร</option>
+                <option value="7101">7101 ดอกเบี้ยจ่าย</option>
+              </optgroup>
+              <optgroup label="หนี้สิน/อื่น">
+                <option value="2101">2101 เจ้าหนี้การค้า</option>
+                <option value="2121">2121 WHT ค้างนำส่ง</option>
+                <option value="1101">1101 เงินสด</option>
+              </optgroup>
+            </select>
+            <input type="text" x-model="form.contra_account_code" placeholder="หรือพิมพ์รหัสบัญชีเอง เช่น 6505"
+              class="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm font-mono"/>
+          </div>
+
+          <!-- Ref no (optional) -->
+          <div>
+            <label class="block text-xs text-gray-500 mb-1">เลขอ้างอิง (ไม่บังคับ)</label>
+            <input type="text" x-model="form.ref_no" placeholder="เช่น เลขที่ใบเสร็จ"
+              class="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm"/>
+          </div>
+
+          <!-- Error -->
+          <p x-show="error" x-text="error" class="text-sm text-red-600"></p>
+
+          <!-- Submit button -->
+          <button @click="submit()" :disabled="!canSubmit()"
+            :class="form.txn_type==='deposit' ? 'bg-green-600 hover:bg-green-700' : 'bg-red-500 hover:bg-red-600'"
+            class="w-full py-2.5 rounded-lg text-white text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed">
+            <span x-show="!saving" x-text="form.txn_type==='deposit' ? '↓ บันทึกฝากเงิน' : '↑ บันทึกถอนเงิน'"></span>
+            <span x-show="saving">⏳ กำลังบันทึก...</span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- RIGHT: History (3 cols) -->
+    <div class="md:col-span-3">
+      <div class="bg-white rounded-xl shadow-sm border border-gray-100">
+        <div class="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
+          <span class="font-semibold text-sm text-gray-700">ประวัติรายการ</span>
+          <div class="flex gap-2">
+            <select x-model="filterAccountId" @change="loadEntries()" class="px-2 py-1 rounded border border-gray-200 text-xs">
+              <option value="">ทุกบัญชี</option>
+              <template x-for="a in accounts" :key="a.id">
+                <option :value="a.id" x-text="a.bank_name"></option>
+              </template>
+            </select>
+            <button @click="loadEntries()" class="px-2 py-1 rounded border border-gray-200 text-xs text-gray-600">↻</button>
+          </div>
+        </div>
+        <table class="w-full text-sm">
+          <thead class="bg-gray-50 border-b border-gray-100">
+            <tr>
+              <th class="text-left px-3 py-2 font-medium text-gray-600 text-xs">วันที่</th>
+              <th class="text-left px-3 py-2 font-medium text-gray-600 text-xs">รายการ</th>
+              <th class="text-center px-3 py-2 font-medium text-gray-600 text-xs">บัญชีตรงข้าม</th>
+              <th class="text-right px-3 py-2 font-medium text-gray-600 text-xs">จำนวน</th>
+              <th class="text-center px-3 py-2 font-medium text-gray-600 text-xs">เลขที่ JE</th>
+            </tr>
+          </thead>
+          <tbody>
+            <template x-if="entries.length === 0">
+              <tr><td colspan="5" class="px-4 py-8 text-center text-gray-400 text-sm">ยังไม่มีรายการ</td></tr>
+            </template>
+            <template x-for="(e, i) in entries" :key="e.journal_no">
+              <tr :class="i % 2 === 1 ? 'bg-gray-50' : ''" class="border-b border-gray-50">
+                <td class="px-3 py-2 text-gray-600 text-xs" x-text="e.txn_date"></td>
+                <td class="px-3 py-2 text-gray-700 text-xs" x-text="e.description"></td>
+                <td class="px-3 py-2 text-center font-mono text-xs text-gray-500" x-text="e.contra_account_code"></td>
+                <td class="px-3 py-2 text-right font-mono text-xs font-medium"
+                  :class="e.txn_type==='deposit' ? 'text-green-700' : 'text-red-600'"
+                  x-text="(e.txn_type==='deposit' ? '+' : '-') + fmt(e.amount)"></td>
+                <td class="px-3 py-2 text-center">
+                  <a :href="'/journals/' + e.journal_no" class="text-xs text-blue-600 hover:underline font-mono" x-text="e.journal_no"></a>
+                </td>
+              </tr>
+            </template>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function quickEntry() {
+  return {
+    accounts: [], loading: false, saving: false, error: '', toast: '',
+    form: {
+      bank_account_id: '',
+      txn_type: 'deposit',
+      amount: '',
+      txn_date: new Date().toISOString().slice(0, 10),
+      description: '',
+      contra_account_code: '',
+      ref_no: '',
+    },
+    entries: [],
+    filterAccountId: '',
+
+    token() { return document.cookie.match(/access_token=([^;]+)/)?.[1] || ''; },
+
+    async init() {
+      const r = await fetch('/api/v1/bank/accounts', { headers: { Authorization: 'Bearer ' + this.token() } });
+      const d = await r.json();
+      this.accounts = d.data || d.items || d || [];
+      await this.loadEntries();
+    },
+
+    get selectedAccount() {
+      return this.accounts.find(a => a.id == this.form.bank_account_id);
+    },
+
+    canSubmit() {
+      return this.form.bank_account_id && this.form.amount > 0 &&
+             this.form.description && this.form.contra_account_code && !this.saving;
+    },
+
+    async submit() {
+      this.saving = true; this.error = '';
+      try {
+        const r = await fetch('/api/v1/bank/quick-entry', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + this.token() },
+          body: JSON.stringify({
+            ...this.form,
+            amount: parseFloat(this.form.amount),
+          }),
+        });
+        const d = await r.json();
+        if (!r.ok) { this.error = d.detail || 'บันทึกไม่สำเร็จ'; return; }
+        const jno = d.data?.journal_no || d.journal_no || '';
+        this.toast = '✅ บันทึกสำเร็จ — ' + jno;
+        setTimeout(() => { this.toast = ''; }, 3000);
+        // Reset only amount, description, ref_no
+        this.form.amount = '';
+        this.form.description = '';
+        this.form.ref_no = '';
+        await this.loadEntries();
+        // Reload account balances
+        const r2 = await fetch('/api/v1/bank/accounts', { headers: { Authorization: 'Bearer ' + this.token() } });
+        const d2 = await r2.json();
+        this.accounts = d2.data || d2.items || d2 || [];
+      } catch(e) { this.error = String(e); }
+      finally { this.saving = false; }
+    },
+
+    async loadEntries() {
+      const params = this.filterAccountId ? `?bank_account_id=${this.filterAccountId}&limit=50` : '?limit=50';
+      const r = await fetch('/api/v1/bank/quick-entry' + params, { headers: { Authorization: 'Bearer ' + this.token() } });
+      const d = await r.json();
+      this.entries = d.data || d.items || d || [];
+    },
+
+    fmt(v) { return new Intl.NumberFormat('th-TH', { minimumFractionDigits: 2 }).format(v || 0); },
+  };
+}
+</script>
+{% endblock %}

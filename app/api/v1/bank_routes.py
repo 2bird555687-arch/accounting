@@ -145,6 +145,38 @@ async def list_bank_transfers(ctx: CTX, db: CompanyDB) -> dict:
     return ok(out)
 
 
+class QuickEntryCreate(BaseModel):
+    bank_account_id: int
+    txn_type: str
+    amount: Decimal
+    txn_date: date
+    description: str
+    contra_account_code: str
+    ref_no: Optional[str] = None
+
+
+@router.post("/quick-entry")
+async def create_quick_entry(body: QuickEntryCreate, ctx: CTX, db: CompanyDB):
+    result = await bank_service.quick_bank_entry(
+        db, ctx,
+        bank_account_id=body.bank_account_id,
+        txn_type=body.txn_type,
+        amount=body.amount,
+        txn_date=body.txn_date,
+        description=body.description,
+        contra_account_code=body.contra_account_code,
+        ref_no=body.ref_no,
+    )
+    await db.commit()
+    return ok(result, "บันทึกรายการสำเร็จ")
+
+
+@router.get("/quick-entry")
+async def list_quick_entries(ctx: CTX, db: CompanyDB, bank_account_id: Optional[int] = None, limit: int = 50):
+    entries = await bank_service.get_quick_entries(db, ctx.company_id, bank_account_id, limit)
+    return ok(entries)
+
+
 @router.post("/statement/upload", response_model=StatementUploadResponse, status_code=201)
 async def upload_bank_statement(
     ctx: CTX,

@@ -180,3 +180,129 @@ async def get_bank_transfers(
     )
     result = await db.execute(stmt)
     return list(result.scalars().all())
+
+
+async def quick_bank_entry(
+    db: AsyncSession,
+    ctx: AppContext,
+    *,
+    bank_account_id: int,
+    txn_type: str,
+    amount: Decimal,
+    txn_date: date,
+    description: str,
+    contra_account_code: str,
+    ref_no: Optional[str] = None,
+) -> dict:
+    """บันทึกฝาก/ถอนเงินเร็ว — post JE ผ่าน PostingEngine."""
+    if txn_type not in ("deposit", "withdraw"):
+        raise HTTPException(status_code=400, detail="txn_type ต้องเป็น deposit หรือ withdraw")
+    if amount <= 0:
+        raise HTTPException(status_code=400, detail="จำนวนเงินต้องมากกว่า 0")
+
+    acc = await get_bank_account(db, ctx.company_id, bank_account_id)
+    bank_coa = acc.coa_account_code
+
+    if txn_type == "deposit":
+        lines = [
+            JournalLineInput(account_code=bank_coa, side=DrCr.DR, amount=amount),
+            JournalLineInput(account_code=contra_account_code, side=DrCr.CR, amount=amount),
+        ]
+    else:  # withdraw
+        lines = [
+            JournalLineInput(account_code=contra_account_code, side=DrCr.DR, amount=amount),
+            JournalLineInput(account_code=bank_coa, side=DrCr.CR, amount=amount),
+        ]
+
+    entry = JournalEntryInput(
+        journal_type=JournalType.GJ,
+        entry_date=txn_date,
+        description=description,
+        reference=ref_no,
+        source_module="bank_quick",
+        lines=lines,
+    )
+    try:
+        journal_no = await PostingEngine(db).post(entry, ctx)
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+    return {
+        "journal_no": journal_no,
+        "bank_account": acc.bank_name,
+        "txn_type": txn_type,
+        "amount": str(amount),
+        "txn_date": str(txn_date),
+        "description": description,
+    }
+
+
+async def get_quick_entries(
+    db: AsyncSession,
+    company_id: int,
+    bank_account_id: Optional[int] = None,
+    limit: int = 50,
+) -> list[dict]:
+    """ดึงประวัติรายการฝาก/ถอนเร็ว."""
+    from app.core.models import JournalEntry, JournalLine
+    from sqlalchemy import desc
+
+    stmt = (
+        select(JournalEntry)
+        .where(
+            JournalEntry.company_id == company_id,
+            JournalEntry.source_module == "bank_quick",
+        )
+        .order_by(desc(JournalEntry.id))
+        .limit(limit)
+    )
+    result = await db.execute(stmt)
+    entries = result.scalars().all()
+
+    # If filtering by bank_account_id, get its COA code first
+    bank_coa = None
+    if bank_account_id:
+        ba = await db.get(BankAccount, bank_account_id)
+        if ba:
+            bank_coa = ba.coa_account_code
+
+    out = []
+    for je in entries:
+        lines_stmt = select(JournalLine).where(JournalLine.journal_entry_id == je.id)
+        lines_result = await db.execute(lines_stmt)
+        lines = lines_result.scalars().all()
+
+        if bank_coa:
+            # Filter: only JEs that have a line with this bank COA
+            if not any(l.account_code == bank_coa for l in lines):
+                continue
+
+        # Determine txn_type from which side the bank account is on
+        txn_type = "deposit"
+        amount = Decimal(0)
+        contra_code = ""
+        for l in lines:
+            if bank_coa and l.account_code == bank_coa:
+                if l.debit_amount and l.debit_amount > 0:
+                    txn_type = "deposit"
+                    amount = l.debit_amount
+                elif l.credit_amount and l.credit_amount > 0:
+                    txn_type = "withdraw"
+                    amount = l.credit_amount
+            elif bank_coa is None:
+                if l.debit_amount and l.debit_amount > 0:
+                    amount = l.debit_amount
+            # Find contra account
+            if bank_coa and l.account_code != bank_coa:
+                contra_code = l.account_code
+
+        out.append({
+            "journal_no": je.entry_no,
+            "txn_date": str(je.entry_date),
+            "txn_type": txn_type,
+            "amount": str(amount),
+            "description": je.description or "",
+            "reference": je.reference or "",
+            "contra_account_code": contra_code,
+        })
+    return out

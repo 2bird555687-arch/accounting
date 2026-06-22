@@ -102,6 +102,7 @@
   <div class="sb-sub {% if '/bank/' in request.url.path %}open{% endif %}">
     <a href="/bank/accounts" class="sb-item {% if '/bank/accounts' in request.url.path %}active{% endif %}">บัญชีธนาคาร</a>
     <a href="/bank/transfers" class="sb-item {% if '/bank/transfers' in request.url.path %}active{% endif %}">โอนเงิน</a>
+    <a href="/bank/quick-entry" class="sb-item {% if '/bank/quick-entry' in request.url.path %}active{% endif %}">ฝาก/ถอนเร็ว</a>
     <a href="/bank/reconciliation" class="sb-item {% if request.url.path == '/bank/reconciliation' %}active{% endif %}">กระทบยอดธนาคาร</a>
   </div>
 
