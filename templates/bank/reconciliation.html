@@ -1,0 +1,470 @@
+{% extends "base.html" %}
+{% block title %}กระทบยอดธนาคาร{% endblock %}
+{% block page_title %}ธนาคาร — กระทบยอดธนาคาร{% endblock %}
+
+{% block content %}
+<div x-data="bankRecon()" x-init="init()">
+
+  <!-- Step indicator -->
+  <div class="flex items-center gap-3 mb-6">
+    <div :class="step >= 1 ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-500'" class="w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold">1</div>
+    <span class="text-sm text-gray-500">อัปโหลด Statement</span>
+    <div class="h-px w-8 bg-gray-300"></div>
+    <div :class="step >= 2 ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-500'" class="w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold">2</div>
+    <span class="text-sm text-gray-500">จับคู่รายการ</span>
+    <div class="h-px w-8 bg-gray-300"></div>
+    <div :class="step >= 3 ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-500'" class="w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold">3</div>
+    <span class="text-sm text-gray-500">รายงาน</span>
+  </div>
+
+  <!-- STEP 1: Upload -->
+  <div x-show="step === 1">
+    <div class="bg-white rounded-xl shadow-sm border border-gray-100 max-w-xl">
+      <div class="px-4 py-3 border-b border-gray-100 font-semibold text-sm text-gray-700">อัปโหลด Bank Statement</div>
+      <div class="p-4 space-y-4">
+
+        <!-- Bank account dropdown -->
+        <div>
+          <label class="block text-xs text-gray-500 mb-1">บัญชีธนาคาร</label>
+          <select x-model="form.bank_account_id" class="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm">
+            <option value="">— เลือกบัญชี —</option>
+            <template x-for="a in bankAccounts" :key="a.id">
+              <option :value="a.coa_account_code" x-text="a.bank_name + ' — ' + (a.account_number || a.coa_account_code)"></option>
+            </template>
+          </select>
+        </div>
+
+        <!-- Bank hint dropdown -->
+        <div>
+          <label class="block text-xs text-gray-500 mb-1">ประเภทธนาคาร (ช่วยให้ OCR แม่นยำขึ้น)</label>
+          <select x-model="form.bank_hint" class="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm">
+            <option value="">— ระบุหากทราบ —</option>
+            <option value="กรุงไทย">กรุงไทย (KTB)</option>
+            <option value="กสิกร">กสิกรไทย (KBANK)</option>
+            <option value="SCB">ไทยพาณิชย์ (SCB)</option>
+            <option value="กรุงเทพ">กรุงเทพ (BBL)</option>
+            <option value="TTB">ทหารไทยธนชาต (TTB)</option>
+          </select>
+        </div>
+
+        <!-- File input -->
+        <div>
+          <label class="block text-xs text-gray-500 mb-1">ไฟล์ Statement (PDF หรือรูปภาพ)</label>
+          <input type="file" accept=".pdf,.png,.jpg,.jpeg" @change="handleFile($event)"
+            class="w-full text-sm text-gray-600 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100" />
+        </div>
+
+        <!-- Error message -->
+        <p x-show="error" x-text="error" class="text-sm text-red-600"></p>
+
+        <!-- Submit button -->
+        <button @click="uploadStatement()" :disabled="loading"
+          class="px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-medium flex items-center gap-2 disabled:opacity-50">
+          <span x-show="loading" class="inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
+          <span x-text="loading ? 'กำลังอัปโหลด...' : 'อัปโหลดและวิเคราะห์'"></span>
+        </button>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- STEP 2: Matching -->
+  <div x-show="step === 2">
+
+    <!-- Stat cards: opening/closing/credit/debit -->
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4" x-show="reconResult">
+      <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
+        <div class="text-xs text-gray-500">ยอดเปิด</div>
+        <div class="text-lg font-bold text-gray-700" x-text="fmt(reconResult?.opening_balance)"></div>
+      </div>
+      <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
+        <div class="text-xs text-gray-500">ยอดปิด</div>
+        <div class="text-lg font-bold text-gray-700" x-text="fmt(reconResult?.closing_balance)"></div>
+      </div>
+      <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
+        <div class="text-xs text-gray-500">เครดิตรวม</div>
+        <div class="text-lg font-bold text-green-600" x-text="fmt(reconResult?.total_credit)"></div>
+      </div>
+      <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
+        <div class="text-xs text-gray-500">เดบิตรวม</div>
+        <div class="text-lg font-bold text-red-600" x-text="fmt(reconResult?.total_debit)"></div>
+      </div>
+    </div>
+
+    <!-- Match stats: 5 boxes -->
+    <div class="grid grid-cols-2 md:grid-cols-5 gap-3 mb-4">
+      <div class="bg-green-50 border border-green-100 rounded-xl p-3 text-center">
+        <div class="text-2xl font-bold text-green-600" x-text="countByStatus('MATCHED')"></div>
+        <div class="text-xs text-green-700 mt-0.5">จับคู่แล้ว</div>
+      </div>
+      <div class="bg-yellow-50 border border-yellow-100 rounded-xl p-3 text-center">
+        <div class="text-2xl font-bold text-yellow-600" x-text="countByStatus('NEAR_MATCH')"></div>
+        <div class="text-xs text-yellow-700 mt-0.5">ใกล้เคียง</div>
+      </div>
+      <div class="bg-orange-50 border border-orange-100 rounded-xl p-3 text-center">
+        <div class="text-2xl font-bold text-orange-600" x-text="countByStatus('STATEMENT_ONLY')"></div>
+        <div class="text-xs text-orange-700 mt-0.5">Statement เท่านั้น</div>
+      </div>
+      <div class="bg-blue-50 border border-blue-100 rounded-xl p-3 text-center">
+        <div class="text-2xl font-bold text-blue-600" x-text="countByStatus('BOOK_ONLY')"></div>
+        <div class="text-xs text-blue-700 mt-0.5">สมุดเท่านั้น</div>
+      </div>
+      <div class="bg-gray-50 border border-gray-100 rounded-xl p-3 text-center">
+        <div class="text-2xl font-bold text-gray-600" x-text="countByStatus('CONFIRMED')"></div>
+        <div class="text-xs text-gray-600 mt-0.5">ยืนยันแล้ว</div>
+      </div>
+    </div>
+
+    <!-- Validation badge -->
+    <div class="mb-4" x-show="reconResult?.validation_ok !== undefined">
+      <span x-show="reconResult?.validation_ok"
+        class="inline-flex px-3 py-1 rounded-full text-xs font-medium bg-green-100 text-green-700">
+        ✓ ยอดตรวจสอบผ่าน — ยอดเปิด + รับ − จ่าย = ยอดปิด
+      </span>
+      <span x-show="!reconResult?.validation_ok"
+        class="inline-flex px-3 py-1 rounded-full text-xs font-medium bg-red-100 text-red-700"
+        x-text="'⚠ ยอดไม่สมดุล ผลต่าง: ' + fmt(reconResult?.validation_diff)">
+      </span>
+    </div>
+
+    <!-- Filter bar -->
+    <div class="flex items-center gap-2 mb-3 flex-wrap">
+      <span class="text-xs text-gray-500 mr-1">กรอง:</span>
+      <template x-for="f in ['ALL','MATCHED','NEAR_MATCH','STATEMENT_ONLY','BOOK_ONLY','CONFIRMED','MISMATCH']" :key="f">
+        <button @click="filter = f"
+          :class="filter === f ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-600'"
+          class="px-3 py-1 rounded-full text-xs font-medium"
+          x-text="f === 'ALL' ? 'ทั้งหมด (' + lines.length + ')' : statusLabel(f)">
+        </button>
+      </template>
+    </div>
+
+    <!-- Action bar -->
+    <div class="flex items-center gap-2 mb-3">
+      <button @click="autoPost()" :disabled="loading"
+        class="px-4 py-2 rounded-lg border border-gray-200 text-sm flex items-center gap-1 disabled:opacity-50">
+        <span x-show="loading" class="inline-block w-3 h-3 border-2 border-gray-400 border-t-transparent rounded-full animate-spin"></span>
+        ⚡ Auto-post รายการที่รู้จัก
+      </button>
+      <button @click="getReport()" :disabled="loading"
+        class="px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-medium disabled:opacity-50">
+        📄 ดูรายงานและปิด
+      </button>
+    </div>
+
+    <!-- Matching table -->
+    <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-x-auto">
+      <table class="w-full text-sm">
+        <thead class="bg-gray-50 border-b border-gray-100">
+          <tr>
+            <th class="text-left px-4 py-3 font-medium text-gray-600">สถานะ</th>
+            <th class="text-left px-4 py-3 font-medium text-gray-600">วันที่ Statement</th>
+            <th class="text-left px-4 py-3 font-medium text-gray-600">รายการ Statement</th>
+            <th class="text-right px-4 py-3 font-medium text-gray-600">เดบิต</th>
+            <th class="text-right px-4 py-3 font-medium text-gray-600">เครดิต</th>
+            <th class="text-left px-4 py-3 font-medium text-gray-600">เลขที่ JE</th>
+            <th class="text-left px-4 py-3 font-medium text-gray-600">รายการสมุด</th>
+            <th class="text-right px-4 py-3 font-medium text-gray-600">เดบิต JE</th>
+            <th class="text-right px-4 py-3 font-medium text-gray-600">เครดิต JE</th>
+            <th class="text-left px-4 py-3 font-medium text-gray-600">การดำเนินการ</th>
+          </tr>
+        </thead>
+        <tbody>
+          <template x-if="filteredLines().length === 0">
+            <tr><td colspan="10" class="px-4 py-8 text-center text-gray-400">ไม่มีรายการ</td></tr>
+          </template>
+          <template x-for="line in filteredLines()" :key="line.id">
+            <tr class="border-b border-gray-50 hover:bg-gray-50">
+
+              <!-- Status badge -->
+              <td class="px-4 py-3">
+                <span class="inline-flex px-2 py-0.5 rounded-full text-xs font-medium"
+                  :class="statusClass(line.match_status)"
+                  x-text="statusLabel(line.match_status)">
+                </span>
+                <div x-show="line.match_confidence" class="text-xs text-gray-400 mt-0.5"
+                  x-text="line.match_confidence + '%'"></div>
+              </td>
+
+              <!-- Statement side -->
+              <td class="px-4 py-3 text-gray-600 whitespace-nowrap" x-text="line.stmt_date || '—'"></td>
+              <td class="px-4 py-3 text-gray-700 max-w-xs truncate" x-text="line.stmt_description || '—'"></td>
+              <td class="px-4 py-3 text-right font-mono text-red-600" x-text="line.stmt_debit > 0 ? fmt(line.stmt_debit) : ''"></td>
+              <td class="px-4 py-3 text-right font-mono text-green-600" x-text="line.stmt_credit > 0 ? fmt(line.stmt_credit) : ''"></td>
+
+              <!-- Book side -->
+              <td class="px-4 py-3 font-mono text-blue-600 text-xs" x-text="line.journal_entry_no || '—'"></td>
+              <td class="px-4 py-3 text-gray-600 max-w-xs truncate" x-text="line.journal_description || '—'"></td>
+              <td class="px-4 py-3 text-right font-mono text-red-600" x-text="line.journal_debit > 0 ? fmt(line.journal_debit) : ''"></td>
+              <td class="px-4 py-3 text-right font-mono text-green-600" x-text="line.journal_credit > 0 ? fmt(line.journal_credit) : ''"></td>
+
+              <!-- Actions -->
+              <td class="px-4 py-3">
+                <!-- MATCHED / NEAR_MATCH: confirm or reject -->
+                <template x-if="line.match_status === 'MATCHED' || line.match_status === 'NEAR_MATCH'">
+                  <div class="flex gap-1">
+                    <button @click="confirmLine(line.id, 'confirm', null)"
+                      class="px-2 py-1 rounded text-xs bg-green-100 text-green-700 hover:bg-green-200">✓ ยืนยัน</button>
+                    <button @click="confirmLine(line.id, 'reject', null)"
+                      class="px-2 py-1 rounded text-xs bg-red-100 text-red-700 hover:bg-red-200">✗ ปฏิเสธ</button>
+                  </div>
+                </template>
+
+                <!-- STATEMENT_ONLY: select account and post_new -->
+                <template x-if="line.match_status === 'STATEMENT_ONLY'">
+                  <div class="flex flex-col gap-1">
+                    <select x-model="line._account_code"
+                      class="px-2 py-1 rounded border border-gray-200 text-xs w-48">
+                      <option value="">— เลือกบัญชี —</option>
+                      <option value="4201">4201 ดอกเบี้ยรับ</option>
+                      <option value="7102">7102 ค่าธรรมเนียมธนาคาร</option>
+                      <option value="2121">2121 WHT ค้างนำส่ง</option>
+                      <option value="6199">6199 ค่าใช้จ่ายอื่น</option>
+                      <option value="4199">4199 รายได้อื่น</option>
+                    </select>
+                    <button @click="confirmLine(line.id, 'post_new', line._account_code)"
+                      :disabled="!line._account_code"
+                      class="px-2 py-1 rounded text-xs bg-blue-100 text-blue-700 hover:bg-blue-200 disabled:opacity-40">
+                      + บันทึก JE
+                    </button>
+                  </div>
+                </template>
+
+                <!-- CONFIRMED: show posted JE if any -->
+                <template x-if="line.match_status === 'CONFIRMED'">
+                  <span class="text-xs text-gray-500" x-text="line.posted_journal_no ? 'JE: ' + line.posted_journal_no : '✓'"></span>
+                </template>
+
+                <!-- MISMATCH -->
+                <template x-if="line.match_status === 'MISMATCH'">
+                  <span class="text-xs text-red-500">ตรวจสอบ</span>
+                </template>
+              </td>
+            </tr>
+          </template>
+        </tbody>
+      </table>
+    </div>
+
+  </div>
+
+  <!-- STEP 3: Report -->
+  <div x-show="step === 3">
+    <div class="bg-white rounded-xl shadow-sm border border-gray-100 max-w-2xl mb-4" x-show="report">
+      <div class="px-4 py-3 border-b border-gray-100 font-semibold text-sm text-gray-700">รายงานกระทบยอดธนาคาร</div>
+      <div class="p-4 space-y-3 text-sm">
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <div class="text-xs text-gray-500">ธนาคาร</div>
+            <div class="font-medium text-gray-800" x-text="report?.bank_name || '—'"></div>
+          </div>
+          <div>
+            <div class="text-xs text-gray-500">เลขที่บัญชี</div>
+            <div class="font-medium font-mono text-gray-800" x-text="report?.account_no || '—'"></div>
+          </div>
+          <div>
+            <div class="text-xs text-gray-500">รหัสบัญชี COA</div>
+            <div class="font-medium font-mono text-blue-600" x-text="report?.bank_account_code || '—'"></div>
+          </div>
+          <div>
+            <div class="text-xs text-gray-500">สถานะ</div>
+            <span class="inline-flex px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-700"
+              x-text="report?.status || '—'"></span>
+          </div>
+          <div>
+            <div class="text-xs text-gray-500">งวด</div>
+            <div class="font-medium text-gray-700" x-text="(report?.period_from || '') + ' — ' + (report?.period_to || '')"></div>
+          </div>
+        </div>
+
+        <div class="border-t border-gray-100 pt-3 grid grid-cols-2 gap-4">
+          <div>
+            <div class="text-xs text-gray-500">ยอดเปิด Statement</div>
+            <div class="text-lg font-bold text-gray-800" x-text="fmt(report?.opening_balance)"></div>
+          </div>
+          <div>
+            <div class="text-xs text-gray-500">ยอดปิด Statement</div>
+            <div class="text-lg font-bold text-gray-800" x-text="fmt(report?.closing_balance)"></div>
+          </div>
+          <div>
+            <div class="text-xs text-gray-500">ยอดตามสมุดบัญชี</div>
+            <div class="text-lg font-bold text-blue-600" x-text="fmt(report?.book_balance)"></div>
+          </div>
+          <div>
+            <div class="text-xs text-gray-500">ยอดหลังปรับปรุง</div>
+            <div class="text-lg font-bold text-green-600" x-text="fmt(report?.adjusted_balance)"></div>
+          </div>
+        </div>
+
+        <div class="border-t border-gray-100 pt-3 grid grid-cols-3 gap-4">
+          <div class="text-center">
+            <div class="text-xs text-gray-500">จับคู่แล้ว</div>
+            <div class="text-xl font-bold text-green-600" x-text="report?.total_matched"></div>
+          </div>
+          <div class="text-center">
+            <div class="text-xs text-gray-500">Statement ไม่มีในสมุด</div>
+            <div class="text-xl font-bold text-orange-600" x-text="report?.total_statement_only"></div>
+          </div>
+          <div class="text-center">
+            <div class="text-xs text-gray-500">สมุดไม่มีใน Statement</div>
+            <div class="text-xl font-bold text-blue-600" x-text="report?.total_book_only"></div>
+          </div>
+        </div>
+
+        <div class="border-t border-gray-100 pt-3 grid grid-cols-2 gap-4">
+          <div>
+            <div class="text-xs text-gray-500">ยอดคงค้าง Statement</div>
+            <div class="font-bold text-orange-600" x-text="fmt(report?.unreconciled_statement)"></div>
+          </div>
+          <div>
+            <div class="text-xs text-gray-500">ยอดคงค้างสมุด</div>
+            <div class="font-bold text-blue-600" x-text="fmt(report?.unreconciled_book)"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- New reconciliation button -->
+    <button @click="step = 1; reconId = null; reconResult = null; lines = []; report = null; form = { bank_account_id: '', bank_hint: '', file: null }; error = ''"
+      class="px-4 py-2 rounded-lg border border-gray-200 text-sm">
+      ← กระทบยอดใหม่
+    </button>
+  </div>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function bankRecon() {
+  return {
+    step: 1,
+    loading: false,
+    error: '',
+
+    // Step 1 state
+    bankAccounts: [],
+    form: { bank_account_id: '', bank_hint: '', file: null },
+
+    // Step 2 state
+    reconId: null,
+    reconResult: null,
+    lines: [],
+    filter: 'ALL',
+
+    // Step 3 state
+    report: null,
+
+    token() { return document.cookie.match(/access_token=([^;]+)/)?.[1] || ''; },
+
+    async init() {
+      try {
+        const r = await fetch('/api/v1/bank/accounts', { headers: { Authorization: 'Bearer ' + this.token() } });
+        const d = await r.json();
+        this.bankAccounts = d.data || d.items || d || [];
+      } catch { this.bankAccounts = []; }
+    },
+
+    handleFile(e) { this.form.file = e.target.files[0]; },
+
+    async uploadStatement() {
+      if (!this.form.bank_account_id || !this.form.file) { this.error = 'กรุณาเลือกบัญชีและไฟล์'; return; }
+      this.loading = true; this.error = '';
+      const fd = new FormData();
+      fd.append('bank_account_code', this.form.bank_account_id);
+      if (this.form.bank_hint) fd.append('bank_name', this.form.bank_hint);
+      fd.append('file', this.form.file);
+      // Do NOT set Content-Type header — let browser set boundary automatically
+      const r = await fetch('/api/v1/bank/statement/upload', {
+        method: 'POST',
+        headers: { Authorization: 'Bearer ' + this.token() },
+        body: fd
+      });
+      const d = await r.json();
+      if (!r.ok) { this.error = d.detail || 'อัปโหลดไม่สำเร็จ'; this.loading = false; return; }
+      this.reconId = d.recon_id;
+      // Store statement summary for stat cards
+      if (d.statement) {
+        this.reconResult = {
+          opening_balance: d.statement.opening_balance,
+          closing_balance: d.statement.closing_balance,
+          total_credit: d.statement.total_credit,
+          total_debit: d.statement.total_debit,
+          validation_ok: d.statement.validation_ok,
+          validation_diff: d.statement.validation_diff,
+        };
+      }
+      await this.loadRecon();
+      this.step = 2;
+      this.loading = false;
+    },
+
+    async loadRecon() {
+      const r = await fetch(`/api/v1/bank/reconciliation/${this.reconId}`, { headers: { Authorization: 'Bearer ' + this.token() } });
+      const data = await r.json();
+      // Merge recon stats but keep statement summary fields
+      this.reconResult = Object.assign({}, this.reconResult || {}, data);
+      this.lines = (data.lines || []).map(l => ({ ...l, _account_code: '' }));
+    },
+
+    filteredLines() {
+      if (this.filter === 'ALL') return this.lines;
+      return this.lines.filter(l => l.match_status === this.filter);
+    },
+
+    countByStatus(s) { return this.lines.filter(l => l.match_status === s).length; },
+
+    async confirmLine(lineId, action, accountCode) {
+      const payload = { matches: [{ line_id: lineId, action, account_code: accountCode || null }] };
+      const r = await fetch(`/api/v1/bank/reconciliation/${this.reconId}/confirm`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + this.token() },
+        body: JSON.stringify(payload)
+      });
+      if (r.ok) {
+        const idx = this.lines.findIndex(l => l.id === lineId);
+        if (idx !== -1) {
+          this.lines[idx].match_status = action === 'reject' ? 'STATEMENT_ONLY' : 'CONFIRMED';
+        }
+        await this.loadRecon();
+      }
+    },
+
+    async autoPost() {
+      this.loading = true;
+      const r = await fetch(`/api/v1/bank/reconciliation/${this.reconId}/auto-post`, {
+        method: 'POST',
+        headers: { Authorization: 'Bearer ' + this.token() }
+      });
+      await this.loadRecon();
+      this.loading = false;
+    },
+
+    async getReport() {
+      this.loading = true;
+      const r = await fetch(`/api/v1/bank/reconciliation/${this.reconId}/report`, { headers: { Authorization: 'Bearer ' + this.token() } });
+      this.report = await r.json();
+      this.step = 3;
+      this.loading = false;
+    },
+
+    fmt(v) { return new Intl.NumberFormat('th-TH', { minimumFractionDigits: 2 }).format(v || 0); },
+
+    statusLabel(s) {
+      return { MATCHED: 'จับคู่แล้ว', NEAR_MATCH: 'ใกล้เคียง', STATEMENT_ONLY: 'ใน Statement เท่านั้น', BOOK_ONLY: 'ในสมุดเท่านั้น', CONFIRMED: 'ยืนยันแล้ว', MISMATCH: 'ไม่ตรง' }[s] || s;
+    },
+
+    statusClass(s) {
+      return {
+        MATCHED: 'bg-green-100 text-green-700',
+        NEAR_MATCH: 'bg-yellow-100 text-yellow-700',
+        STATEMENT_ONLY: 'bg-orange-100 text-orange-700',
+        BOOK_ONLY: 'bg-blue-100 text-blue-700',
+        CONFIRMED: 'bg-gray-100 text-gray-600',
+        MISMATCH: 'bg-red-100 text-red-700',
+      }[s] || 'bg-gray-100 text-gray-600';
+    }
+  };
+}
+</script>
+{% endblock %}

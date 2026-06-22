@@ -286,6 +286,15 @@ async def bank_transfer_page(request: Request):
     return _r("bank/transfer_form.html", request, _ctx(ctx))
 
 
+@router.get("/bank/reconciliation", response_class=HTMLResponse)
+async def bank_reconciliation_page(request: Request):
+    try:
+        ctx = await get_ui_context(request)
+    except UIRedirectException as e:
+        return RedirectResponse(url=e.url, status_code=302)
+    return _r("bank/reconciliation.html", request, _ctx(ctx))
+
+
 # ── Fixed Assets ──────────────────────────────────────────────────────────────
 
 @router.get("/assets", response_class=HTMLResponse)
