@@ -466,3 +466,24 @@ class AdjustingEntry(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
+
+
+# ── ExchangeRate ──────────────────────────────────────────────────────────────
+
+class ExchangeRate(Base):
+    """อัตราแลกเปลี่ยนเงินตราต่างประเทศ — บันทึกตามวันที่และบริษัท."""
+
+    __tablename__ = "exchange_rates"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    company_id: Mapped[int] = mapped_column(Integer, nullable=False, index=True)
+    currency_code: Mapped[str] = mapped_column(String(3), nullable=False)
+    rate_date: Mapped[date] = mapped_column(Date, nullable=False)
+    rate: Mapped[Decimal] = mapped_column(Numeric(18, 6), nullable=False)
+    source: Mapped[Optional[str]] = mapped_column(String(50))
+    created_by: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+    __table_args__ = (
+        UniqueConstraint("company_id", "currency_code", "rate_date", name="uq_exchange_rate"),
+    )

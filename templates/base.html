@@ -173,6 +173,12 @@
     <a href="/reports/budget" class="sb-item {% if '/reports/budget' in request.url.path %}active{% endif %}">งบประมาณ vs จริง</a>
   </div>
 
+  <div class="sb-section">ตั้งค่า</div>
+  <a href="/settings/exchange-rates"
+     class="sb-item {% if '/settings/exchange-rates' in request.url.path %}active{% endif %}">
+    <span class="sb-item-icon">💱</span>อัตราแลกเปลี่ยน
+  </a>
+
   {% if ctx and ctx.user_role.value in ('FIRM_ADMIN', 'ACCOUNTANT') %}
   <a href="/firm" class="sb-item {% if '/firm' in request.url.path %}active{% endif %}">
     <span class="sb-item-icon">🏢</span>จัดการสำนักงาน

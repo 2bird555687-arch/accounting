@@ -20,6 +20,7 @@ from app.api.v1.ocr_routes import router as ocr_router
 from app.api.v1.petty_routes import router as petty_router
 from app.api.v1.platform_routes import router as platform_router
 from app.api.v1.tax_routes import router as tax_router
+from app.api.v1.currency_routes import router as currency_router
 
 router = APIRouter()
 
@@ -47,3 +48,4 @@ router.include_router(bank_router)
 router.include_router(automation_router)
 router.include_router(deadline_router)
 router.include_router(report_router)
+router.include_router(currency_router)

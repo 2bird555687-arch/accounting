@@ -448,6 +448,17 @@ async def report_budget_actual(request: Request):
     })
 
 
+# ── Settings ──────────────────────────────────────────────────────────────────
+
+@router.get("/settings/exchange-rates", response_class=HTMLResponse)
+async def settings_exchange_rates(request: Request):
+    try:
+        ctx = await get_ui_context(request)
+    except UIRedirectException as e:
+        return RedirectResponse(url=e.url, status_code=302)
+    return _r("settings/exchange_rates.html", request, _ctx(ctx))
+
+
 # ── Automation ───────────────────────────────────────────────────────────────
 
 @router.get("/automation/recurring", response_class=HTMLResponse)

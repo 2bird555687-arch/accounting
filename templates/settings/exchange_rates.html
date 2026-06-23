@@ -1,0 +1,353 @@
+{% extends "base.html" %}
+{% block title %}อัตราแลกเปลี่ยน{% endblock %}
+{% block page_title %}ตั้งค่า — อัตราแลกเปลี่ยน{% endblock %}
+
+{% block content %}
+<div x-data="exchangeRatePage()" x-init="init()">
+
+  <!-- Toast -->
+  <div x-show="toast"
+       x-transition
+       style="position:fixed;top:1rem;right:1rem;z-index:9999;"
+       class="bg-white border border-gray-200 shadow-lg rounded-lg px-4 py-3 text-sm text-gray-800"
+       x-text="toast">
+  </div>
+
+  <h2 class="text-lg font-semibold text-gray-700 mb-4">อัตราแลกเปลี่ยน</h2>
+
+  <div class="grid grid-cols-1 md:grid-cols-5 gap-4">
+
+    <!-- ── LEFT column ── -->
+    <div class="md:col-span-2 flex flex-col gap-4">
+
+      <!-- บันทึกอัตราแลกเปลี่ยน -->
+      <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
+        <h3 class="font-semibold text-gray-700 mb-3">บันทึกอัตราแลกเปลี่ยน</h3>
+
+        <div class="flex flex-col gap-3">
+          <!-- currency_code -->
+          <div>
+            <label class="block text-xs text-gray-500 mb-1">สกุลเงิน</label>
+            <select x-model="form.currency_code"
+                    class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-200">
+              <template x-for="c in currencies" :key="c.code">
+                <option :value="c.code" x-text="`${c.flag} ${c.code} — ${c.name}`"></option>
+              </template>
+            </select>
+          </div>
+
+          <!-- rate_date -->
+          <div>
+            <label class="block text-xs text-gray-500 mb-1">วันที่</label>
+            <input type="date" x-model="form.rate_date"
+                   class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-200" />
+          </div>
+
+          <!-- rate -->
+          <div>
+            <label class="block text-xs text-gray-500 mb-1">อัตรา (1 สกุล = ? บาท)</label>
+            <input type="number" step="0.0001" placeholder="เช่น 35.5000"
+                   x-model="form.rate"
+                   class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-200" />
+          </div>
+
+          <!-- source -->
+          <div>
+            <label class="block text-xs text-gray-500 mb-2">แหล่งที่มา</label>
+            <div class="flex gap-4 text-sm">
+              <label class="flex items-center gap-1 cursor-pointer">
+                <input type="radio" x-model="form.source" value="manual" /> manual
+              </label>
+              <label class="flex items-center gap-1 cursor-pointer">
+                <input type="radio" x-model="form.source" value="BOT" /> BOT
+              </label>
+              <label class="flex items-center gap-1 cursor-pointer">
+                <input type="radio" x-model="form.source" value="ECB" /> ECB
+              </label>
+            </div>
+          </div>
+
+          <button @click="saveRate()"
+                  :disabled="saving"
+                  class="w-full py-2 rounded-lg text-sm font-medium"
+                  style="background:var(--accent);color:#fff;">
+            <span x-show="!saving">บันทึก</span>
+            <span x-show="saving">กำลังบันทึก...</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- แปลงเงินด่วน -->
+      <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
+        <h3 class="font-semibold text-gray-700 mb-3">แปลงเงินด่วน</h3>
+
+        <div class="flex flex-col gap-3">
+          <div>
+            <label class="block text-xs text-gray-500 mb-1">จำนวนเงิน</label>
+            <input type="number" step="0.01" placeholder="0.00"
+                   x-model="conv.amount"
+                   class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-200" />
+          </div>
+
+          <div class="grid grid-cols-2 gap-2">
+            <div>
+              <label class="block text-xs text-gray-500 mb-1">จาก</label>
+              <select x-model="conv.from_currency"
+                      class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-200">
+                <option value="THB">🇹🇭 THB</option>
+                <template x-for="c in currencies" :key="c.code">
+                  <option :value="c.code" x-text="`${c.flag} ${c.code}`"></option>
+                </template>
+              </select>
+            </div>
+            <div>
+              <label class="block text-xs text-gray-500 mb-1">ไปยัง</label>
+              <select x-model="conv.to_currency"
+                      class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-200">
+                <option value="THB">🇹🇭 THB</option>
+                <template x-for="c in currencies" :key="c.code">
+                  <option :value="c.code" x-text="`${c.flag} ${c.code}`"></option>
+                </template>
+              </select>
+            </div>
+          </div>
+
+          <button @click="doConvert()"
+                  :disabled="converting"
+                  class="w-full py-2 rounded-lg text-sm font-medium"
+                  style="background:var(--accent-l);color:var(--accent);border:1px solid var(--accent);">
+            <span x-show="!converting">แปลง</span>
+            <span x-show="converting">กำลังแปลง...</span>
+          </button>
+
+          <!-- result -->
+          <div x-show="convResult" class="bg-blue-50 rounded-lg p-3 text-sm space-y-1">
+            <div class="font-semibold text-gray-800">
+              <span x-text="conv.amount"></span>
+              <span x-text="conv.from_currency"></span>
+              =
+              <span x-text="fmtMoney(convResult && convResult.thb_amount)"></span> บาท
+            </div>
+            <template x-if="convResult && conv.to_currency !== 'THB'">
+              <div class="text-gray-600">
+                = <span x-text="fmtMoney(convResult.to_amount)"></span>
+                <span x-text="conv.to_currency"></span>
+              </div>
+            </template>
+            <div class="text-xs text-gray-400" x-show="convResult">
+              อัตราที่ใช้: 1 <span x-text="conv.from_currency"></span>
+              = <span x-text="fmtRate(convResult && convResult.from_rate)"></span> THB
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── RIGHT column ── -->
+    <div class="md:col-span-3">
+      <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
+        <div class="flex items-center justify-between mb-3">
+          <h3 class="font-semibold text-gray-700">ประวัติอัตราแลกเปลี่ยน</h3>
+          <select x-model="filterCurrency" @change="loadRates()"
+                  class="border border-gray-200 rounded-lg px-3 py-1 text-sm focus:outline-none">
+            <option value="">ทุกสกุล</option>
+            <template x-for="c in currencies" :key="c.code">
+              <option :value="c.code" x-text="`${c.flag} ${c.code}`"></option>
+            </template>
+          </select>
+        </div>
+
+        <div class="overflow-x-auto">
+          <table class="w-full text-sm">
+            <thead class="bg-gray-50 border-b border-gray-100">
+              <tr>
+                <th class="text-left px-3 py-2 font-medium text-gray-600">สกุลเงิน</th>
+                <th class="text-left px-3 py-2 font-medium text-gray-600">วันที่</th>
+                <th class="text-right px-3 py-2 font-medium text-gray-600">อัตรา (1 XXX = ? THB)</th>
+                <th class="text-center px-3 py-2 font-medium text-gray-600">แหล่งที่มา</th>
+                <th class="text-center px-3 py-2 font-medium text-gray-600">แก้ไข</th>
+              </tr>
+            </thead>
+            <tbody>
+              <template x-if="loading">
+                <tr>
+                  <td colspan="5" class="px-3 py-8 text-center text-gray-400">กำลังโหลด...</td>
+                </tr>
+              </template>
+              <template x-if="!loading && rates.length === 0">
+                <tr>
+                  <td colspan="5" class="px-3 py-8 text-center text-gray-400">ยังไม่มีข้อมูลอัตราแลกเปลี่ยน</td>
+                </tr>
+              </template>
+              <template x-for="r in rates" :key="r.id">
+                <tr class="border-b border-gray-50 hover:bg-gray-50">
+                  <td class="px-3 py-2 font-medium" x-text="currencyLabel(r.currency_code)"></td>
+                  <td class="px-3 py-2 text-gray-600" x-text="r.rate_date"></td>
+                  <td class="px-3 py-2 text-right">
+                    <!-- view mode -->
+                    <span x-show="editingRate[r.id] === undefined"
+                          @click="startEdit(r)"
+                          class="cursor-pointer hover:text-blue-600"
+                          x-text="fmtRate(r.rate)">
+                    </span>
+                    <!-- edit mode -->
+                    <input x-show="editingRate[r.id] !== undefined"
+                           type="number" step="0.0001"
+                           :value="editingRate[r.id]"
+                           @input="editingRate = {...editingRate, [r.id]: $event.target.value}"
+                           @keydown.enter="commitEdit(r)"
+                           @blur="commitEdit(r)"
+                           class="w-28 border border-blue-300 rounded px-2 py-1 text-right text-sm focus:outline-none focus:ring-2 focus:ring-blue-200" />
+                  </td>
+                  <td class="px-3 py-2 text-center text-gray-500 text-xs" x-text="r.source || '-'"></td>
+                  <td class="px-3 py-2 text-center">
+                    <button x-show="editingRate[r.id] === undefined"
+                            @click="startEdit(r)"
+                            class="text-xs text-blue-500 hover:underline">แก้ไข</button>
+                    <button x-show="editingRate[r.id] !== undefined"
+                            @click="commitEdit(r)"
+                            class="text-xs text-green-600 hover:underline">บันทึก</button>
+                  </td>
+                </tr>
+              </template>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% block scripts %}
+<script>
+function exchangeRatePage() {
+  return {
+    form: {
+      currency_code: 'USD',
+      rate_date: new Date().toISOString().slice(0, 10),
+      rate: '',
+      source: 'manual',
+    },
+    saving: false,
+    toast: '',
+
+    rates: [],
+    filterCurrency: '',
+    loading: false,
+    editingRate: {},
+
+    conv: {
+      amount: '',
+      from_currency: 'USD',
+      to_currency: 'THB',
+    },
+    convResult: null,
+    converting: false,
+
+    currencies: [
+      { code: 'USD', flag: '🇺🇸', name: 'ดอลลาร์สหรัฐ' },
+      { code: 'EUR', flag: '🇪🇺', name: 'ยูโร' },
+      { code: 'JPY', flag: '🇯🇵', name: 'เยนญี่ปุ่น' },
+      { code: 'CNY', flag: '🇨🇳', name: 'หยวนจีน' },
+      { code: 'SGD', flag: '🇸🇬', name: 'ดอลลาร์สิงคโปร์' },
+      { code: 'GBP', flag: '🇬🇧', name: 'ปอนด์สเตอร์ลิง' },
+    ],
+
+    token() {
+      return document.cookie.match(/access_token=([^;]+)/)?.[1] || '';
+    },
+
+    fmtRate(v) { return parseFloat(v || 0).toFixed(4); },
+    fmtMoney(v) {
+      return parseFloat(v || 0).toLocaleString('th-TH', { minimumFractionDigits: 2 });
+    },
+
+    currencyLabel(code) {
+      const c = this.currencies.find(c => c.code === code);
+      return c ? `${c.flag} ${c.code}` : code;
+    },
+
+    async loadRates() {
+      this.loading = true;
+      const qs = this.filterCurrency ? `?currency_code=${this.filterCurrency}` : '';
+      const r = await fetch(`/api/v1/currency/rates${qs}`, {
+        headers: { Authorization: 'Bearer ' + this.token() },
+      });
+      const d = await r.json();
+      this.rates = d.data || d || [];
+      this.loading = false;
+    },
+
+    async saveRate() {
+      if (!this.form.rate) { alert('กรุณาใส่อัตรา'); return; }
+      this.saving = true;
+      const r = await fetch('/api/v1/currency/rates', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + this.token() },
+        body: JSON.stringify({
+          currency_code: this.form.currency_code,
+          rate_date: this.form.rate_date,
+          rate: parseFloat(this.form.rate),
+          source: this.form.source,
+        }),
+      });
+      const d = await r.json();
+      if (r.ok || r.status === 201) {
+        this.toast = `✅ บันทึกอัตรา ${this.form.currency_code} = ${this.form.rate} บาท สำเร็จ`;
+        setTimeout(() => { this.toast = ''; }, 3000);
+        this.form.rate = '';
+        await this.loadRates();
+      } else {
+        alert(d.detail || 'บันทึกไม่สำเร็จ');
+      }
+      this.saving = false;
+    },
+
+    startEdit(r) {
+      this.editingRate = { ...this.editingRate, [r.id]: r.rate };
+    },
+
+    async commitEdit(r) {
+      const val = this.editingRate[r.id];
+      if (val === undefined) return;
+      const body = {
+        currency_code: r.currency_code,
+        rate_date: r.rate_date,
+        rate: parseFloat(val),
+        source: r.source || 'manual',
+      };
+      const res = await fetch('/api/v1/currency/rates', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + this.token() },
+        body: JSON.stringify(body),
+      });
+      if (res.ok || res.status === 201) {
+        const copy = { ...this.editingRate };
+        delete copy[r.id];
+        this.editingRate = copy;
+        await this.loadRates();
+      }
+    },
+
+    async doConvert() {
+      if (!this.conv.amount) return;
+      this.converting = true;
+      this.convResult = null;
+      const today = new Date().toISOString().slice(0, 10);
+      const url = `/api/v1/currency/convert?amount=${this.conv.amount}&from_currency=${this.conv.from_currency}&to_currency=${this.conv.to_currency}&as_of=${today}`;
+      const r = await fetch(url, { headers: { Authorization: 'Bearer ' + this.token() } });
+      const d = await r.json();
+      if (r.ok) {
+        this.convResult = d;
+      } else {
+        alert(d.detail || 'แปลงเงินไม่สำเร็จ — กรุณาบันทึกอัตราแลกเปลี่ยนก่อน');
+      }
+      this.converting = false;
+    },
+
+    async init() { await this.loadRates(); },
+  };
+}
+</script>
+{% endblock %}
+{% endblock %}
