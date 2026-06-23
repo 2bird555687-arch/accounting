@@ -170,6 +170,7 @@
     <a href="/reports/cashflow" class="sb-item {% if '/reports/cashflow' in request.url.path %}active{% endif %}">งบกระแสเงินสด</a>
     <a href="/reports/aging/ar" class="sb-item {% if '/reports/aging/ar' in request.url.path %}active{% endif %}">อายุหนี้ AR</a>
     <a href="/reports/aging/ap" class="sb-item {% if '/reports/aging/ap' in request.url.path %}active{% endif %}">อายุหนี้ AP</a>
+    <a href="/reports/budget" class="sb-item {% if '/reports/budget' in request.url.path %}active{% endif %}">งบประมาณ vs จริง</a>
   </div>
 
   {% if ctx and ctx.user_role.value in ('FIRM_ADMIN', 'ACCOUNTANT') %}

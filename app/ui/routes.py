@@ -434,6 +434,20 @@ async def report_cashflow(request: Request):
     })
 
 
+@router.get("/reports/budget", response_class=HTMLResponse)
+async def report_budget_actual(request: Request):
+    try:
+        ctx = await get_ui_context(request)
+    except UIRedirectException as e:
+        return RedirectResponse(url=e.url, status_code=302)
+    today = date.today()
+    return _r("reports/budget_actual.html", request, {
+        **_ctx(ctx),
+        "default_year": today.year,
+        "default_month": today.month,
+    })
+
+
 # ── Automation ───────────────────────────────────────────────────────────────
 
 @router.get("/automation/recurring", response_class=HTMLResponse)
