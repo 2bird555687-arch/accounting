@@ -1,0 +1,200 @@
+{% extends "base.html" %}
+{% block title %}งบกระแสเงินสด{% endblock %}
+{% block page_title %}รายงาน — งบกระแสเงินสด (Cash Flow Statement){% endblock %}
+
+{% block content %}
+<div x-data="cashflowReport()" x-init="dateFrom='{{ default_date_from }}'; dateTo='{{ default_date_to }}'; init()">
+
+  <!-- Filter Bar -->
+  <div class="bg-white rounded-xl p-4 shadow-sm border border-gray-100 mb-4 flex items-center gap-3 flex-wrap">
+    <label class="text-sm font-medium text-gray-700">จากวันที่</label>
+    <input type="date" x-model="dateFrom"
+      class="px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"/>
+    <label class="text-sm font-medium text-gray-700">ถึงวันที่</label>
+    <input type="date" x-model="dateTo"
+      class="px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"/>
+    <button @click="load()" class="px-4 py-2 bg-blue-700 text-white rounded-lg text-sm font-medium hover:bg-blue-800">แสดง</button>
+    <div class="ml-auto flex gap-2">
+      <a :href="exportUrl('excel')"
+        class="px-3 py-2 border border-gray-300 text-gray-600 rounded-lg text-sm hover:bg-gray-50">Excel</a>
+      <a :href="exportUrl('pdf')"
+        class="px-3 py-2 border border-gray-300 text-gray-600 rounded-lg text-sm hover:bg-gray-50">PDF</a>
+    </div>
+  </div>
+
+  <!-- Loading Spinner -->
+  <template x-if="loading">
+    <div class="bg-white rounded-xl p-8 text-center text-gray-400 shadow-sm border border-gray-100">
+      <svg class="animate-spin w-8 h-8 mx-auto" fill="none" viewBox="0 0 24 24">
+        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+      </svg>
+    </div>
+  </template>
+
+  <!-- Error Banner -->
+  <template x-if="error && !loading">
+    <div class="bg-red-50 border border-red-200 text-red-700 rounded-xl px-5 py-4 mb-4 text-sm" x-text="error"></div>
+  </template>
+
+  <!-- Report Content -->
+  <template x-if="report && !loading">
+    <div class="space-y-4">
+
+      <!-- Report Header -->
+      <div class="bg-white rounded-xl shadow-sm border border-gray-100 px-6 py-4 text-center">
+        <h1 class="text-xl font-bold text-gray-800">งบกระแสเงินสด</h1>
+        <p class="text-sm text-gray-500 mt-1">
+          งวด <span x-text="report.date_from"></span> ถึง <span x-text="report.date_to"></span>
+        </p>
+      </div>
+
+      <!-- Operating Activities -->
+      <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+        <div class="bg-blue-600 text-white px-4 py-2 rounded-t-lg font-semibold text-sm">
+          กิจกรรมดำเนินงาน (Operating Activities)
+        </div>
+        <table class="w-full">
+          <tbody>
+            <template x-for="(line, idx) in report.operating.lines" :key="idx">
+              <tr class="border-b border-gray-50">
+                <td class="px-5 py-2 text-sm text-gray-700" x-text="line.label"></td>
+                <td class="px-5 py-2 text-sm text-right font-mono w-40"
+                  :class="amountClass(line.amount)" x-text="fmt(line.amount)"></td>
+              </tr>
+            </template>
+            <tr class="bg-blue-50 border-t border-blue-200">
+              <td class="px-5 py-2.5 text-sm font-semibold text-blue-800">กระแสเงินสดสุทธิจากกิจกรรมดำเนินงาน</td>
+              <td class="px-5 py-2.5 text-sm font-bold text-right font-mono w-40"
+                :class="amountClass(report.operating.total)" x-text="fmt(report.operating.total)"></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Investing Activities -->
+      <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+        <div class="bg-purple-600 text-white px-4 py-2 rounded-t-lg font-semibold text-sm">
+          กิจกรรมลงทุน (Investing Activities)
+        </div>
+        <table class="w-full">
+          <tbody>
+            <template x-for="(line, idx) in report.investing.lines" :key="idx">
+              <tr class="border-b border-gray-50">
+                <td class="px-5 py-2 text-sm text-gray-700" x-text="line.label"></td>
+                <td class="px-5 py-2 text-sm text-right font-mono w-40"
+                  :class="amountClass(line.amount)" x-text="fmt(line.amount)"></td>
+              </tr>
+            </template>
+            <tr class="bg-purple-50 border-t border-purple-200">
+              <td class="px-5 py-2.5 text-sm font-semibold text-purple-800">กระแสเงินสดสุทธิจากกิจกรรมลงทุน</td>
+              <td class="px-5 py-2.5 text-sm font-bold text-right font-mono w-40"
+                :class="amountClass(report.investing.total)" x-text="fmt(report.investing.total)"></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Financing Activities -->
+      <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+        <div class="bg-orange-500 text-white px-4 py-2 rounded-t-lg font-semibold text-sm">
+          กิจกรรมจัดหาเงิน (Financing Activities)
+        </div>
+        <table class="w-full">
+          <tbody>
+            <template x-for="(line, idx) in report.financing.lines" :key="idx">
+              <tr class="border-b border-gray-50">
+                <td class="px-5 py-2 text-sm text-gray-700" x-text="line.label"></td>
+                <td class="px-5 py-2 text-sm text-right font-mono w-40"
+                  :class="amountClass(line.amount)" x-text="fmt(line.amount)"></td>
+              </tr>
+            </template>
+            <tr class="bg-orange-50 border-t border-orange-200">
+              <td class="px-5 py-2.5 text-sm font-semibold text-orange-800">กระแสเงินสดสุทธิจากกิจกรรมจัดหาเงิน</td>
+              <td class="px-5 py-2.5 text-sm font-bold text-right font-mono w-40"
+                :class="amountClass(report.financing.total)" x-text="fmt(report.financing.total)"></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Summary Box -->
+      <div class="bg-gray-50 border border-gray-200 rounded-xl px-6 py-4 space-y-3">
+        <div class="flex justify-between items-center text-sm">
+          <span class="text-gray-600">เงินสดเพิ่มขึ้น(ลดลง) สุทธิ</span>
+          <span class="font-mono font-semibold" :class="amountClass(report.net_change)" x-text="fmt(report.net_change)"></span>
+        </div>
+        <div class="flex justify-between items-center text-sm">
+          <span class="text-gray-600">เงินสดต้นงวด</span>
+          <span class="font-mono text-gray-700" x-text="fmt(report.opening_cash)"></span>
+        </div>
+        <div class="border-t border-gray-300 pt-3 flex justify-between items-center">
+          <span class="font-bold text-gray-800">เงินสดปลายงวด</span>
+          <span class="font-mono font-bold text-lg" :class="amountClass(report.closing_cash)" x-text="fmt(report.closing_cash)"></span>
+        </div>
+      </div>
+
+      <!-- Footer Note -->
+      <div class="text-center text-xs text-gray-400 pb-2 space-y-1">
+        <p>จัดทำโดยวิธีทางอ้อม (Indirect Method)</p>
+        <p>งวด: <span x-text="dateFrom"></span> ถึง <span x-text="dateTo"></span></p>
+      </div>
+
+    </div>
+  </template>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function cashflowReport() {
+  return {
+    dateFrom: '',
+    dateTo: '',
+    report: null,
+    loading: false,
+    error: '',
+
+    token() { return document.cookie.match(/access_token=([^;]+)/)?.[1] || ''; },
+
+    fmt(v) {
+      if (v == null) return '0.00';
+      return parseFloat(v).toLocaleString('th-TH', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+    },
+
+    amountClass(v) {
+      const n = parseFloat(v);
+      if (n > 0) return 'text-green-600';
+      if (n < 0) return 'text-red-600';
+      return 'text-gray-600';
+    },
+
+    get exportParams() {
+      return `date_from=${this.dateFrom}&date_to=${this.dateTo}`;
+    },
+
+    exportUrl(fmt) {
+      return `/api/v1/reports/cashflow?${this.exportParams}&fmt=${fmt}`;
+    },
+
+    async load() {
+      this.loading = true; this.error = ''; this.report = null;
+      try {
+        const r = await fetch(`/api/v1/reports/cashflow?${this.exportParams}`, {
+          headers: { Authorization: 'Bearer ' + this.token() }
+        });
+        const d = await r.json();
+        if (r.ok) { this.report = d.data || d; }
+        else { this.error = d.detail || 'โหลดรายงานไม่สำเร็จ'; }
+      } catch (e) { this.error = 'เกิดข้อผิดพลาด'; }
+      this.loading = false;
+    },
+
+    async init() {
+      await this.load();
+    }
+  };
+}
+</script>
+{% endblock %}

@@ -418,6 +418,22 @@ async def report_aging_ap(request: Request):
               _ctx(ctx, default_date=str(date.today())))
 
 
+@router.get("/reports/cashflow", response_class=HTMLResponse)
+async def report_cashflow(request: Request):
+    try:
+        ctx = await get_ui_context(request)
+    except UIRedirectException as e:
+        return RedirectResponse(url=e.url, status_code=302)
+    today = date.today()
+    default_from = date(today.year, 1, 1).isoformat()
+    default_to = today.isoformat()
+    return _r("reports/cashflow.html", request, {
+        **_ctx(ctx),
+        "default_date_from": default_from,
+        "default_date_to": default_to,
+    })
+
+
 # ── Automation ───────────────────────────────────────────────────────────────
 
 @router.get("/automation/recurring", response_class=HTMLResponse)
