@@ -106,6 +106,16 @@
     <a href="/bank/reconciliation" class="sb-item {% if request.url.path == '/bank/reconciliation' %}active{% endif %}">กระทบยอดธนาคาร</a>
   </div>
 
+  <div class="sb-section">เงินเดือน</div>
+  <div class="sb-group-head {% if '/payroll' in request.url.path %}open{% endif %}" onclick="toggleGroup(this)">
+    <span class="sb-item-icon">💰</span>
+    เงินเดือน
+    <span class="sb-group-chev {% if '/payroll' in request.url.path %}open{% endif %}">▶</span>
+  </div>
+  <div class="sb-sub {% if '/payroll' in request.url.path %}open{% endif %}">
+    <a href="/payroll/m40" class="sb-item {% if '/payroll/m40' in request.url.path %}active{% endif %}">ภ.ง.ด.1ก / สปส.1-10</a>
+  </div>
+
   <div class="sb-section">อัตโนมัติ</div>
   <div class="sb-group-head {% if '/automation/' in request.url.path %}open{% endif %}" onclick="toggleGroup(this)">
     <span class="sb-item-icon">🔄</span>

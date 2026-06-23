@@ -447,6 +447,17 @@ async def automation_period_close_page(request: Request):
     return _r("automation/period_close.html", request, _ctx(ctx))
 
 
+# ── Payroll Tax Forms ─────────────────────────────────────────────────────────
+
+@router.get("/payroll/m40", response_class=HTMLResponse)
+async def payroll_m40_page(request: Request):
+    try:
+        ctx = await get_ui_context(request)
+    except UIRedirectException as e:
+        return RedirectResponse(url=e.url, status_code=302)
+    return _r("payroll/m40.html", request, _ctx(ctx))
+
+
 # ── Firm Dashboard ────────────────────────────────────────────────────────────
 
 @router.get("/firm", response_class=HTMLResponse)

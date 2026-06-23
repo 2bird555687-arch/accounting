@@ -1,0 +1,506 @@
+{% extends "base.html" %}
+{% block title %}ภ.ง.ด.1ก / สปส.1-10{% endblock %}
+{% block page_title %}แบบภาษีเงินเดือน — ภ.ง.ด.1ก / สปส.1-10{% endblock %}
+
+{% block head %}
+<style>
+/* ── Print styles ── */
+@media print {
+  nav, aside, .no-print { display: none !important; }
+  #sidebar, #topbar, header { display: none !important; }
+  #main { margin: 0 !important; padding: 0 !important; }
+  #content { padding: 0 !important; }
+  @page { size: A4; margin: 1.5cm; }
+  body { font-size: 11pt; }
+  table { border-collapse: collapse; width: 100%; }
+  td, th { border: 1px solid #000; padding: 4px 6px; font-size: 10pt; }
+  .modal-overlay { position: static !important; background: none !important; }
+  .modal-box { box-shadow: none !important; border: none !important; max-width: 100% !important; width: 100% !important; }
+  .cert-print-area { display: block !important; }
+  [x-show] { display: block !important; }
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div x-data="m40Page()" x-init="null">
+
+  <!-- Tab Bar -->
+  <div class="flex gap-2 mb-6 no-print">
+    <button
+      @click="activeTab = 'pnd1k'"
+      :class="activeTab === 'pnd1k'
+        ? 'bg-blue-600 text-white border-blue-600'
+        : 'bg-white text-gray-600 border-gray-200 hover:border-blue-400'"
+      class="px-5 py-2 rounded-lg border text-sm font-medium transition-colors">
+      📄 ภ.ง.ด.1ก
+    </button>
+    <button
+      @click="activeTab = 'sso'"
+      :class="activeTab === 'sso'
+        ? 'bg-blue-600 text-white border-blue-600'
+        : 'bg-white text-gray-600 border-gray-200 hover:border-blue-400'"
+      class="px-5 py-2 rounded-lg border text-sm font-medium transition-colors">
+      📋 สปส.1-10
+    </button>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════════
+       TAB 1 — ภ.ง.ด.1ก
+  ══════════════════════════════════════════════════════════════════ -->
+  <div x-show="activeTab === 'pnd1k'">
+
+    <!-- Control Panel -->
+    <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-4 mb-4 no-print">
+      <div class="flex flex-wrap items-end gap-3">
+        <div>
+          <label class="block text-xs text-gray-500 mb-1">ปี ค.ศ.</label>
+          <input
+            type="number"
+            x-model.number="pndYear"
+            min="2020" max="2099" step="1"
+            class="w-28 px-3 py-2 rounded-lg border border-gray-200 text-sm text-center"
+          />
+        </div>
+        <div class="text-sm text-gray-500 pb-2">
+          (พ.ศ. <span class="font-semibold text-gray-800" x-text="pndYearBE"></span>)
+        </div>
+        <button
+          @click="loadPnd1k()"
+          :disabled="pndLoading"
+          class="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50">
+          <span x-show="!pndLoading">โหลด</span>
+          <span x-show="pndLoading">⏳ กำลังโหลด...</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Error Banner -->
+    <div x-show="pndError" class="mb-4 bg-red-50 border border-red-200 rounded-xl px-4 py-3 text-red-700 text-sm" x-text="pndError"></div>
+
+    <!-- Summary Table -->
+    <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+      <div class="px-4 py-3 border-b border-gray-100 font-semibold text-sm text-gray-700">
+        รายชื่อผู้มีเงินได้ — ปี <span x-text="pndYearBE"></span>
+        <span x-show="pndEmployees.length > 0" class="ml-2 text-gray-400 font-normal">
+          (<span x-text="pndEmployees.length"></span> ราย)
+        </span>
+      </div>
+      <table class="w-full text-sm">
+        <thead class="bg-gray-50 border-b border-gray-100">
+          <tr>
+            <th class="text-center px-3 py-3 font-medium text-gray-600 w-10">ลำดับ</th>
+            <th class="text-left px-3 py-3 font-medium text-gray-600">รหัส</th>
+            <th class="text-left px-3 py-3 font-medium text-gray-600">ชื่อ-นามสกุล</th>
+            <th class="text-left px-3 py-3 font-medium text-gray-600">เลขบัตรประชาชน</th>
+            <th class="text-right px-3 py-3 font-medium text-gray-600">เงินได้รวม</th>
+            <th class="text-right px-3 py-3 font-medium text-gray-600">ภาษีหัก ณ ที่จ่ายรวม</th>
+            <th class="text-right px-3 py-3 font-medium text-gray-600">สมทบ SSO รวม</th>
+            <th class="text-center px-3 py-3 font-medium text-gray-600 no-print">หนังสือรับรอง</th>
+          </tr>
+        </thead>
+        <tbody>
+          <template x-if="pndLoading">
+            <tr><td colspan="8" class="px-4 py-8 text-center text-gray-400">กำลังโหลด...</td></tr>
+          </template>
+          <template x-if="!pndLoading && pndEmployees.length === 0">
+            <tr><td colspan="8" class="px-4 py-8 text-center text-gray-400">ยังไม่มีข้อมูล — กรุณาเลือกปีและกด "โหลด"</td></tr>
+          </template>
+          <template x-for="(emp, idx) in pndEmployees" :key="emp.employee_id">
+            <tr class="border-b border-gray-50 hover:bg-gray-50">
+              <td class="px-3 py-3 text-center text-gray-500 text-xs" x-text="idx + 1"></td>
+              <td class="px-3 py-3 font-mono text-gray-700 text-xs" x-text="emp.emp_code"></td>
+              <td class="px-3 py-3 text-gray-800" x-text="emp.full_name"></td>
+              <td class="px-3 py-3 font-mono text-gray-600 text-xs" x-text="emp.id_card || '—'"></td>
+              <td class="px-3 py-3 text-right font-mono text-gray-800" x-text="fmt(emp.total_gross)"></td>
+              <td class="px-3 py-3 text-right font-mono text-gray-800" x-text="fmt(emp.total_wht)"></td>
+              <td class="px-3 py-3 text-right font-mono text-gray-800" x-text="fmt(emp.total_sso)"></td>
+              <td class="px-3 py-3 text-center no-print">
+                <button
+                  @click="loadCert(emp.employee_id)"
+                  class="px-3 py-1 text-xs rounded-lg border border-blue-400 text-blue-600 hover:bg-blue-50">
+                  📄 ภ.ง.ด.1ก
+                </button>
+              </td>
+            </tr>
+          </template>
+        </tbody>
+        <!-- Totals row -->
+        <template x-if="pndEmployees.length > 0">
+          <tfoot class="bg-gray-50 border-t border-gray-200">
+            <tr>
+              <td colspan="4" class="px-3 py-3 text-sm font-semibold text-gray-700">รวมทั้งสิ้น</td>
+              <td class="px-3 py-3 text-right font-mono font-semibold text-gray-900"
+                x-text="fmt(pndEmployees.reduce((s,e) => s + e.total_gross, 0))"></td>
+              <td class="px-3 py-3 text-right font-mono font-semibold text-gray-900"
+                x-text="fmt(pndEmployees.reduce((s,e) => s + e.total_wht, 0))"></td>
+              <td class="px-3 py-3 text-right font-mono font-semibold text-gray-900"
+                x-text="fmt(pndEmployees.reduce((s,e) => s + e.total_sso, 0))"></td>
+              <td class="no-print"></td>
+            </tr>
+          </tfoot>
+        </template>
+      </table>
+    </div>
+  </div>
+
+
+  <!-- ═══════════════════════════════════════════════════════════════
+       TAB 2 — สปส.1-10
+  ══════════════════════════════════════════════════════════════════ -->
+  <div x-show="activeTab === 'sso'">
+
+    <!-- Control Panel -->
+    <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-4 mb-4 no-print">
+      <div class="flex flex-wrap items-end gap-3">
+        <div>
+          <label class="block text-xs text-gray-500 mb-1">เดือน/ปี</label>
+          <input
+            type="month"
+            x-model="ssoPeriodInput"
+            class="px-3 py-2 rounded-lg border border-gray-200 text-sm"
+          />
+        </div>
+        <button
+          @click="loadSso()"
+          :disabled="ssoLoading"
+          class="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50">
+          <span x-show="!ssoLoading">โหลด</span>
+          <span x-show="ssoLoading">⏳ กำลังโหลด...</span>
+        </button>
+        <button
+          x-show="ssoReport"
+          @click="window.print()"
+          class="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-200 no-print">
+          🖨️ พิมพ์ สปส.1-10
+        </button>
+      </div>
+    </div>
+
+    <!-- Error Banner -->
+    <div x-show="ssoError" class="mb-4 bg-red-50 border border-red-200 rounded-xl px-4 py-3 text-red-700 text-sm" x-text="ssoError"></div>
+
+    <!-- SSO Report -->
+    <div x-show="ssoReport">
+
+      <!-- ส่วนที่ 1 — สรุปยอด -->
+      <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-5 mb-4">
+        <div class="text-base font-bold text-gray-800 mb-1">ส่วนที่ 1 — สรุปยอดนำส่ง</div>
+        <div class="text-sm text-gray-500 mb-4">
+          งวด: <span class="font-medium text-gray-800" x-text="ssoReport && ssoReport.period_display"></span>
+          &nbsp;|&nbsp; อัตราสมทบ: <span class="font-medium text-gray-800" x-text="ssoReport && fmt(ssoReport.sso_rate)"></span>%
+        </div>
+        <div class="grid grid-cols-1 gap-2 max-w-md">
+          <div class="flex justify-between py-1.5 border-b border-gray-100">
+            <span class="text-sm text-gray-600">เงินค่าจ้างทั้งสิ้น</span>
+            <span class="font-mono font-semibold text-gray-900" x-text="ssoReport && fmt(ssoReport.total_gross)"></span>
+          </div>
+          <div class="flex justify-between py-1.5 border-b border-gray-100">
+            <span class="text-sm text-gray-600">เงินสมทบผู้ประกันตน (ลูกจ้าง)</span>
+            <span class="font-mono font-semibold text-gray-900" x-text="ssoReport && fmt(ssoReport.total_sso_employee)"></span>
+          </div>
+          <div class="flex justify-between py-1.5 border-b border-gray-100">
+            <span class="text-sm text-gray-600">เงินสมทบนายจ้าง</span>
+            <span class="font-mono font-semibold text-gray-900" x-text="ssoReport && fmt(ssoReport.total_sso_employer)"></span>
+          </div>
+          <div class="flex justify-between py-2 bg-blue-50 rounded-lg px-3 mt-1">
+            <span class="text-sm font-semibold text-blue-800">รวมเงินนำส่งทั้งสิ้น</span>
+            <span class="font-mono font-bold text-blue-900" x-text="ssoReport && fmt(ssoReport.total_sso_submit)"></span>
+          </div>
+          <div class="flex justify-between py-1.5">
+            <span class="text-sm text-gray-600">จำนวนผู้ประกันตน</span>
+            <span class="font-mono font-semibold text-gray-900" x-text="ssoReport && ssoReport.total_insured_count"></span>
+          </div>
+        </div>
+      </div>
+
+      <!-- ส่วนที่ 2 — รายบุคคล -->
+      <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden mb-4">
+        <div class="px-4 py-3 border-b border-gray-100 font-semibold text-sm text-gray-700">ส่วนที่ 2 — รายละเอียดผู้ประกันตน</div>
+        <table class="w-full text-sm">
+          <thead class="bg-gray-50 border-b border-gray-100">
+            <tr>
+              <th class="text-center px-3 py-3 font-medium text-gray-600 w-10">ลำดับที่</th>
+              <th class="text-left px-3 py-3 font-medium text-gray-600">เลขบัตรประชาชน</th>
+              <th class="text-left px-3 py-3 font-medium text-gray-600">ชื่อ-สกุล</th>
+              <th class="text-right px-3 py-3 font-medium text-gray-600">ค่าจ้างที่จ่ายจริง</th>
+              <th class="text-right px-3 py-3 font-medium text-gray-600">ฐานที่ใช้คำนวณ</th>
+              <th class="text-right px-3 py-3 font-medium text-gray-600">เงินสมทบผู้ประกันตน</th>
+            </tr>
+          </thead>
+          <tbody>
+            <template x-for="line in (ssoReport ? ssoReport.lines : [])" :key="line.seq">
+              <tr class="border-b border-gray-50 hover:bg-gray-50">
+                <td class="px-3 py-3 text-center text-gray-500 text-xs" x-text="line.seq"></td>
+                <td class="px-3 py-3 font-mono text-gray-600 text-xs" x-text="line.id_card || '—'"></td>
+                <td class="px-3 py-3 text-gray-800" x-text="line.full_name"></td>
+                <td class="px-3 py-3 text-right font-mono text-gray-800" x-text="fmt(line.gross_actual)"></td>
+                <td class="px-3 py-3 text-right font-mono text-gray-800" x-text="fmt(line.sso_base)"></td>
+                <td class="px-3 py-3 text-right font-mono text-gray-800" x-text="fmt(line.sso_employee)"></td>
+              </tr>
+            </template>
+          </tbody>
+          <tfoot class="bg-gray-50 border-t border-gray-200">
+            <tr>
+              <td colspan="3" class="px-3 py-3 text-sm font-semibold text-gray-700">รวม</td>
+              <td class="px-3 py-3 text-right font-mono font-semibold text-gray-900"
+                x-text="ssoReport ? fmt(ssoReport.total_gross) : ''"></td>
+              <td></td>
+              <td class="px-3 py-3 text-right font-mono font-semibold text-gray-900"
+                x-text="ssoReport ? fmt(ssoReport.total_sso_employee) : ''"></td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+
+      <!-- หมายเหตุ -->
+      <div class="bg-yellow-50 border border-yellow-200 rounded-xl px-4 py-3 text-sm text-yellow-800 no-print">
+        <strong>หมายเหตุ:</strong> ค่าจ้างที่ใช้ในการคำนวณไม่ต่ำกว่า 1,650 บาท และไม่เกิน 15,000 บาท ตามประกาศสำนักงานประกันสังคม
+      </div>
+    </div>
+
+  </div>
+
+
+  <!-- ═══════════════════════════════════════════════════════════════
+       Modal — ภ.ง.ด.1ก Certificate
+  ══════════════════════════════════════════════════════════════════ -->
+  <div
+    x-show="showCertModal"
+    x-cloak
+    class="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4 modal-overlay"
+    @click.self="showCertModal = false">
+
+    <div class="bg-white rounded-xl shadow-xl w-full max-w-3xl max-h-[90vh] overflow-y-auto modal-box">
+
+      <!-- Modal Header -->
+      <div class="px-6 py-4 border-b border-gray-100 flex items-center justify-between no-print">
+        <h2 class="text-base font-bold text-gray-800">หนังสือรับรองการหักภาษี ณ ที่จ่าย</h2>
+        <button @click="showCertModal = false" class="text-gray-400 hover:text-gray-600 text-xl no-print">✕</button>
+      </div>
+
+      <!-- Loading -->
+      <div x-show="certLoading" class="px-6 py-12 text-center text-gray-400">
+        <div class="text-2xl mb-2">⏳</div>
+        <div class="text-sm">กำลังโหลดข้อมูล...</div>
+      </div>
+
+      <!-- Certificate Content -->
+      <div x-show="!certLoading && cert" class="p-6 cert-print-area">
+
+        <!-- Header -->
+        <div class="text-center mb-4">
+          <div class="text-base font-bold text-gray-900">แบบยื่นรายการภาษีเงินได้หัก ณ ที่จ่าย</div>
+          <div class="text-sm text-gray-700">ตามมาตรา 50 ทวิ แห่งประมวลรัษฎากร</div>
+          <div class="text-sm font-semibold mt-1">
+            ประจำปีภาษี พ.ศ. <span x-text="cert && (cert.year + 543)"></span>
+          </div>
+        </div>
+
+        <!-- ผู้มีหน้าที่หักภาษี -->
+        <div class="border border-gray-300 rounded-lg p-3 mb-3 text-sm">
+          <div class="font-semibold text-gray-700 mb-2">ผู้มีหน้าที่หักภาษี (นายจ้าง/ผู้จ่ายเงิน)</div>
+          <div class="grid grid-cols-2 gap-1">
+            <div><span class="text-gray-500">ชื่อบริษัท:</span> <span class="text-gray-800">(ชื่อบริษัท)</span></div>
+            <div><span class="text-gray-500">เลขผู้เสียภาษี:</span> <span class="text-gray-800">(เลขผู้เสียภาษี)</span></div>
+          </div>
+        </div>
+
+        <!-- ผู้มีเงินได้ -->
+        <div class="border border-gray-300 rounded-lg p-3 mb-3 text-sm">
+          <div class="font-semibold text-gray-700 mb-2">ผู้มีเงินได้ (พนักงาน)</div>
+          <div class="grid grid-cols-2 gap-1">
+            <div><span class="text-gray-500">ชื่อ-สกุล:</span> <span class="font-medium text-gray-900" x-text="cert && cert.full_name"></span></div>
+            <div><span class="text-gray-500">เลขบัตรประชาชน:</span> <span class="font-mono text-gray-800" x-text="cert && (cert.id_card || '—')"></span></div>
+            <div><span class="text-gray-500">ตำแหน่ง:</span> <span class="text-gray-800" x-text="cert && (cert.position || '—')"></span></div>
+            <div><span class="text-gray-500">แผนก:</span> <span class="text-gray-800" x-text="cert && (cert.department || '—')"></span></div>
+          </div>
+        </div>
+
+        <!-- 12-month table -->
+        <table class="w-full text-sm mb-4 border border-gray-300 rounded-lg overflow-hidden">
+          <thead class="bg-gray-50">
+            <tr>
+              <th class="text-center px-3 py-2 font-medium text-gray-600 border-b border-gray-200">เดือน</th>
+              <th class="text-right px-3 py-2 font-medium text-gray-600 border-b border-gray-200">เงินได้ (บาท)</th>
+              <th class="text-right px-3 py-2 font-medium text-gray-600 border-b border-gray-200">ภาษีที่หัก (บาท)</th>
+              <th class="text-right px-3 py-2 font-medium text-gray-600 border-b border-gray-200">เงินสมทบ SSO (บาท)</th>
+            </tr>
+          </thead>
+          <tbody>
+            <template x-for="line in (cert ? cert.lines : [])" :key="line.month">
+              <tr class="border-b border-gray-100">
+                <td class="px-3 py-2 text-center text-gray-700" x-text="line.month_short"></td>
+                <td class="px-3 py-2 text-right font-mono text-gray-800" x-text="fmt(line.gross)"></td>
+                <td class="px-3 py-2 text-right font-mono text-gray-800" x-text="fmt(line.wht)"></td>
+                <td class="px-3 py-2 text-right font-mono text-gray-800" x-text="fmt(line.sso_employee)"></td>
+              </tr>
+            </template>
+          </tbody>
+          <tfoot class="bg-gray-50 border-t-2 border-gray-300">
+            <tr>
+              <td class="px-3 py-2 font-semibold text-gray-700">รวมทั้งสิ้น</td>
+              <td class="px-3 py-2 text-right font-mono font-bold text-gray-900" x-text="cert && fmt(cert.total_gross)"></td>
+              <td class="px-3 py-2 text-right font-mono font-bold text-gray-900" x-text="cert && fmt(cert.total_wht)"></td>
+              <td class="px-3 py-2 text-right font-mono font-bold text-gray-900" x-text="cert && fmt(cert.total_sso)"></td>
+            </tr>
+          </tfoot>
+        </table>
+
+        <!-- Summary section -->
+        <div class="border border-gray-300 rounded-lg p-3 mb-4 text-sm">
+          <div class="font-semibold text-gray-700 mb-2">สรุปตามมาตรา 40(1) — เงินเดือน ค่าจ้าง</div>
+          <div class="grid grid-cols-3 gap-2">
+            <div class="text-center">
+              <div class="text-gray-500 text-xs mb-1">จำนวนราย</div>
+              <div class="font-semibold text-gray-900">1</div>
+            </div>
+            <div class="text-center">
+              <div class="text-gray-500 text-xs mb-1">เงินได้ทั้งสิ้น (บาท)</div>
+              <div class="font-mono font-semibold text-gray-900" x-text="cert && fmt(cert.total_gross)"></div>
+            </div>
+            <div class="text-center">
+              <div class="text-gray-500 text-xs mb-1">ภาษีที่นำส่งทั้งสิ้น (บาท)</div>
+              <div class="font-mono font-semibold text-gray-900" x-text="cert && fmt(cert.total_wht)"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Signature lines -->
+        <div class="grid grid-cols-2 gap-8 mt-6 text-sm text-center text-gray-600">
+          <div>
+            <div class="border-t border-gray-400 pt-1 mt-10">ลายมือชื่อผู้จ่ายเงิน</div>
+            <div class="text-xs text-gray-400 mt-1">วันที่ ............................................</div>
+          </div>
+          <div>
+            <div class="border-t border-gray-400 pt-1 mt-10">ลายมือชื่อผู้มีเงินได้</div>
+            <div class="text-xs text-gray-400 mt-1">วันที่ ............................................</div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Modal Footer -->
+      <div class="px-6 py-4 border-t border-gray-100 flex justify-end gap-2 no-print">
+        <button
+          @click="showCertModal = false"
+          class="px-4 py-2 rounded-lg border border-gray-200 text-sm text-gray-600 hover:bg-gray-50">
+          ✕ ปิด
+        </button>
+        <button
+          x-show="!certLoading && cert"
+          @click="window.print()"
+          class="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700">
+          🖨️ พิมพ์
+        </button>
+      </div>
+
+    </div>
+  </div>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function m40Page() {
+  return {
+    activeTab: 'pnd1k',
+    pndYear: new Date().getFullYear(),
+    pndLoading: false,
+    pndEmployees: [],
+    pndError: '',
+    showCertModal: false,
+    certLoading: false,
+    cert: null,
+    ssoPeriodInput: new Date().toISOString().slice(0, 7),  // "YYYY-MM"
+    ssoLoading: false,
+    ssoReport: null,
+    ssoError: '',
+
+    token() {
+      return document.cookie.match(/access_token=([^;]+)/)?.[1] || '';
+    },
+
+    get pndYearBE() {
+      return this.pndYear + 543;
+    },
+
+    fmt(v) {
+      if (v == null) return '0.00';
+      return parseFloat(v).toLocaleString('th-TH', {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      });
+    },
+
+    // Convert "YYYY-MM" input to "YYYYMM" for API
+    get ssoPeriodApi() {
+      return this.ssoPeriodInput ? this.ssoPeriodInput.replace('-', '') : '';
+    },
+
+    async loadPnd1k() {
+      this.pndLoading = true;
+      this.pndError = '';
+      this.pndEmployees = [];
+      try {
+        const r = await fetch(`/api/v1/payroll/pnd1k/${this.pndYear}/summary`, {
+          headers: { Authorization: 'Bearer ' + this.token() },
+        });
+        const d = await r.json();
+        if (r.ok) {
+          this.pndEmployees = d.data || [];
+        } else {
+          this.pndError = d.detail || 'โหลดข้อมูลไม่สำเร็จ';
+        }
+      } catch (e) {
+        this.pndError = 'เกิดข้อผิดพลาด: ' + String(e);
+      }
+      this.pndLoading = false;
+    },
+
+    async loadCert(empId) {
+      this.showCertModal = true;
+      this.certLoading = true;
+      this.cert = null;
+      try {
+        const r = await fetch(`/api/v1/payroll/pnd1k/${this.pndYear}/${empId}`, {
+          headers: { Authorization: 'Bearer ' + this.token() },
+        });
+        const d = await r.json();
+        if (r.ok) {
+          this.cert = d;
+        } else {
+          alert(d.detail || 'โหลดข้อมูลไม่สำเร็จ');
+          this.showCertModal = false;
+        }
+      } catch (e) {
+        alert('เกิดข้อผิดพลาด: ' + String(e));
+        this.showCertModal = false;
+      }
+      this.certLoading = false;
+    },
+
+    async loadSso() {
+      this.ssoLoading = true;
+      this.ssoError = '';
+      this.ssoReport = null;
+      try {
+        const r = await fetch(`/api/v1/payroll/sso110/${this.ssoPeriodApi}`, {
+          headers: { Authorization: 'Bearer ' + this.token() },
+        });
+        const d = await r.json();
+        if (r.ok) {
+          this.ssoReport = d;
+        } else {
+          this.ssoError = d.detail || 'โหลดข้อมูลไม่สำเร็จ';
+        }
+      } catch (e) {
+        this.ssoError = 'เกิดข้อผิดพลาด: ' + String(e);
+      }
+      this.ssoLoading = false;
+    },
+  };
+}
+</script>
+{% endblock %}

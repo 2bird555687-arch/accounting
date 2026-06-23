@@ -140,3 +140,34 @@ async def pay_payroll(
         raise HTTPException(status_code=403, detail=str(e))
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
+
+
+# ── Tax Forms (ภ.ง.ด.1ก / สปส.1-10) ─────────────────────────────────────────
+
+@router.get("/payroll/pnd1k/{year}/summary")
+async def pnd1k_summary(year: int, ctx: CTX, db: CompanyDB):
+    from app.modules.payroll.m40_service import get_pnd1k_summary
+    data = await get_pnd1k_summary(ctx, db, year)
+    return {"data": data, "year": year}
+
+
+@router.get("/payroll/pnd1k/{year}/{employee_id}")
+async def pnd1k_certificate(year: int, employee_id: int, ctx: CTX, db: CompanyDB):
+    from app.modules.payroll.m40_service import get_pnd1k_certificate
+    from dataclasses import asdict
+    try:
+        cert = await get_pnd1k_certificate(ctx, db, year, employee_id)
+        return asdict(cert)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+
+@router.get("/payroll/sso110/{period}")
+async def sso_110(period: str, ctx: CTX, db: CompanyDB):
+    from app.modules.payroll.m40_service import get_sso110
+    from dataclasses import asdict
+    try:
+        report = await get_sso110(ctx, db, period)
+        return asdict(report)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
