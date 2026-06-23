@@ -1,0 +1,261 @@
+{% extends "base.html" %}
+{% block title %}ปิดงวดบัญชี{% endblock %}
+{% block page_title %}อัตโนมัติ — ปิดงวดบัญชี{% endblock %}
+
+{% block content %}
+<div x-data="periodClosePage()" x-init="init()">
+
+  <!-- Toast -->
+  <div x-show="toast" x-transition class="fixed top-4 right-4 z-50 bg-gray-800 text-white px-4 py-3 rounded-lg shadow-lg text-sm font-medium" x-text="toast"></div>
+
+  <!-- Period selector card -->
+  <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-4 mb-4 flex gap-3 items-end">
+    <div>
+      <label class="block text-xs text-gray-500 mb-1">งวดบัญชี</label>
+      <input type="month" x-model="period" class="px-3 py-2 rounded-lg border border-gray-200 text-sm"/>
+    </div>
+    <button @click="loadChecklist()" :disabled="loading"
+      class="px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-medium disabled:opacity-50">
+      <span x-show="!loading">ตรวจสอบ</span>
+      <span x-show="loading">⏳ กำลังตรวจสอบ...</span>
+    </button>
+  </div>
+
+  <!-- Error -->
+  <div x-show="error" class="mb-4 bg-red-50 border border-red-200 rounded-xl px-4 py-3 text-sm text-red-700" x-text="error"></div>
+
+  <!-- Checklist -->
+  <div x-show="checklist.length > 0" class="mb-4">
+    <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+      <div class="px-4 py-3 border-b border-gray-100 font-semibold text-sm text-gray-700">
+        Checklist งวด <span x-text="periodLabel"></span>
+      </div>
+      <div class="divide-y divide-gray-50">
+        <template x-for="item in checklist" :key="item.key">
+          <div :class="statusBgClass(item.status)" class="px-4 py-3 border-l-4 flex items-center justify-between"
+               :style="item.status==='blocking' ? 'border-color:#dc2626' : item.status==='warning' ? 'border-color:#d97706' : 'border-color:#16a34a'">
+            <div class="flex items-center gap-3">
+              <span x-text="statusIcon(item.status)" class="text-base"></span>
+              <div>
+                <div :class="statusClass(item.status)" class="text-sm font-medium" x-text="LABELS[item.key] || item.label || item.key"></div>
+                <div x-show="item.detail" class="text-xs text-gray-500 mt-0.5" x-text="item.detail"></div>
+              </div>
+            </div>
+            <div class="flex items-center gap-3">
+              <span x-show="item.count > 0"
+                :class="item.status==='blocking' ? 'bg-red-100 text-red-700' : item.status==='warning' ? 'bg-yellow-100 text-yellow-700' : 'bg-green-100 text-green-700'"
+                class="inline-flex px-2 py-0.5 rounded-full text-xs font-medium"
+                x-text="item.count + ' รายการ'"></span>
+              <a x-show="SHORTCUTS[item.key] && item.status !== 'ok'"
+                :href="SHORTCUTS[item.key]?.href"
+                class="text-xs text-blue-600 hover:underline"
+                x-text="SHORTCUTS[item.key]?.label"></a>
+            </div>
+          </div>
+        </template>
+      </div>
+    </div>
+  </div>
+
+  <!-- Summary banner -->
+  <div x-show="checklist.length > 0" class="mb-4">
+    <!-- Blocking -->
+    <div x-show="hasBlocking" class="bg-red-50 border border-red-200 rounded-xl px-4 py-3">
+      <div class="flex items-center gap-2 text-red-700 font-medium text-sm">
+        ❌ ไม่สามารถปิดงวดได้ กรุณาแก้ไขรายการที่ติดขัดก่อน
+      </div>
+    </div>
+    <!-- Warning only -->
+    <div x-show="hasWarning" class="bg-yellow-50 border border-yellow-200 rounded-xl px-4 py-3">
+      <div class="flex items-center gap-2 text-yellow-800 font-medium text-sm">
+        ⚠️ มีรายการที่แนะนำให้ตรวจสอบ แต่สามารถปิดงวดได้
+      </div>
+    </div>
+    <!-- All OK -->
+    <div x-show="allOk" class="bg-green-50 border border-green-200 rounded-xl px-4 py-3">
+      <div class="flex items-center gap-2 text-green-700 font-medium text-sm">
+        ✅ พร้อมปิดงวด
+      </div>
+    </div>
+  </div>
+
+  <!-- Success state after close -->
+  <div x-show="closed" class="mb-4 bg-green-50 border border-green-200 rounded-xl px-4 py-4">
+    <div class="text-green-700 font-semibold text-sm mb-2">✅ ปิดงวด <span x-text="periodLabel"></span> เรียบร้อยแล้ว</div>
+    <div class="flex gap-2">
+      <a href="/reports/trial-balance" class="px-3 py-1.5 bg-blue-600 text-white rounded-lg text-xs font-medium">ดูงบทดลอง</a>
+      <a href="/reports/balance-sheet" class="px-3 py-1.5 border border-gray-200 text-gray-600 rounded-lg text-xs">ดูงบดุล</a>
+    </div>
+  </div>
+
+  <!-- Action buttons -->
+  <div x-show="checklist.length > 0" class="flex gap-3">
+    <!-- Close button -->
+    <button x-show="!closed" @click="closePeriod()" :disabled="hasBlocking || closing"
+      :title="hasBlocking ? 'กรุณาแก้ไขรายการที่ติดขัดก่อน' : ''"
+      class="px-5 py-2.5 rounded-lg text-sm font-medium text-white disabled:opacity-40 disabled:cursor-not-allowed"
+      :class="hasBlocking ? 'bg-gray-400' : 'bg-red-600 hover:bg-red-700'">
+      <span x-show="!closing">🔒 ปิดงวด <span x-text="periodLabel"></span></span>
+      <span x-show="closing">⏳ กำลังปิดงวด...</span>
+    </button>
+
+    <!-- Reopen button — only for FIRM_ADMIN and after period is closed -->
+    {% if ctx and ctx.user_role.value == 'FIRM_ADMIN' %}
+    <button x-show="closed" @click="showReopenModal=true"
+      class="px-5 py-2.5 rounded-lg border border-orange-300 text-orange-700 text-sm font-medium hover:bg-orange-50">
+      🔓 เปิดงวดซ้ำ
+    </button>
+    {% endif %}
+  </div>
+
+  <!-- Blockers list (returned from API on failed close attempt) -->
+  <div x-show="blockers.length > 0" class="mt-4 bg-red-50 border border-red-200 rounded-xl p-4">
+    <div class="text-sm font-medium text-red-700 mb-2">รายการที่ขัดขวางการปิดงวด:</div>
+    <ul class="text-sm text-red-600 space-y-1">
+      <template x-for="b in blockers" :key="b">
+        <li class="flex items-center gap-2"><span>•</span><span x-text="b"></span></li>
+      </template>
+    </ul>
+  </div>
+
+  <!-- Reopen Modal -->
+  <div x-show="showReopenModal" x-cloak class="fixed inset-0 bg-black/40 flex items-center justify-center z-50" @click.self="showReopenModal=false">
+    <div class="bg-white rounded-xl shadow-xl w-full max-w-md p-6">
+      <h2 class="text-lg font-bold mb-1">เปิดงวดซ้ำ</h2>
+      <p class="text-sm text-gray-500 mb-4">งวด <span x-text="periodLabel"></span> — กรุณาระบุเหตุผล</p>
+      <textarea x-model="reopenReason" rows="3" placeholder="เหตุผลการเปิดงวดซ้ำ (บังคับกรอก)"
+        class="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm resize-none mb-4"></textarea>
+      <div class="flex justify-end gap-2">
+        <button @click="showReopenModal=false" class="px-4 py-2 rounded-lg border border-gray-200 text-sm">ยกเลิก</button>
+        <button @click="reopenPeriod()" :disabled="!reopenReason.trim() || reopening"
+          class="px-4 py-2 rounded-lg bg-orange-500 text-white text-sm font-medium disabled:opacity-50">
+          <span x-show="!reopening">ยืนยันเปิดงวดซ้ำ</span>
+          <span x-show="reopening">⏳ กำลังดำเนินการ...</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function periodClosePage() {
+  return {
+    period: new Date().toISOString().slice(0, 7),  // YYYY-MM
+    checklist: [], loading: false, closing: false, reopening: false,
+    closed: false, toast: '', error: '', blockers: [],
+    showReopenModal: false, reopenReason: '',
+
+    token() { return document.cookie.match(/access_token=([^;]+)/)?.[1] || ''; },
+
+    get year() { return parseInt(this.period.split('-')[0]); },
+    get month() { return parseInt(this.period.split('-')[1]); },
+    get periodLabel() { return `${String(this.month).padStart(2,'0')}/${this.year}`; },
+
+    get hasBlocking() { return this.checklist.some(c => c.status === 'blocking'); },
+    get allOk() { return this.checklist.length > 0 && this.checklist.every(c => c.status === 'ok'); },
+    get hasWarning() { return !this.hasBlocking && this.checklist.some(c => c.status === 'warning'); },
+
+    async init() {
+      // No auto-load; user must pick period and click ตรวจสอบ
+    },
+
+    async loadChecklist() {
+      this.loading = true; this.error = ''; this.checklist = []; this.closed = false; this.blockers = [];
+      try {
+        const r = await fetch(`/api/v1/period/${this.year}/${this.month}/checklist`, {
+          headers: { Authorization: 'Bearer ' + this.token() }
+        });
+        const d = await r.json();
+        if (r.ok) {
+          this.checklist = Array.isArray(d) ? d : (d.data || d.items || []);
+        } else {
+          this.error = (typeof d.detail === 'string' ? d.detail : d.detail?.message) || 'โหลดข้อมูลไม่สำเร็จ';
+        }
+      } catch (e) {
+        this.error = String(e);
+      }
+      this.loading = false;
+    },
+
+    async closePeriod() {
+      if (!confirm(`ยืนยันปิดงวด ${this.periodLabel}?\nเมื่อปิดแล้วจะไม่สามารถบันทึกรายการในงวดนี้ได้จนกว่าจะเปิดซ้ำ`)) return;
+      this.closing = true; this.error = ''; this.blockers = [];
+      try {
+        const r = await fetch(`/api/v1/period/${this.year}/${this.month}/close`, {
+          method: 'POST',
+          headers: { Authorization: 'Bearer ' + this.token() }
+        });
+        const d = await r.json();
+        if (r.ok && d.success) {
+          this.closed = true;
+          this.toast = `✅ ปิดงวด ${this.periodLabel} เรียบร้อยแล้ว`;
+          setTimeout(() => { this.toast = ''; }, 5000);
+        } else {
+          // 400 detail is an object: { message, blockers: [{key, label, status, count, detail}, ...] }
+          const detail = d.detail || d;
+          this.error = (typeof detail === 'string' ? detail : detail.message) || 'ปิดงวดไม่สำเร็จ';
+          const rawBlockers = detail.blockers || [];
+          this.blockers = rawBlockers.map(b => typeof b === 'string' ? b : `${b.label} (${b.count} รายการ)`);
+        }
+      } catch (e) {
+        this.error = String(e);
+      }
+      this.closing = false;
+    },
+
+    async reopenPeriod() {
+      if (!this.reopenReason.trim()) return;
+      this.reopening = true;
+      try {
+        const r = await fetch(`/api/v1/period/${this.year}/${this.month}/reopen`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + this.token() },
+          body: JSON.stringify({ reason: this.reopenReason })
+        });
+        const d = await r.json();
+        if (r.ok && d.success) {
+          this.showReopenModal = false;
+          this.reopenReason = '';
+          this.closed = false;
+          this.toast = '✅ เปิดงวดซ้ำเรียบร้อยแล้ว';
+          setTimeout(() => { this.toast = ''; }, 3000);
+          await this.loadChecklist();
+        } else {
+          const detail = d.detail || d;
+          alert(typeof detail === 'string' ? detail : (detail.message || 'เปิดงวดซ้ำไม่สำเร็จ'));
+        }
+      } catch (e) {
+        alert(String(e));
+      }
+      this.reopening = false;
+    },
+
+    statusIcon(s) { return { ok: '✅', warning: '⚠️', blocking: '❌' }[s] || '—'; },
+    statusClass(s) {
+      return { ok: 'text-green-700', warning: 'text-yellow-700', blocking: 'text-red-600' }[s] || 'text-gray-600';
+    },
+    statusBgClass(s) {
+      return { ok: 'bg-green-50 border-green-200', warning: 'bg-yellow-50 border-yellow-200', blocking: 'bg-red-50 border-red-200' }[s] || 'bg-gray-50 border-gray-200';
+    },
+
+    SHORTCUTS: {
+      draft_entries: { label: 'ไปหน้าสมุดรายวัน', href: '/journals' },
+      recurring:     { label: 'ไปหน้ารายการบัญชีประจำ', href: '/automation/recurring' },
+      adjusting:     { label: 'ไปหน้าปรับปรุงสิ้นงวด', href: '/automation/adjusting' },
+      bank_recon:    { label: 'ไปหน้ากระทบยอดธนาคาร', href: '/bank/reconciliation' },
+    },
+
+    LABELS: {
+      draft_entries: 'JE ค้าง Draft',
+      recurring:     'Recurring ที่ยังไม่ Run',
+      bank_recon:    'Bank Reconciliation ค้าง',
+      adjusting:     'Adjusting Entry ที่ยังไม่ทำ',
+      overdue:       'ลูกหนี้/เจ้าหนี้เกินกำหนด',
+    },
+  };
+}
+</script>
+{% endblock %}

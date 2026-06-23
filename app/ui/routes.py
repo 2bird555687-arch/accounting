@@ -438,6 +438,15 @@ async def automation_adjusting_page(request: Request):
     return _r("automation/adjusting.html", request, _ctx(ctx))
 
 
+@router.get("/automation/period-close", response_class=HTMLResponse)
+async def automation_period_close_page(request: Request):
+    try:
+        ctx = await get_ui_context(request)
+    except UIRedirectException as e:
+        return RedirectResponse(url=e.url, status_code=302)
+    return _r("automation/period_close.html", request, _ctx(ctx))
+
+
 # ── Firm Dashboard ────────────────────────────────────────────────────────────
 
 @router.get("/firm", response_class=HTMLResponse)
