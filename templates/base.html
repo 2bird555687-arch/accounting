@@ -107,13 +107,24 @@
   </div>
 
   <div class="sb-section">เงินเดือน</div>
-  <div class="sb-group-head {% if '/payroll' in request.url.path %}open{% endif %}" onclick="toggleGroup(this)">
-    <span class="sb-item-icon">💰</span>
+  <div class="sb-group-head {% if '/payroll/' in request.url.path %}open{% endif %}" onclick="toggleGroup(this)">
+    <span class="sb-item-icon">👥</span>
     เงินเดือน
-    <span class="sb-group-chev {% if '/payroll' in request.url.path %}open{% endif %}">▶</span>
+    <span class="sb-group-chev {% if '/payroll/' in request.url.path %}open{% endif %}">▶</span>
   </div>
-  <div class="sb-sub {% if '/payroll' in request.url.path %}open{% endif %}">
-    <a href="/payroll/m40" class="sb-item {% if '/payroll/m40' in request.url.path %}active{% endif %}">ภ.ง.ด.1ก / สปส.1-10</a>
+  <div class="sb-sub {% if '/payroll/' in request.url.path %}open{% endif %}">
+    <a href="/payroll/employees"
+       class="sb-item {% if '/payroll/employees' in request.url.path %}active{% endif %}">
+      ทะเบียนพนักงาน
+    </a>
+    <a href="/payroll/run"
+       class="sb-item {% if '/payroll/run' in request.url.path %}active{% endif %}">
+      คำนวณเงินเดือน
+    </a>
+    <a href="/payroll/m40"
+       class="sb-item {% if '/payroll/m40' in request.url.path %}active{% endif %}">
+      ภ.ง.ด.1ก / สปส.1-10
+    </a>
   </div>
 
   <div class="sb-section">อัตโนมัติ</div>

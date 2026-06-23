@@ -1,0 +1,518 @@
+{% extends "base.html" %}
+{% block title %}คำนวณเงินเดือน{% endblock %}
+{% block page_title %}เงินเดือน — คำนวณเงินเดือน{% endblock %}
+
+{% block content %}
+<div x-data="payrollRunPage()" x-init="init()">
+
+  <!-- Step Indicator -->
+  <div class="flex items-center mb-6">
+    <template x-for="(label, i) in ['เลือกพนักงาน','ตรวจสอบ','บันทึก JE','จ่ายเงินเดือน']" :key="i">
+      <div class="flex items-center">
+        <!-- Step circle -->
+        <div class="flex flex-col items-center">
+          <div class="w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold border-2 transition-colors"
+               :class="{
+                 'bg-blue-600 border-blue-600 text-white': step === i + 1,
+                 'bg-green-500 border-green-500 text-white': step > i + 1,
+                 'bg-white border-gray-300 text-gray-400': step < i + 1
+               }">
+            <span x-show="step <= i + 1" x-text="i + 1"></span>
+            <span x-show="step > i + 1">✓</span>
+          </div>
+          <div class="text-xs mt-1 whitespace-nowrap"
+               :class="step === i + 1 ? 'text-blue-600 font-medium' : step > i + 1 ? 'text-green-600' : 'text-gray-400'"
+               x-text="label"></div>
+        </div>
+        <!-- Connector line (not after last) -->
+        <div x-show="i < 3" class="w-16 h-0.5 mx-1 mb-4"
+             :class="step > i + 1 ? 'bg-green-400' : 'bg-gray-200'"></div>
+      </div>
+    </template>
+  </div>
+
+  <!-- Error Banner -->
+  <div x-show="error" x-cloak class="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700" x-text="error"></div>
+
+  <!-- ════════════════════════════════════════════════════════════
+       STEP 1: เลือกพนักงาน
+  ═══════════════════════════════════════════════════════════════ -->
+  <div x-show="step === 1">
+    <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-5 mb-4">
+      <div class="flex items-center gap-4">
+        <div>
+          <label class="block text-xs text-gray-500 mb-1">งวดเงินเดือน</label>
+          <input x-model="period" type="month"
+                 class="px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:border-blue-400" />
+        </div>
+        <div class="text-sm text-gray-500 pt-4">
+          เลือกพนักงาน <span class="font-semibold text-blue-600" x-text="selectedIds.length"></span> / <span x-text="employees.length"></span> คน
+        </div>
+      </div>
+    </div>
+
+    <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden mb-4">
+      <table class="w-full text-sm">
+        <thead class="bg-gray-50 border-b border-gray-100">
+          <tr>
+            <th class="px-4 py-3 w-10">
+              <input type="checkbox" :checked="selectAll" @change="toggleSelectAll()" class="rounded" />
+            </th>
+            <th class="text-left px-4 py-3 font-medium text-gray-600">รหัส</th>
+            <th class="text-left px-4 py-3 font-medium text-gray-600">ชื่อ</th>
+            <th class="text-left px-4 py-3 font-medium text-gray-600">ตำแหน่ง</th>
+            <th class="text-right px-4 py-3 font-medium text-gray-600">เงินเดือน</th>
+            <th class="text-center px-4 py-3 font-medium text-gray-600">OT (ชั่วโมง)</th>
+            <th class="text-center px-4 py-3 font-medium text-gray-600">โบนัส (บาท)</th>
+          </tr>
+        </thead>
+        <tbody>
+          <template x-if="employees.length === 0">
+            <tr><td colspan="7" class="px-4 py-8 text-center text-gray-400">ไม่พบข้อมูลพนักงาน</td></tr>
+          </template>
+          <template x-for="emp in employees" :key="emp.id">
+            <tr class="border-b border-gray-50 hover:bg-gray-50"
+                :class="selectedIds.includes(emp.id) ? 'bg-blue-50/30' : ''">
+              <td class="px-4 py-3 text-center">
+                <input type="checkbox"
+                       :checked="selectedIds.includes(emp.id)"
+                       @change="toggleEmp(emp.id)"
+                       class="rounded" />
+              </td>
+              <td class="px-4 py-3 font-mono text-gray-600" x-text="emp.employee_code"></td>
+              <td class="px-4 py-3 font-medium text-gray-800" x-text="emp.name_th"></td>
+              <td class="px-4 py-3 text-gray-500" x-text="emp.position || '-'"></td>
+              <td class="px-4 py-3 text-right font-mono text-gray-700" x-text="fmt(emp.salary)"></td>
+              <td class="px-4 py-3 text-center">
+                <input type="number" min="0" step="0.5"
+                       :value="otHours[emp.id] || ''"
+                       @input="otHours[emp.id] = parseFloat($event.target.value) || 0"
+                       class="w-20 text-center border border-gray-200 rounded px-1 py-1 text-sm" />
+              </td>
+              <td class="px-4 py-3 text-center">
+                <input type="number" min="0"
+                       :value="bonus[emp.id] || ''"
+                       @input="bonus[emp.id] = parseFloat($event.target.value) || 0"
+                       class="w-28 text-right border border-gray-200 rounded px-1 py-1 text-sm" />
+              </td>
+            </tr>
+          </template>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="flex justify-end">
+      <button @click="calculate()" :disabled="calculating || !selectedIds.length"
+              class="px-6 py-2.5 rounded-lg text-sm text-white font-medium disabled:opacity-50"
+              style="background:var(--accent);">
+        <span x-show="!calculating">คำนวณเงินเดือน →</span>
+        <span x-show="calculating">กำลังคำนวณ...</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- ════════════════════════════════════════════════════════════
+       STEP 2: ตรวจสอบ
+  ═══════════════════════════════════════════════════════════════ -->
+  <div x-show="step === 2">
+    <!-- Summary stat cards -->
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4" x-show="summary">
+      <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
+        <div class="text-xs text-gray-500">พนักงาน</div>
+        <div class="text-2xl font-bold text-gray-800" x-text="summary?.employee_count || calcResult.length"></div>
+      </div>
+      <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
+        <div class="text-xs text-gray-500">รายได้รวม</div>
+        <div class="text-2xl font-bold" style="color:var(--accent)" x-text="fmt(summary?.total_gross || 0)"></div>
+      </div>
+      <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
+        <div class="text-xs text-gray-500">ภาษีหัก ณ ที่จ่าย</div>
+        <div class="text-2xl font-bold text-orange-600" x-text="fmt(summary?.total_wht || 0)"></div>
+      </div>
+      <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
+        <div class="text-xs text-gray-500">SSO รวม (พนักงาน)</div>
+        <div class="text-2xl font-bold text-purple-600" x-text="fmt(summary?.total_sso_employee || 0)"></div>
+      </div>
+    </div>
+
+    <!-- If no summary from API, compute from records -->
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4" x-show="!summary && calcResult.length">
+      <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
+        <div class="text-xs text-gray-500">พนักงาน</div>
+        <div class="text-2xl font-bold text-gray-800" x-text="calcResult.length"></div>
+      </div>
+      <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
+        <div class="text-xs text-gray-500">รายได้รวม</div>
+        <div class="text-2xl font-bold" style="color:var(--accent)"
+             x-text="fmt(calcResult.reduce((s,r) => s + parseFloat(r.gross||0), 0))"></div>
+      </div>
+      <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
+        <div class="text-xs text-gray-500">ภาษีหัก ณ ที่จ่าย</div>
+        <div class="text-2xl font-bold text-orange-600"
+             x-text="fmt(calcResult.reduce((s,r) => s + parseFloat(r.wht||0), 0))"></div>
+      </div>
+      <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
+        <div class="text-xs text-gray-500">SSO รวม (พนักงาน)</div>
+        <div class="text-2xl font-bold text-purple-600"
+             x-text="fmt(calcResult.reduce((s,r) => s + parseFloat(r.sso_employee||0), 0))"></div>
+      </div>
+    </div>
+
+    <!-- Records table -->
+    <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden mb-4">
+      <table class="w-full text-sm">
+        <thead class="bg-gray-50 border-b border-gray-100">
+          <tr>
+            <th class="text-left px-4 py-3 font-medium text-gray-600">ชื่อพนักงาน</th>
+            <th class="text-right px-4 py-3 font-medium text-gray-600">รายได้รวม</th>
+            <th class="text-right px-4 py-3 font-medium text-gray-600">OT</th>
+            <th class="text-right px-4 py-3 font-medium text-gray-600">โบนัส</th>
+            <th class="text-right px-4 py-3 font-medium text-gray-600">SSO (พนักงาน)</th>
+            <th class="text-right px-4 py-3 font-medium text-gray-600">ภาษี (WHT)</th>
+            <th class="text-right px-4 py-3 font-medium text-gray-600">รับสุทธิ</th>
+          </tr>
+        </thead>
+        <tbody>
+          <template x-for="rec in calcResult" :key="rec.id">
+            <tr class="border-b border-gray-50 hover:bg-gray-50">
+              <td class="px-4 py-3 font-medium text-gray-800" x-text="rec.employee_name"></td>
+              <td class="px-4 py-3 text-right font-mono text-gray-700" x-text="fmt(rec.gross)"></td>
+              <td class="px-4 py-3 text-right font-mono text-gray-500" x-text="fmt(rec.ot_amount)"></td>
+              <td class="px-4 py-3 text-right font-mono text-gray-500" x-text="fmt(rec.bonus)"></td>
+              <td class="px-4 py-3 text-right font-mono text-purple-600" x-text="fmt(rec.sso_employee)"></td>
+              <td class="px-4 py-3 text-right font-mono text-orange-600" x-text="fmt(rec.wht)"></td>
+              <td class="px-4 py-3 text-right font-mono font-semibold text-green-700" x-text="fmt(rec.net)"></td>
+            </tr>
+          </template>
+          <template x-if="calcResult.length === 0">
+            <tr><td colspan="7" class="px-4 py-8 text-center text-gray-400">ไม่มีข้อมูล</td></tr>
+          </template>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="flex justify-between">
+      <button @click="step = 1; error = ''"
+              class="px-4 py-2.5 rounded-lg text-sm border border-gray-200 text-gray-600 hover:bg-gray-50">
+        ← แก้ไข
+      </button>
+      <button @click="postPayroll()" :disabled="posting"
+              class="px-6 py-2.5 rounded-lg text-sm text-white font-medium disabled:opacity-50 bg-green-600 hover:bg-green-700">
+        <span x-show="!posting">✅ อนุมัติและบันทึก JE →</span>
+        <span x-show="posting">กำลังบันทึก...</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- ════════════════════════════════════════════════════════════
+       STEP 3: บันทึก JE
+  ═══════════════════════════════════════════════════════════════ -->
+  <div x-show="step === 3">
+    <!-- Success card -->
+    <div class="bg-green-50 border border-green-200 rounded-xl p-5 mb-4 flex items-start gap-3">
+      <div class="text-2xl">✅</div>
+      <div>
+        <div class="font-semibold text-green-800 text-base">บันทึก JE เรียบร้อยแล้ว</div>
+        <div class="text-sm text-green-700 mt-1">
+          เลขที่ JE:
+          <a :href="'/journals/' + (postResult?.posted_journal_no || '')"
+             class="font-mono font-semibold underline text-blue-600"
+             x-text="postResult?.posted_journal_no || '-'"></a>
+        </div>
+      </div>
+    </div>
+
+    <!-- Summary table -->
+    <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-5 mb-4" x-show="postResult">
+      <div class="text-sm font-semibold text-gray-600 mb-3">สรุปเงินเดือนงวด <span x-text="postResult?.period || period.replace('-','')"></span></div>
+      <div class="grid grid-cols-2 gap-y-2 text-sm">
+        <div class="text-gray-500">จำนวนพนักงาน</div>
+        <div class="text-right font-medium" x-text="(postResult?.employee_count || 0) + ' คน'"></div>
+        <div class="text-gray-500">รายได้รวม (Gross)</div>
+        <div class="text-right font-mono" x-text="fmt(postResult?.total_gross || 0)"></div>
+        <div class="text-gray-500">SSO ส่วนพนักงาน</div>
+        <div class="text-right font-mono text-purple-600" x-text="fmt(postResult?.total_sso_employee || 0)"></div>
+        <div class="text-gray-500">SSO ส่วนนายจ้าง</div>
+        <div class="text-right font-mono text-purple-600" x-text="fmt(postResult?.total_sso_employer || 0)"></div>
+        <div class="text-gray-500">ภาษีหัก ณ ที่จ่าย</div>
+        <div class="text-right font-mono text-orange-600" x-text="fmt(postResult?.total_wht || 0)"></div>
+        <div class="text-gray-700 font-semibold border-t border-gray-100 pt-2">รับสุทธิ (Net Pay)</div>
+        <div class="text-right font-mono font-bold text-green-700 border-t border-gray-100 pt-2"
+             x-text="fmt(postResult?.total_net || 0)"></div>
+      </div>
+    </div>
+
+    <!-- Bank account selection -->
+    <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-5 mb-4">
+      <div class="text-sm font-semibold text-gray-600 mb-3">เลือกบัญชีธนาคารสำหรับโอนเงินเดือน</div>
+      <div class="flex items-end gap-3 flex-wrap">
+        <div class="flex-1 min-w-48">
+          <label class="block text-xs text-gray-500 mb-1">บัญชีธนาคาร <span class="text-red-500">*</span></label>
+          <select x-model="selectedBankCode"
+                  class="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm">
+            <option value="">-- เลือกบัญชี --</option>
+            <template x-for="ba in bankAccounts" :key="ba.id">
+              <option :value="ba.coa_account_code"
+                      x-text="ba.bank_name + ' · ' + (ba.account_number || '-') + ' (COA: ' + ba.coa_account_code + ')'"></option>
+            </template>
+          </select>
+        </div>
+        <button @click="payPayroll()" :disabled="paying || !selectedBankCode"
+                class="px-6 py-2.5 rounded-lg text-sm text-white font-medium disabled:opacity-50 bg-blue-600 hover:bg-blue-700 whitespace-nowrap">
+          <span x-show="!paying">💸 จ่ายเงินเดือน</span>
+          <span x-show="paying">กำลังดำเนินการ...</span>
+        </button>
+      </div>
+      <div x-show="!bankAccounts.length" class="text-xs text-gray-400 mt-2">
+        ไม่พบบัญชีธนาคาร — ไปที่ <a href="/bank/accounts" class="text-blue-600 underline">จัดการบัญชีธนาคาร</a> ก่อน
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════════════════════════════════════════════════════════
+       STEP 4: จ่ายเงินเดือน
+  ═══════════════════════════════════════════════════════════════ -->
+  <div x-show="step === 4">
+    <!-- Success card -->
+    <div class="bg-green-50 border border-green-200 rounded-xl p-6 mb-6 flex items-start gap-4">
+      <div class="text-3xl">🎉</div>
+      <div>
+        <div class="font-bold text-green-800 text-lg">จ่ายเงินเดือนเรียบร้อยแล้ว</div>
+        <div class="text-sm text-green-700 mt-1">
+          เลขที่ JE การจ่ายเงิน:
+          <a :href="'/journals/' + (payResult?.payment_journal_no || '')"
+             class="font-mono font-semibold underline text-blue-600"
+             x-text="payResult?.payment_journal_no || '-'"></a>
+        </div>
+        <div class="text-sm text-green-700 mt-0.5">
+          งวด: <span class="font-semibold" x-text="payResult?.period || period.replace('-','')"></span>
+          &nbsp;|&nbsp; พนักงาน: <span class="font-semibold" x-text="(payResult?.employee_count || 0) + ' คน'"></span>
+          &nbsp;|&nbsp; ยอดสุทธิ:
+          <span class="font-semibold font-mono" x-text="fmt(payResult?.total_net || 0) + ' บาท'"></span>
+        </div>
+      </div>
+    </div>
+
+    <div class="flex justify-center">
+      <button @click="resetWizard()"
+              class="px-6 py-2.5 rounded-lg text-sm font-medium"
+              style="background:var(--accent-l);color:var(--accent);border:1px solid var(--accent);">
+        คำนวณเงินเดือนรอบใหม่
+      </button>
+    </div>
+  </div>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function payrollRunPage() {
+  return {
+    step: 1,
+
+    // Step 1
+    period: new Date().toISOString().slice(0, 7), // YYYY-MM for <input type="month">
+    employees: [],
+    selectedIds: [],
+    selectAll: false,
+    otHours: {},
+    bonus: {},
+    calculating: false,
+
+    // Step 2
+    calcResult: [],
+    summary: null,
+    posting: false,
+
+    // Step 3
+    postResult: null,
+    bankAccounts: [],
+    selectedBankCode: '',
+    paying: false,
+
+    // Step 4
+    payResult: null,
+
+    error: '',
+
+    token() { return document.cookie.match(/access_token=([^;]+)/)?.[1] || ''; },
+
+    fmt(v) {
+      return parseFloat(v || 0).toLocaleString('th-TH', { minimumFractionDigits: 2 });
+    },
+
+    // Convert YYYY-MM → YYYYMM (what the API expects)
+    periodApi() {
+      return this.period.replace('-', '');
+    },
+
+    async init() {
+      const r = await fetch('/api/v1/employees?active_only=true', {
+        headers: { Authorization: 'Bearer ' + this.token() }
+      });
+      const d = await r.json();
+      this.employees = d.data || d || [];
+    },
+
+    toggleSelectAll() {
+      this.selectAll = !this.selectAll;
+      this.selectedIds = this.selectAll ? this.employees.map(e => e.id) : [];
+    },
+
+    toggleEmp(id) {
+      const idx = this.selectedIds.indexOf(id);
+      if (idx >= 0) { this.selectedIds.splice(idx, 1); }
+      else { this.selectedIds.push(id); }
+      this.selectAll = this.selectedIds.length === this.employees.length;
+    },
+
+    async calculate() {
+      if (!this.selectedIds.length) { alert('กรุณาเลือกพนักงานอย่างน้อย 1 คน'); return; }
+      this.calculating = true;
+      this.error = '';
+
+      // Build overrides dict: {employee_id: {ot_hours?, bonus?}}
+      // Only include employees that have OT or bonus values
+      const overrides = {};
+      for (const id of this.selectedIds) {
+        const ot = parseFloat(this.otHours[id] || 0);
+        const bon = parseFloat(this.bonus[id] || 0);
+        if (ot > 0 || bon > 0) {
+          overrides[id] = {};
+          if (ot > 0) overrides[id].ot_hours = ot;
+          if (bon > 0) overrides[id].bonus = bon;
+        }
+      }
+
+      // PayrollCalculateIn: period (YYYYMM) + overrides
+      // Note: API calculates ALL active employees if no filter — we filter by passing
+      // only selected employees. Since the schema has no employee_ids field, we rely
+      // on overrides; the service calculates all active employees for the period.
+      // We store selectedIds and filter the results client-side.
+      const body = {
+        period: this.periodApi(),
+        overrides: Object.keys(overrides).length > 0 ? overrides : null,
+      };
+
+      try {
+        const r = await fetch('/api/v1/payroll/calculate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + this.token() },
+          body: JSON.stringify(body)
+        });
+        const d = await r.json();
+        if (r.ok) {
+          // API returns list[PayrollRecordOut] directly
+          const allRecords = Array.isArray(d) ? d : (d.data || d.records || []);
+          // Filter to only selected employees
+          this.calcResult = allRecords.filter(rec => this.selectedIds.includes(rec.employee_id));
+          // Build a local summary from the filtered records
+          this.summary = this._buildSummary(this.calcResult);
+          this.step = 2;
+        } else {
+          this.error = d.detail || 'คำนวณไม่สำเร็จ';
+        }
+      } catch (e) {
+        this.error = 'เกิดข้อผิดพลาดในการเชื่อมต่อ: ' + String(e);
+      }
+      this.calculating = false;
+    },
+
+    _buildSummary(records) {
+      if (!records.length) return null;
+      return {
+        period: this.periodApi(),
+        employee_count: records.length,
+        total_gross: records.reduce((s, r) => s + parseFloat(r.gross || 0), 0),
+        total_sso_employee: records.reduce((s, r) => s + parseFloat(r.sso_employee || 0), 0),
+        total_sso_employer: records.reduce((s, r) => s + parseFloat(r.sso_employer || 0), 0),
+        total_wht: records.reduce((s, r) => s + parseFloat(r.wht || 0), 0),
+        total_net: records.reduce((s, r) => s + parseFloat(r.net || 0), 0),
+        status: 'calculated',
+        posted_journal_no: null,
+        payment_journal_no: null,
+      };
+    },
+
+    async postPayroll() {
+      if (!confirm('ยืนยันอนุมัติและบันทึก JE เงินเดือน?')) return;
+      this.posting = true;
+      this.error = '';
+      try {
+        const r = await fetch(`/api/v1/payroll/${this.periodApi()}/post`, {
+          method: 'POST',
+          headers: { Authorization: 'Bearer ' + this.token() }
+        });
+        const d = await r.json();
+        if (r.ok) {
+          // API returns PayrollSummary directly
+          this.postResult = d.data || d;
+          await this.loadBankAccounts();
+          this.step = 3;
+        } else {
+          this.error = d.detail || 'บันทึก JE ไม่สำเร็จ';
+        }
+      } catch (e) {
+        this.error = 'เกิดข้อผิดพลาดในการเชื่อมต่อ: ' + String(e);
+      }
+      this.posting = false;
+    },
+
+    async loadBankAccounts() {
+      try {
+        const r = await fetch('/api/v1/bank/accounts', {
+          headers: { Authorization: 'Bearer ' + this.token() }
+        });
+        const d = await r.json();
+        this.bankAccounts = d.data || d.items || d || [];
+      } catch (e) {
+        this.bankAccounts = [];
+      }
+    },
+
+    async payPayroll() {
+      if (!this.selectedBankCode) { alert('กรุณาเลือกบัญชีธนาคาร'); return; }
+      const netAmt = this.postResult?.total_net || this.summary?.total_net || 0;
+      if (!confirm(`ยืนยันจ่ายเงินเดือน ${this.fmt(netAmt)} บาท?`)) return;
+      this.paying = true;
+      this.error = '';
+      try {
+        const r = await fetch(
+          `/api/v1/payroll/${this.periodApi()}/pay?bank_account_code=${encodeURIComponent(this.selectedBankCode)}`,
+          {
+            method: 'POST',
+            headers: { Authorization: 'Bearer ' + this.token() }
+          }
+        );
+        const d = await r.json();
+        if (r.ok) {
+          // API returns PayrollSummary directly
+          this.payResult = d.data || d;
+          this.step = 4;
+        } else {
+          this.error = d.detail || 'จ่ายเงินไม่สำเร็จ';
+        }
+      } catch (e) {
+        this.error = 'เกิดข้อผิดพลาดในการเชื่อมต่อ: ' + String(e);
+      }
+      this.paying = false;
+    },
+
+    resetWizard() {
+      this.step = 1;
+      this.calcResult = [];
+      this.summary = null;
+      this.postResult = null;
+      this.payResult = null;
+      this.selectedIds = [];
+      this.selectAll = false;
+      this.otHours = {};
+      this.bonus = {};
+      this.selectedBankCode = '';
+      this.error = '';
+    },
+  };
+}
+</script>
+{% endblock %}

@@ -1,0 +1,413 @@
+{% extends "base.html" %}
+{% block title %}ทะเบียนพนักงาน{% endblock %}
+{% block page_title %}เงินเดือน — ทะเบียนพนักงาน{% endblock %}
+
+{% block content %}
+<div x-data="employeePage()" x-init="init()">
+
+  <!-- Toast -->
+  <div x-show="toast" x-cloak x-transition
+       class="fixed top-4 right-4 z-50 px-5 py-3 rounded-xl shadow-lg text-sm font-medium bg-white border border-green-200 text-green-700"
+       x-text="toast"></div>
+
+  <!-- Toolbar -->
+  <div class="flex flex-wrap items-center gap-3 mb-4">
+    <input x-model="search" type="text" placeholder="ค้นหารหัส / ชื่อพนักงาน..."
+           class="px-3 py-2 rounded-lg border border-gray-200 text-sm w-64 focus:outline-none focus:border-blue-400" />
+    <label class="flex items-center gap-2 text-sm text-gray-600 cursor-pointer select-none">
+      <input type="checkbox" x-model="showInactive" @change="load()" class="rounded" />
+      แสดงพนักงานที่ลาออกแล้ว
+    </label>
+    <div class="ml-auto">
+      <button @click="openAdd()"
+              class="px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-1"
+              style="background:var(--accent-l);color:var(--accent);border:1px solid var(--accent);">
+        ➕ เพิ่มพนักงาน
+      </button>
+    </div>
+  </div>
+
+  <!-- Table -->
+  <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+    <table class="w-full text-sm">
+      <thead class="bg-gray-50 border-b border-gray-100">
+        <tr>
+          <th class="text-left px-4 py-3 font-medium text-gray-600">รหัส</th>
+          <th class="text-left px-4 py-3 font-medium text-gray-600">ชื่อ-นามสกุล</th>
+          <th class="text-left px-4 py-3 font-medium text-gray-600">แผนก</th>
+          <th class="text-left px-4 py-3 font-medium text-gray-600">ตำแหน่ง</th>
+          <th class="text-left px-4 py-3 font-medium text-gray-600">วันเริ่มงาน</th>
+          <th class="text-right px-4 py-3 font-medium text-gray-600">เงินเดือน</th>
+          <th class="text-center px-4 py-3 font-medium text-gray-600">SSO</th>
+          <th class="text-center px-4 py-3 font-medium text-gray-600">สถานะ</th>
+          <th class="text-center px-4 py-3 font-medium text-gray-600">จัดการ</th>
+        </tr>
+      </thead>
+      <tbody>
+        <template x-if="loading">
+          <tr><td colspan="9" class="px-4 py-8 text-center text-gray-400">กำลังโหลด...</td></tr>
+        </template>
+        <template x-if="!loading && filtered.length === 0">
+          <tr><td colspan="9" class="px-4 py-8 text-center text-gray-400">ไม่พบข้อมูลพนักงาน</td></tr>
+        </template>
+        <template x-for="emp in filtered" :key="emp.id">
+          <tr class="border-b border-gray-50 hover:bg-gray-50">
+            <td class="px-4 py-3 font-mono text-gray-700" x-text="emp.employee_code"></td>
+            <td class="px-4 py-3">
+              <div class="font-medium text-gray-800" x-text="emp.name_th"></div>
+              <div class="text-xs text-gray-400" x-text="emp.name_en || ''"></div>
+            </td>
+            <td class="px-4 py-3 text-gray-600" x-text="emp.department || '-'"></td>
+            <td class="px-4 py-3 text-gray-600" x-text="emp.position || '-'"></td>
+            <td class="px-4 py-3 text-gray-600" x-text="emp.start_date"></td>
+            <td class="px-4 py-3 text-right font-mono text-gray-700" x-text="fmt(emp.salary)"></td>
+            <td class="px-4 py-3 text-center text-xs text-gray-600">
+              <span x-text="(parseFloat(emp.sso_rate) * 100).toFixed(0) + '% / ฐานไม่เกิน ' + fmt(emp.sso_ceiling)"></span>
+            </td>
+            <td class="px-4 py-3 text-center">
+              <span x-show="emp.is_active"
+                    class="inline-flex px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700">ปกติ</span>
+              <span x-show="!emp.is_active"
+                    class="inline-flex px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-500">ลาออก</span>
+            </td>
+            <td class="px-4 py-3 text-center">
+              <div class="flex items-center justify-center gap-2">
+                <button @click="openEdit(emp)"
+                        class="px-3 py-1 rounded-lg text-xs border border-gray-200 text-gray-600 hover:bg-gray-50">
+                  แก้ไข
+                </button>
+                <button x-show="emp.is_active" @click="openTerminate(emp)"
+                        class="px-3 py-1 rounded-lg text-xs border border-red-200 text-red-600 hover:bg-red-50">
+                  สิ้นสุด
+                </button>
+              </div>
+            </td>
+          </tr>
+        </template>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Add/Edit Modal -->
+  <div x-show="showModal" x-cloak class="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4"
+       @click.self="showModal=false">
+    <div class="bg-white rounded-xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+      <div class="p-6">
+        <h2 class="text-lg font-bold mb-5 text-gray-800"
+            x-text="modalMode === 'add' ? 'เพิ่มพนักงาน' : 'แก้ไขข้อมูลพนักงาน'"></h2>
+
+        <!-- Group 1: ข้อมูลทั่วไป -->
+        <div class="mb-5">
+          <div class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">ข้อมูลทั่วไป</div>
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="block text-xs text-gray-500 mb-1">รหัสพนักงาน <span class="text-red-500">*</span></label>
+              <input x-model="form.employee_code" :disabled="modalMode === 'edit'"
+                     class="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm disabled:bg-gray-50 disabled:text-gray-400" />
+            </div>
+            <div>
+              <label class="block text-xs text-gray-500 mb-1">ชื่อ-นามสกุล (TH) <span class="text-red-500">*</span></label>
+              <input x-model="form.name_th"
+                     class="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm" />
+            </div>
+            <div>
+              <label class="block text-xs text-gray-500 mb-1">ชื่อ-นามสกุล (EN)</label>
+              <input x-model="form.name_en"
+                     class="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm" />
+            </div>
+            <div>
+              <label class="block text-xs text-gray-500 mb-1">เลขประจำตัวผู้เสียภาษี</label>
+              <input x-model="form.tax_id" maxlength="13"
+                     class="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm font-mono" />
+            </div>
+            <div>
+              <label class="block text-xs text-gray-500 mb-1">แผนก</label>
+              <input x-model="form.department"
+                     class="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm" />
+            </div>
+            <div>
+              <label class="block text-xs text-gray-500 mb-1">ตำแหน่ง</label>
+              <input x-model="form.position"
+                     class="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm" />
+            </div>
+            <div>
+              <label class="block text-xs text-gray-500 mb-1">วันเริ่มงาน <span class="text-red-500">*</span></label>
+              <input x-model="form.start_date" type="date"
+                     class="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm" />
+            </div>
+            <div>
+              <label class="block text-xs text-gray-500 mb-1">วันสิ้นสุดสัญญา</label>
+              <input x-model="form.end_date" type="date"
+                     class="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm" />
+            </div>
+          </div>
+        </div>
+
+        <!-- Group 2: ค่าตอบแทนและ SSO -->
+        <div class="mb-5">
+          <div class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">ค่าตอบแทนและ SSO</div>
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="block text-xs text-gray-500 mb-1">เงินเดือน (บาท) <span class="text-red-500">*</span></label>
+              <input x-model="form.salary" type="number" min="0" step="0.01"
+                     class="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm text-right" />
+            </div>
+            <div>
+              <label class="block text-xs text-gray-500 mb-1">อัตรา OT (บาท/ชั่วโมง)</label>
+              <input x-model="form.ot_rate" type="number" min="0" step="0.01"
+                     class="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm text-right" />
+            </div>
+            <div>
+              <label class="block text-xs text-gray-500 mb-1">อัตรา SSO (%)</label>
+              <input x-model="form.sso_rate" type="number" min="0" max="100" step="0.01"
+                     class="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm text-right" />
+            </div>
+            <div>
+              <label class="block text-xs text-gray-500 mb-1">ฐานเงินเดือน SSO สูงสุด (บาท)</label>
+              <input x-model="form.sso_ceiling" type="number" min="0"
+                     class="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm text-right" />
+            </div>
+          </div>
+        </div>
+
+        <!-- Group 3: บัญชีธนาคาร -->
+        <div class="mb-5">
+          <div class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">บัญชีธนาคาร</div>
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="block text-xs text-gray-500 mb-1">ชื่อธนาคาร</label>
+              <input x-model="form.bank_name" list="banks-datalist"
+                     class="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm" />
+              <datalist id="banks-datalist">
+                <option value="ธนาคารกรุงเทพ (BBL)">
+                <option value="ธนาคารกสิกรไทย (KBANK)">
+                <option value="ธนาคารกรุงไทย (KTB)">
+                <option value="ธนาคารไทยพาณิชย์ (SCB)">
+                <option value="ธนาคารกรุงศรีอยุธยา (BAY)">
+                <option value="ธนาคารทหารไทยธนชาต (TTB)">
+              </datalist>
+            </div>
+            <div>
+              <label class="block text-xs text-gray-500 mb-1">เลขที่บัญชี</label>
+              <input x-model="form.bank_account_no"
+                     class="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm font-mono" />
+            </div>
+            <div class="col-span-2">
+              <label class="block text-xs text-gray-500 mb-1">ชื่อบัญชี</label>
+              <input x-model="form.bank_account_name"
+                     class="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm" />
+            </div>
+          </div>
+        </div>
+
+        <!-- Footer -->
+        <div class="flex justify-end gap-2 pt-2 border-t border-gray-100">
+          <button @click="showModal=false"
+                  class="px-4 py-2 rounded-lg border border-gray-200 text-sm text-gray-600 hover:bg-gray-50">
+            ยกเลิก
+          </button>
+          <button @click="saveEmployee()" :disabled="saving"
+                  class="px-4 py-2 rounded-lg text-sm text-white font-medium disabled:opacity-50"
+                  style="background:var(--accent);">
+            <span x-show="!saving">บันทึก</span>
+            <span x-show="saving">กำลังบันทึก...</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Terminate Modal -->
+  <div x-show="showTermModal" x-cloak class="fixed inset-0 bg-black/40 flex items-center justify-center z-50"
+       @click.self="showTermModal=false">
+    <div class="bg-white rounded-xl shadow-xl w-full max-w-md p-6">
+      <h2 class="text-lg font-bold mb-2 text-gray-800">สิ้นสุดการจ้างงาน</h2>
+      <p class="text-sm text-gray-600 mb-4">พนักงาน: <span class="font-semibold" x-text="termName"></span></p>
+
+      <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-3 mb-4 text-sm text-yellow-800">
+        ⚠️ การดำเนินการนี้จะเปลี่ยนสถานะพนักงานเป็น "ลาออก" และบันทึกวันสิ้นสุดการจ้างงาน
+      </div>
+
+      <div class="mb-4">
+        <label class="block text-xs text-gray-500 mb-1">วันสิ้นสุดการจ้างงาน <span class="text-red-500">*</span></label>
+        <input x-model="termDate" type="date"
+               class="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm" />
+      </div>
+
+      <div class="flex justify-end gap-2">
+        <button @click="showTermModal=false"
+                class="px-4 py-2 rounded-lg border border-gray-200 text-sm text-gray-600 hover:bg-gray-50">
+          ยกเลิก
+        </button>
+        <button @click="terminate()" :disabled="terminating"
+                class="px-4 py-2 rounded-lg text-sm text-white font-medium bg-red-600 hover:bg-red-700 disabled:opacity-50">
+          <span x-show="!terminating">ยืนยันสิ้นสุดการจ้างงาน</span>
+          <span x-show="terminating">กำลังบันทึก...</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function employeePage() {
+  return {
+    employees: [],
+    loading: false,
+    search: '',
+    showInactive: false,
+    toast: '',
+
+    // Add/Edit modal
+    showModal: false,
+    modalMode: 'add',
+    editId: null,
+    form: {
+      employee_code: '', name_th: '', name_en: '', tax_id: '',
+      department: '', position: '', start_date: '', end_date: '',
+      salary: '', ot_rate: 0, sso_rate: 5, sso_ceiling: 15000,
+      bank_name: '', bank_account_no: '', bank_account_name: ''
+    },
+    saving: false,
+
+    // Terminate modal
+    showTermModal: false,
+    termId: null,
+    termName: '',
+    termDate: '',
+    terminating: false,
+
+    token() { return document.cookie.match(/access_token=([^;]+)/)?.[1] || ''; },
+
+    get filtered() {
+      const q = this.search.toLowerCase();
+      return this.employees.filter(e =>
+        !q || e.employee_code.toLowerCase().includes(q) || e.name_th.toLowerCase().includes(q)
+      );
+    },
+
+    fmt(v) {
+      return parseFloat(v || 0).toLocaleString('th-TH', { minimumFractionDigits: 2 });
+    },
+
+    async load() {
+      this.loading = true;
+      try {
+        const r = await fetch(`/api/v1/employees?active_only=${!this.showInactive}`, {
+          headers: { Authorization: 'Bearer ' + this.token() }
+        });
+        const d = await r.json();
+        this.employees = d.data || d || [];
+      } catch (e) {
+        this.employees = [];
+      }
+      this.loading = false;
+    },
+
+    openAdd() {
+      this.modalMode = 'add'; this.editId = null;
+      this.form = {
+        employee_code: '', name_th: '', name_en: '', tax_id: '',
+        department: '', position: '', start_date: '', end_date: '',
+        salary: '', ot_rate: 0, sso_rate: 5, sso_ceiling: 15000,
+        bank_name: '', bank_account_no: '', bank_account_name: ''
+      };
+      this.showModal = true;
+    },
+
+    openEdit(emp) {
+      this.modalMode = 'edit'; this.editId = emp.id;
+      this.form = {
+        employee_code: emp.employee_code,
+        name_th: emp.name_th,
+        name_en: emp.name_en || '',
+        tax_id: emp.tax_id || '',
+        department: emp.department || '',
+        position: emp.position || '',
+        start_date: emp.start_date || '',
+        end_date: emp.end_date || '',
+        salary: emp.salary,
+        ot_rate: emp.ot_rate || 0,
+        sso_rate: parseFloat(emp.sso_rate) * 100,
+        sso_ceiling: emp.sso_ceiling,
+        bank_name: emp.bank_name || '',
+        bank_account_no: emp.bank_account_no || '',
+        bank_account_name: emp.bank_account_name || ''
+      };
+      this.showModal = true;
+    },
+
+    async saveEmployee() {
+      this.saving = true;
+      const body = {
+        ...this.form,
+        salary: parseFloat(this.form.salary),
+        ot_rate: parseFloat(this.form.ot_rate),
+        sso_rate: parseFloat(this.form.sso_rate) / 100,
+        sso_ceiling: parseFloat(this.form.sso_ceiling),
+      };
+      if (!body.end_date) delete body.end_date;
+      if (!body.name_en) delete body.name_en;
+
+      const url = this.modalMode === 'add'
+        ? '/api/v1/employees'
+        : `/api/v1/employees/${this.editId}`;
+      const method = this.modalMode === 'add' ? 'POST' : 'PUT';
+
+      try {
+        const r = await fetch(url, {
+          method,
+          headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + this.token() },
+          body: JSON.stringify(body)
+        });
+        const d = await r.json();
+        if (r.ok) {
+          this.showModal = false;
+          this.toast = this.modalMode === 'add' ? '✅ เพิ่มพนักงานสำเร็จ' : '✅ บันทึกการแก้ไขสำเร็จ';
+          setTimeout(() => { this.toast = ''; }, 3000);
+          await this.load();
+        } else {
+          alert(d.detail || 'เกิดข้อผิดพลาด');
+        }
+      } catch (e) {
+        alert('เกิดข้อผิดพลาดในการเชื่อมต่อ');
+      }
+      this.saving = false;
+    },
+
+    openTerminate(emp) {
+      this.termId = emp.id; this.termName = emp.name_th; this.termDate = '';
+      this.showTermModal = true;
+    },
+
+    async terminate() {
+      if (!this.termDate) { alert('กรุณาระบุวันสิ้นสุด'); return; }
+      this.terminating = true;
+      try {
+        const r = await fetch(`/api/v1/employees/${this.termId}/terminate?end_date=${this.termDate}`, {
+          method: 'POST',
+          headers: { Authorization: 'Bearer ' + this.token() }
+        });
+        if (r.ok) {
+          this.showTermModal = false;
+          this.toast = '✅ บันทึกการสิ้นสุดการจ้างงานแล้ว';
+          setTimeout(() => { this.toast = ''; }, 3000);
+          await this.load();
+        } else {
+          const d = await r.json();
+          alert(d.detail || 'เกิดข้อผิดพลาด');
+        }
+      } catch (e) {
+        alert('เกิดข้อผิดพลาดในการเชื่อมต่อ');
+      }
+      this.terminating = false;
+    },
+
+    async init() { await this.load(); }
+  };
+}
+</script>
+{% endblock %}
