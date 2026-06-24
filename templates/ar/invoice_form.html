@@ -97,6 +97,7 @@
             <thead>
               <tr>
                 <th>คำอธิบาย</th>
+                <th style="width:75px;text-align:center;font-size:11px">บัญชี</th>
                 <th class="num" style="width:80px">จำนวน</th>
                 <th class="num" style="width:110px">ราคา/หน่วย</th>
                 <th class="num" style="width:110px">รวม</th>
@@ -107,6 +108,11 @@
               <template x-for="(line, i) in form.lines" :key="i">
                 <tr>
                   <td><input type="text" x-model="line.description" placeholder="รายการ..." /></td>
+                  <td>
+                    <input type="text" x-model="line.account_code" placeholder="4101"
+                      style="width:70px;font-size:11px;font-family:monospace;text-align:center"
+                      title="รหัสบัญชีรายได้ เช่น 4101 4102" />
+                  </td>
                   <td><input type="number" x-model.number="line.quantity" @input="calcLine(i)" min="0" step="0.01" style="text-align:right" /></td>
                   <td><input type="number" x-model.number="line.unit_price" @input="calcLine(i)" min="0" step="0.01" style="text-align:right" /></td>
                   <td class="num" x-text="fmt(line.amount)"></td>
@@ -186,7 +192,7 @@ function invoiceForm() {
       contact_id: null, invoice_date: today, due_date: due,
       reference: '', vat_rate: 7, notes: '',
       payment_account_code: '1101',
-      lines: [{ description: '', quantity: 1, unit_price: 0, amount: 0 }],
+      lines: [{ description: '', account_code: '4101', quantity: 1, unit_price: 0, amount: 0 }],
     },
     contactSearch: '', contacts: [], selectedContactName: '',
     bankAccounts: [],
@@ -218,7 +224,7 @@ function invoiceForm() {
       this.contacts = [];
     },
 
-    addLine() { this.form.lines.push({ description: '', quantity: 1, unit_price: 0, amount: 0 }); },
+    addLine() { this.form.lines.push({ description: '', account_code: '4101', quantity: 1, unit_price: 0, amount: 0 }); },
     removeLine(i) { this.form.lines.splice(i, 1); this.calcTotals(); },
 
     calcLine(i) {
@@ -237,8 +243,14 @@ function invoiceForm() {
       this.saving = true; this.error = ''; this.success = false;
       const token = document.cookie.match(/access_token=([^;]+)/)?.[1] || '';
       try {
+        const validLines = this.form.lines.filter(l => l.description.trim() || l.unit_price > 0);
+        if (!validLines.length) {
+          this.error = 'กรุณาเพิ่มรายการสินค้า/บริการอย่างน้อย 1 รายการ';
+          this.saving = false; return;
+        }
         const payload = {
           ...this.form,
+          lines: validLines,
           status,
           payment_mode: this.mode,
           payment_account_code: this.mode === 'cash' ? this.form.payment_account_code : null,
@@ -249,9 +261,9 @@ function invoiceForm() {
           headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
           body: JSON.stringify(payload),
         });
-        if (!r.ok) { const e = await r.json(); this.error = e.detail || 'เกิดข้อผิดพลาด'; }
+        if (!r.ok) { const e = await r.json(); this.error = e.detail || JSON.stringify(e) || 'เกิดข้อผิดพลาด'; }
         else { this.success = true; setTimeout(() => window.location = '/ar/invoices', 1500); }
-      } catch { this.error = 'ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์'; }
+      } catch (err) { this.error = 'ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์: ' + err.message; }
       this.saving = false;
     },
 
