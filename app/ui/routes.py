@@ -448,6 +448,20 @@ async def report_budget_actual(request: Request):
     })
 
 
+@router.get("/reports/cost-center", response_class=HTMLResponse)
+async def report_cost_center(request: Request):
+    try:
+        ctx = await get_ui_context(request)
+    except UIRedirectException as e:
+        return RedirectResponse(url=e.url, status_code=302)
+    today = date.today()
+    return _r("reports/cost_center.html", request, {
+        **_ctx(ctx),
+        "default_date_from": date(today.year, 1, 1).isoformat(),
+        "default_date_to": today.isoformat(),
+    })
+
+
 # ── Settings ──────────────────────────────────────────────────────────────────
 
 @router.get("/settings/exchange-rates", response_class=HTMLResponse)

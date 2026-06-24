@@ -1,0 +1,285 @@
+{% extends "base.html" %}
+{% block title %}ศูนย์ต้นทุน{% endblock %}
+{% block page_title %}รายงาน — ศูนย์ต้นทุน (Cost Center){% endblock %}
+
+{% block content %}
+<div x-data="costCenterReport()" x-init="dateFrom='{{ default_date_from }}'; dateTo='{{ default_date_to }}'; init()">
+
+  <!-- Filter bar -->
+  <div class="bg-white rounded-xl p-4 shadow-sm border border-gray-100 mb-4 flex items-center gap-3 flex-wrap">
+    <div class="flex items-center gap-2">
+      <label class="text-sm font-medium text-gray-700">จาก</label>
+      <input type="date" x-model="dateFrom"
+        class="px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"/>
+    </div>
+    <div class="flex items-center gap-2">
+      <label class="text-sm font-medium text-gray-700">ถึง</label>
+      <input type="date" x-model="dateTo"
+        class="px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"/>
+    </div>
+
+    <!-- Cost center multi-select -->
+    <div class="relative">
+      <button @click="showCCDropdown=!showCCDropdown"
+              class="border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white hover:bg-gray-50 flex items-center gap-1">
+        <span x-text="selectAllCCs ? 'ทุก Cost Center' : selectedCCs.length + ' เลือก'"></span>
+        <span class="text-gray-400 text-xs">▾</span>
+      </button>
+      <div x-show="showCCDropdown" @click.away="showCCDropdown=false"
+           class="absolute z-10 bg-white border border-gray-200 rounded-xl shadow-lg p-2 min-w-48 mt-1">
+        <label class="flex items-center gap-2 px-2 py-1 text-sm cursor-pointer hover:bg-gray-50 rounded">
+          <input type="checkbox" :checked="selectAllCCs" @change="toggleAllCCs()" class="rounded"/>
+          เลือกทั้งหมด
+        </label>
+        <template x-for="cc in availableCCs" :key="cc">
+          <label class="flex items-center gap-2 px-2 py-1 text-sm cursor-pointer hover:bg-gray-50 rounded">
+            <input type="checkbox" :checked="selectedCCs.includes(cc)" @change="toggleCC(cc)" class="rounded"/>
+            <span x-text="cc"></span>
+          </label>
+        </template>
+        <div x-show="availableCCs.length === 0" class="px-2 py-1 text-xs text-gray-400">ไม่มีข้อมูล</div>
+      </div>
+    </div>
+
+    <button @click="load()"
+            class="px-4 py-2 bg-blue-700 text-white rounded-lg text-sm font-medium hover:bg-blue-800">
+      แสดง
+    </button>
+
+    <div class="ml-auto flex gap-2">
+      <a :href="exportUrl('excel')"
+         class="px-3 py-2 border border-gray-300 text-gray-600 rounded-lg text-sm hover:bg-gray-50">
+        Excel
+      </a>
+      <a :href="exportUrl('pdf')"
+         class="px-3 py-2 border border-gray-300 text-gray-600 rounded-lg text-sm hover:bg-gray-50">
+        PDF
+      </a>
+    </div>
+  </div>
+
+  <!-- Loading spinner -->
+  <template x-if="loading">
+    <div class="bg-white rounded-xl p-8 text-center text-gray-400 shadow-sm border border-gray-100">
+      <svg class="animate-spin w-8 h-8 mx-auto" fill="none" viewBox="0 0 24 24">
+        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+      </svg>
+    </div>
+  </template>
+
+  <!-- Error banner -->
+  <template x-if="error">
+    <div class="bg-red-50 border border-red-200 text-red-700 rounded-xl px-4 py-3 mb-4 text-sm" x-text="error"></div>
+  </template>
+
+  <!-- Summary cards -->
+  <div x-show="report && !loading" class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+    <div class="bg-white rounded-xl border border-gray-100 shadow-sm px-4 py-3">
+      <p class="text-xs text-gray-500 mb-1">จำนวน Cost Center</p>
+      <p class="text-xl font-bold text-gray-800" x-text="report ? report.sections.length : 0"></p>
+    </div>
+    <div class="bg-white rounded-xl border border-gray-100 shadow-sm px-4 py-3">
+      <p class="text-xs text-gray-500 mb-1">รวม Dr</p>
+      <p class="text-xl font-bold text-blue-700 font-mono" x-text="fmt(report ? report.grand_total_debit : 0)"></p>
+    </div>
+    <div class="bg-white rounded-xl border border-gray-100 shadow-sm px-4 py-3">
+      <p class="text-xs text-gray-500 mb-1">รวม Cr</p>
+      <p class="text-xl font-bold text-purple-700 font-mono" x-text="fmt(report ? report.grand_total_credit : 0)"></p>
+    </div>
+    <div class="bg-white rounded-xl border border-gray-100 shadow-sm px-4 py-3">
+      <p class="text-xs text-gray-500 mb-1">Net รวม</p>
+      <p class="text-xl font-bold font-mono" :class="netClass(report ? report.grand_total_net : 0)"
+         x-text="fmt(report ? report.grand_total_net : 0)"></p>
+    </div>
+  </div>
+
+  <!-- Sections accordion -->
+  <div x-show="report && !loading && report.sections && report.sections.length > 0">
+    <template x-for="section in (report ? report.sections : [])" :key="section.cost_center">
+      <div class="bg-white rounded-xl border border-gray-100 shadow-sm mb-3">
+        <!-- Accordion header -->
+        <div @click="toggleSection(section.cost_center)"
+             class="flex items-center justify-between px-4 py-3 cursor-pointer hover:bg-gray-50 rounded-xl select-none">
+          <div class="flex items-center gap-3">
+            <span class="font-semibold text-gray-800" x-text="section.cost_center"></span>
+            <span class="text-xs text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full"
+                  x-text="section.lines.length + ' บัญชี'"></span>
+          </div>
+          <div class="flex items-center gap-4">
+            <span class="text-sm font-mono text-gray-600">
+              Net: <span :class="netClass(section.total_net)" x-text="fmt(section.total_net)"></span>
+            </span>
+            <span :class="expanded[section.cost_center] ? 'rotate-180' : ''"
+                  class="text-gray-400 text-xs transition-transform">▼</span>
+          </div>
+        </div>
+        <!-- Accordion body -->
+        <div x-show="expanded[section.cost_center]" class="border-t border-gray-100">
+          <table class="w-full text-sm">
+            <thead class="bg-gray-50">
+              <tr>
+                <th class="px-4 py-2 text-left font-medium text-gray-600">รหัส</th>
+                <th class="px-4 py-2 text-left font-medium text-gray-600">ชื่อบัญชี</th>
+                <th class="px-4 py-2 text-left font-medium text-gray-600">หมวด</th>
+                <th class="px-4 py-2 text-right font-medium text-gray-600">Dr</th>
+                <th class="px-4 py-2 text-right font-medium text-gray-600">Cr</th>
+                <th class="px-4 py-2 text-right font-medium text-gray-600">Net</th>
+              </tr>
+            </thead>
+            <tbody>
+              <template x-for="line in section.lines" :key="line.account_code">
+                <tr class="border-t border-gray-50 hover:bg-gray-50">
+                  <td class="px-4 py-2 font-mono text-xs text-gray-600" x-text="line.account_code"></td>
+                  <td class="px-4 py-2 text-gray-800" x-text="line.account_name"></td>
+                  <td class="px-4 py-2 text-xs text-gray-500" x-text="line.category"></td>
+                  <td class="px-4 py-2 text-right font-mono text-gray-700" x-text="fmt(line.debit)"></td>
+                  <td class="px-4 py-2 text-right font-mono text-gray-700" x-text="fmt(line.credit)"></td>
+                  <td class="px-4 py-2 text-right font-mono font-medium" :class="netClass(line.net)" x-text="fmt(line.net)"></td>
+                </tr>
+              </template>
+              <!-- Section total row -->
+              <tr class="border-t border-gray-200 bg-gray-50 font-semibold text-sm">
+                <td colspan="3" class="px-4 py-2 text-gray-700">รวม <span x-text="section.cost_center"></span></td>
+                <td class="px-4 py-2 text-right font-mono text-gray-800" x-text="fmt(section.total_debit)"></td>
+                <td class="px-4 py-2 text-right font-mono text-gray-800" x-text="fmt(section.total_credit)"></td>
+                <td class="px-4 py-2 text-right font-mono" :class="netClass(section.total_net)" x-text="fmt(section.total_net)"></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </template>
+
+    <!-- Grand total -->
+    <div class="bg-gray-800 text-white rounded-xl px-4 py-3 flex justify-between items-center mt-2">
+      <span class="font-bold">รวมทั้งหมด</span>
+      <div class="flex gap-8 font-mono text-sm">
+        <span>Dr: <span x-text="fmt(report ? report.grand_total_debit : 0)"></span></span>
+        <span>Cr: <span x-text="fmt(report ? report.grand_total_credit : 0)"></span></span>
+        <span>Net: <span :class="netClass(report ? report.grand_total_net : 0)"
+                        x-text="fmt(report ? report.grand_total_net : 0)"></span></span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Empty state -->
+  <div x-show="report && !loading && report.sections && report.sections.length === 0"
+       class="bg-white rounded-xl border border-gray-100 shadow-sm p-12 text-center text-gray-400">
+    <p class="text-lg mb-1">ไม่มีข้อมูลในช่วงวันที่ที่เลือก</p>
+    <p class="text-sm">ลองเปลี่ยนช่วงวันที่หรือตัวกรอง Cost Center</p>
+  </div>
+
+  <p class="text-xs text-gray-400 mt-4 text-center">
+    * แสดงเฉพาะรายการสถานะ posted | Net = Cr - Dr สำหรับบัญชีปกติฝั่ง Cr และ Dr - Cr สำหรับบัญชีปกติฝั่ง Dr
+  </p>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function costCenterReport() {
+  return {
+    dateFrom: '',
+    dateTo: '',
+    availableCCs: [],
+    selectedCCs: [],
+    selectAllCCs: true,
+    showCCDropdown: false,
+
+    loading: false,
+    report: null,
+    error: '',
+
+    expanded: {},
+
+    token() { return document.cookie.match(/access_token=([^;]+)/)?.[1] || ''; },
+
+    fmt(v) {
+      if (v == null) return '0.00';
+      return parseFloat(v).toLocaleString('th-TH', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+    },
+
+    netClass(v) {
+      const n = parseFloat(v);
+      if (n > 0) return 'text-green-600';
+      if (n < 0) return 'text-red-600';
+      return 'text-gray-600';
+    },
+
+    toggleCC(cc) {
+      const idx = this.selectedCCs.indexOf(cc);
+      if (idx >= 0) { this.selectedCCs.splice(idx, 1); }
+      else { this.selectedCCs.push(cc); }
+      this.selectAllCCs = this.selectedCCs.length === this.availableCCs.length;
+    },
+
+    toggleAllCCs() {
+      this.selectAllCCs = !this.selectAllCCs;
+      this.selectedCCs = this.selectAllCCs ? [...this.availableCCs] : [];
+    },
+
+    async loadList() {
+      try {
+        const r = await fetch('/api/v1/reports/cost-center/list', {
+          headers: {Authorization: 'Bearer ' + this.token()}
+        });
+        const d = await r.json();
+        this.availableCCs = d.data || [];
+        this.selectedCCs = [...this.availableCCs];
+        this.selectAllCCs = true;
+      } catch (e) {
+        this.availableCCs = [];
+      }
+    },
+
+    get apiParams() {
+      const params = new URLSearchParams({date_from: this.dateFrom, date_to: this.dateTo});
+      if (!this.selectAllCCs && this.selectedCCs.length > 0) {
+        params.set('cost_centers', this.selectedCCs.join(','));
+      }
+      return params.toString();
+    },
+
+    async load() {
+      if (!this.dateFrom || !this.dateTo) return;
+      this.loading = true;
+      this.error = '';
+      this.report = null;
+      try {
+        const r = await fetch(`/api/v1/reports/cost-center?${this.apiParams}`, {
+          headers: {Authorization: 'Bearer ' + this.token()}
+        });
+        const d = await r.json();
+        if (r.ok) {
+          this.report = d.data || d;
+          this.expanded = {};
+          (this.report.sections || []).forEach(s => {
+            this.expanded[s.cost_center] = true;
+          });
+        } else {
+          this.error = d.detail || 'โหลดรายงานไม่สำเร็จ';
+        }
+      } catch (e) {
+        this.error = 'เกิดข้อผิดพลาดในการโหลดข้อมูล';
+      }
+      this.loading = false;
+    },
+
+    toggleSection(cc) {
+      this.expanded[cc] = !this.expanded[cc];
+    },
+
+    exportUrl(fmt) {
+      return `/api/v1/reports/cost-center?${this.apiParams}&fmt=${fmt}`;
+    },
+
+    async init() {
+      await this.loadList();
+      await this.load();
+    }
+  };
+}
+</script>
+{% endblock %}

@@ -257,6 +257,42 @@ async def tax_pnd53(
     return report.model_dump()
 
 
+# ── Cost Center ───────────────────────────────────────────────────────────────
+
+@router.get("/cost-center/list")
+async def list_cost_centers(ctx: CTX, db: CompanyDB):
+    from sqlalchemy import select, distinct
+    from app.core.models import JournalLine
+    rows = await db.scalars(
+        select(distinct(JournalLine.cost_center))
+        .where(JournalLine.cost_center.isnot(None))
+        .order_by(JournalLine.cost_center)
+    )
+    return {"data": [r for r in rows if r]}
+
+
+@router.get("/cost-center")
+async def cost_center_report(
+    ctx: CTX,
+    db: CompanyDB,
+    date_from: date = Query(...),
+    date_to: date = Query(...),
+    cost_centers: Optional[str] = Query(None),
+    branch_ids: Optional[str] = Query(None),
+    fmt: Optional[str] = Query(None),
+):
+    from app.reports import cost_center as cc_module
+    ccs = [x.strip() for x in cost_centers.split(",")] if cost_centers else None
+    branches = [int(x) for x in branch_ids.split(",")] if branch_ids else None
+    try:
+        report = await cc_module.generate(ctx, db, date_from, date_to, ccs, branches)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    if fmt:
+        return _export(report, fmt, f"CostCenter_{date_from}_{date_to}")
+    return report.model_dump()
+
+
 # ── Consolidation ─────────────────────────────────────────────────────────────
 
 @router.get("/consolidation/{year}/{month}")
