@@ -1,0 +1,598 @@
+{% extends "base.html" %}
+{% block title %}ทะเบียนลูกหนี้/เจ้าหนี้{% endblock %}
+{% block page_title %}ข้อมูลหลัก — ทะเบียนลูกหนี้/เจ้าหนี้{% endblock %}
+
+{% block content %}
+<div x-data="contactPage()" x-init="init()">
+
+  <!-- Toast -->
+  <div x-show="toast" x-cloak x-transition
+       class="fixed top-4 right-4 z-50 px-5 py-3 rounded-xl shadow-lg text-sm font-medium bg-white border border-green-200 text-green-700"
+       x-text="toast"></div>
+
+  <!-- Tabs -->
+  <div class="flex gap-1 bg-gray-100 rounded-xl p-1 w-fit mb-4">
+    <button @click="setTab('customer')"
+            :class="activeTab==='customer' ? 'bg-white shadow-sm text-gray-800' : 'text-gray-500'"
+            class="px-4 py-2 rounded-lg text-sm font-medium transition-all">
+      👥 ลูกหนี้
+    </button>
+    <button @click="setTab('supplier')"
+            :class="activeTab==='supplier' ? 'bg-white shadow-sm text-gray-800' : 'text-gray-500'"
+            class="px-4 py-2 rounded-lg text-sm font-medium transition-all">
+      🏭 เจ้าหนี้
+    </button>
+    <button @click="setTab('all')"
+            :class="activeTab==='all' ? 'bg-white shadow-sm text-gray-800' : 'text-gray-500'"
+            class="px-4 py-2 rounded-lg text-sm font-medium transition-all">
+      🔄 ทั้งหมด
+    </button>
+  </div>
+
+  <!-- Summary Cards -->
+  <div class="grid grid-cols-3 gap-4 mb-4">
+    <div class="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
+      <div class="text-xs text-gray-500 mb-1">ลูกหนี้ทั้งหมด</div>
+      <div class="text-2xl font-bold text-blue-600" x-text="customerCount"></div>
+    </div>
+    <div class="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
+      <div class="text-xs text-gray-500 mb-1">เจ้าหนี้ทั้งหมด</div>
+      <div class="text-2xl font-bold text-orange-600" x-text="supplierCount"></div>
+    </div>
+    <div class="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
+      <div class="text-xs text-gray-500 mb-1">ทั้งหมด</div>
+      <div class="text-2xl font-bold text-gray-700" x-text="totalCount"></div>
+    </div>
+  </div>
+
+  <!-- Toolbar -->
+  <div class="flex flex-wrap items-center gap-3 mb-4">
+    <input x-model="search" type="text" placeholder="ค้นหาชื่อ / เลขผู้เสียภาษี..."
+           class="px-3 py-2 rounded-lg border border-gray-200 text-sm w-64 focus:outline-none focus:border-blue-400" />
+    <label class="flex items-center gap-2 text-sm text-gray-600 cursor-pointer select-none">
+      <input type="checkbox" x-model="showInactive" class="rounded" />
+      แสดงที่ปิดใช้งานแล้ว
+    </label>
+    <div class="ml-auto">
+      <button @click="openAdd()"
+              class="px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-1"
+              style="background:var(--accent-l);color:var(--accent);border:1px solid var(--accent);">
+        ➕ เพิ่มรายชื่อ
+      </button>
+    </div>
+  </div>
+
+  <!-- Table -->
+  <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+    <table class="w-full text-sm">
+      <thead class="bg-gray-50 border-b border-gray-100">
+        <tr>
+          <th class="text-left px-4 py-3 font-medium text-gray-600">ประเภท</th>
+          <th class="text-left px-4 py-3 font-medium text-gray-600">ชื่อ</th>
+          <th class="text-left px-4 py-3 font-medium text-gray-600">เลขผู้เสียภาษี</th>
+          <th class="text-left px-4 py-3 font-medium text-gray-600">โทรศัพท์</th>
+          <th class="text-center px-4 py-3 font-medium text-gray-600">เครดิต (วัน)</th>
+          <th class="text-right px-4 py-3 font-medium text-gray-600">วงเงิน</th>
+          <th class="text-center px-4 py-3 font-medium text-gray-600">สถานะ</th>
+          <th class="text-center px-4 py-3 font-medium text-gray-600">จัดการ</th>
+        </tr>
+      </thead>
+      <tbody>
+        <template x-if="loading">
+          <tr><td colspan="8" class="px-4 py-8 text-center text-gray-400">กำลังโหลด...</td></tr>
+        </template>
+        <template x-if="!loading && filtered.length === 0">
+          <tr><td colspan="8" class="px-4 py-8 text-center text-gray-400">ไม่พบข้อมูล</td></tr>
+        </template>
+        <template x-for="c in filtered" :key="c.id">
+          <tr class="border-b border-gray-50 hover:bg-gray-50">
+            <td class="px-4 py-3">
+              <span class="inline-flex px-2 py-0.5 rounded-full text-xs font-medium"
+                    :class="typeBadgeClass(c.contact_type)"
+                    x-text="typeLabel(c.contact_type)"></span>
+            </td>
+            <td class="px-4 py-3">
+              <div class="font-medium text-gray-800" x-text="c.name"></div>
+              <div class="text-xs text-gray-400" x-show="c.name_en" x-text="c.name_en"></div>
+            </td>
+            <td class="px-4 py-3 font-mono text-gray-600 text-xs" x-text="c.tax_id || '-'"></td>
+            <td class="px-4 py-3 text-gray-600" x-text="c.phone || '-'"></td>
+            <td class="px-4 py-3 text-center text-gray-700" x-text="c.credit_days"></td>
+            <td class="px-4 py-3 text-right text-gray-700">
+              <span x-show="parseFloat(c.credit_limit) === 0" class="text-gray-400">ไม่จำกัด</span>
+              <span x-show="parseFloat(c.credit_limit) !== 0" x-text="fmt(c.credit_limit)"></span>
+            </td>
+            <td class="px-4 py-3 text-center">
+              <span x-show="c.is_active"
+                    class="inline-flex px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700">ใช้งาน</span>
+              <span x-show="!c.is_active"
+                    class="inline-flex px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-500">ปิด</span>
+            </td>
+            <td class="px-4 py-3 text-center">
+              <div class="flex items-center justify-center gap-1">
+                <button @click="openEdit(c)"
+                        class="px-2 py-1 rounded-lg text-xs border border-gray-200 text-gray-600 hover:bg-gray-50">
+                  ✏️ แก้ไข
+                </button>
+                <button @click="openAging(c)"
+                        class="px-2 py-1 rounded-lg text-xs border border-blue-200 text-blue-600 hover:bg-blue-50">
+                  📊 อายุหนี้
+                </button>
+                <button x-show="c.is_active" @click="deactivate(c)"
+                        :disabled="deactivating === c.id"
+                        class="px-2 py-1 rounded-lg text-xs border border-red-200 text-red-600 hover:bg-red-50 disabled:opacity-50">
+                  <span x-show="deactivating !== c.id">🚫 ปิด</span>
+                  <span x-show="deactivating === c.id">...</span>
+                </button>
+              </div>
+            </td>
+          </tr>
+        </template>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Add/Edit Modal -->
+  <div x-show="showModal" x-cloak class="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4"
+       @click.self="showModal=false">
+    <div class="bg-white rounded-xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+      <div class="p-6">
+        <h2 class="text-lg font-bold mb-5 text-gray-800"
+            x-text="modalMode === 'add' ? 'เพิ่มรายชื่อใหม่' : 'แก้ไขรายชื่อ'"></h2>
+
+        <!-- Group 1: ข้อมูลทั่วไป -->
+        <div class="mb-5">
+          <div class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">ข้อมูลทั่วไป</div>
+
+          <!-- ประเภท -->
+          <div class="mb-3">
+            <label class="block text-xs text-gray-500 mb-1">ประเภท <span class="text-red-500">*</span></label>
+            <div x-show="modalMode === 'add'" class="flex gap-4">
+              <label class="flex items-center gap-2 text-sm cursor-pointer">
+                <input type="radio" x-model="form.contact_type" value="customer" class="accent-blue-500" />
+                <span class="text-blue-700 font-medium">ลูกหนี้</span>
+              </label>
+              <label class="flex items-center gap-2 text-sm cursor-pointer">
+                <input type="radio" x-model="form.contact_type" value="supplier" class="accent-orange-500" />
+                <span class="text-orange-700 font-medium">เจ้าหนี้</span>
+              </label>
+              <label class="flex items-center gap-2 text-sm cursor-pointer">
+                <input type="radio" x-model="form.contact_type" value="both" class="accent-purple-500" />
+                <span class="text-purple-700 font-medium">ทั้งคู่</span>
+              </label>
+            </div>
+            <div x-show="modalMode === 'edit'">
+              <span class="inline-flex px-2 py-0.5 rounded-full text-xs font-medium"
+                    :class="typeBadgeClass(form.contact_type)"
+                    x-text="typeLabel(form.contact_type)"></span>
+              <span class="text-xs text-gray-400 ml-2">(ไม่สามารถเปลี่ยนประเภทได้)</span>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="block text-xs text-gray-500 mb-1">ชื่อ <span class="text-red-500">*</span></label>
+              <input x-model="form.name"
+                     class="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:border-blue-400" />
+            </div>
+            <div>
+              <label class="block text-xs text-gray-500 mb-1">ชื่ออังกฤษ</label>
+              <input x-model="form.name_en"
+                     class="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:border-blue-400" />
+            </div>
+            <div>
+              <label class="block text-xs text-gray-500 mb-1">เลขผู้เสียภาษี</label>
+              <input x-model="form.tax_id" maxlength="13"
+                     class="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm font-mono focus:outline-none focus:border-blue-400" />
+            </div>
+            <div>
+              <label class="block text-xs text-gray-500 mb-1">รหัสสาขา</label>
+              <input x-model="form.branch_code" maxlength="5"
+                     class="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm font-mono focus:outline-none focus:border-blue-400" />
+            </div>
+          </div>
+          <div class="mt-3">
+            <label class="block text-xs text-gray-500 mb-1">ที่อยู่</label>
+            <textarea x-model="form.address" rows="2"
+                      class="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:border-blue-400 resize-none"></textarea>
+          </div>
+          <div class="grid grid-cols-2 gap-3 mt-3">
+            <div>
+              <label class="block text-xs text-gray-500 mb-1">โทรศัพท์</label>
+              <input x-model="form.phone"
+                     class="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:border-blue-400" />
+            </div>
+            <div>
+              <label class="block text-xs text-gray-500 mb-1">อีเมล</label>
+              <input x-model="form.email" type="email"
+                     class="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:border-blue-400" />
+            </div>
+          </div>
+        </div>
+
+        <!-- Group 2: เงื่อนไขการค้า -->
+        <div class="mb-5">
+          <div class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">เงื่อนไขการค้า</div>
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="block text-xs text-gray-500 mb-1">เครดิต (วัน)</label>
+              <input x-model="form.credit_days" type="number" min="0"
+                     class="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm text-right focus:outline-none focus:border-blue-400" />
+            </div>
+            <div>
+              <label class="block text-xs text-gray-500 mb-1">วงเงินเครดิต (0 = ไม่จำกัด)</label>
+              <input x-model="form.credit_limit" type="number" min="0" step="0.01"
+                     class="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm text-right focus:outline-none focus:border-blue-400" />
+            </div>
+            <div>
+              <label class="block text-xs text-gray-500 mb-1">อัตรา WHT (%)</label>
+              <input x-model="form.wht_rate" type="number" min="0" max="100" step="0.01"
+                     class="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm text-right focus:outline-none focus:border-blue-400" />
+            </div>
+            <div>
+              <label class="block text-xs text-gray-500 mb-1">ประเภท WHT</label>
+              <select x-model="form.wht_type"
+                      class="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:border-blue-400">
+                <option value="">— ไม่มี —</option>
+                <option value="3%">3% — ค่าบริการ</option>
+                <option value="5%">5% — ค่าเช่า</option>
+                <option value="1%">1% — ขนส่ง</option>
+                <option value="other">อื่นๆ</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <!-- Group 3: บัญชีเริ่มต้น -->
+        <div class="mb-5">
+          <div class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">บัญชีเริ่มต้น</div>
+          <div class="grid grid-cols-2 gap-3">
+            <template x-if="form.contact_type === 'customer' || form.contact_type === 'both'">
+              <div>
+                <label class="block text-xs text-gray-500 mb-1">บัญชีลูกหนี้</label>
+                <input x-model="form.default_ar_account"
+                       class="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm font-mono focus:outline-none focus:border-blue-400" />
+              </div>
+            </template>
+            <template x-if="form.contact_type === 'customer' || form.contact_type === 'both'">
+              <div>
+                <label class="block text-xs text-gray-500 mb-1">บัญชีรายได้</label>
+                <input x-model="form.default_revenue_account"
+                       class="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm font-mono focus:outline-none focus:border-blue-400" />
+              </div>
+            </template>
+            <template x-if="form.contact_type === 'supplier' || form.contact_type === 'both'">
+              <div>
+                <label class="block text-xs text-gray-500 mb-1">บัญชีเจ้าหนี้</label>
+                <input x-model="form.default_ap_account"
+                       class="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm font-mono focus:outline-none focus:border-blue-400" />
+              </div>
+            </template>
+          </div>
+        </div>
+
+        <!-- Group 4: บัญชีธนาคาร -->
+        <div class="mb-5">
+          <div class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">บัญชีธนาคาร</div>
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="block text-xs text-gray-500 mb-1">ชื่อธนาคาร</label>
+              <input x-model="form.bank_name" list="contact-banks-datalist"
+                     class="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:border-blue-400" />
+              <datalist id="contact-banks-datalist">
+                <option value="ธนาคารกรุงเทพ (BBL)">
+                <option value="ธนาคารกสิกรไทย (KBANK)">
+                <option value="ธนาคารกรุงไทย (KTB)">
+                <option value="ธนาคารไทยพาณิชย์ (SCB)">
+                <option value="ธนาคารกรุงศรีอยุธยา (BAY)">
+                <option value="ธนาคารทหารไทยธนชาต (TTB)">
+              </datalist>
+            </div>
+            <div>
+              <label class="block text-xs text-gray-500 mb-1">สาขาธนาคาร</label>
+              <input x-model="form.bank_branch"
+                     class="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:border-blue-400" />
+            </div>
+            <div>
+              <label class="block text-xs text-gray-500 mb-1">เลขที่บัญชี</label>
+              <input x-model="form.bank_account_no"
+                     class="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm font-mono focus:outline-none focus:border-blue-400" />
+            </div>
+            <div>
+              <label class="block text-xs text-gray-500 mb-1">ชื่อบัญชี</label>
+              <input x-model="form.bank_account_name"
+                     class="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:border-blue-400" />
+            </div>
+          </div>
+        </div>
+
+        <!-- Footer -->
+        <div class="flex justify-end gap-2 pt-2 border-t border-gray-100">
+          <button @click="showModal=false"
+                  class="px-4 py-2 rounded-lg border border-gray-200 text-sm text-gray-600 hover:bg-gray-50">
+            ยกเลิก
+          </button>
+          <button @click="save()" :disabled="saving"
+                  class="px-4 py-2 rounded-lg text-sm text-white font-medium disabled:opacity-50"
+                  style="background:var(--accent);">
+            <span x-show="!saving">บันทึก</span>
+            <span x-show="saving">กำลังบันทึก...</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Aging Modal -->
+  <div x-show="showAgingModal" x-cloak class="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4"
+       @click.self="showAgingModal=false">
+    <div class="bg-white rounded-xl shadow-xl w-full max-w-xl">
+      <div class="p-6">
+        <h2 class="text-lg font-bold mb-4 text-gray-800">
+          อายุหนี้ — <span x-text="agingContact?.name"></span>
+        </h2>
+
+        <!-- Loading -->
+        <div x-show="agingLoading" class="py-8 text-center text-gray-400">กำลังโหลด...</div>
+
+        <!-- Data -->
+        <div x-show="!agingLoading">
+          <template x-if="agingData">
+            <div>
+              <div class="overflow-x-auto">
+                <table class="w-full text-sm">
+                  <thead class="bg-gray-50 border-b border-gray-100">
+                    <tr>
+                      <th class="text-right px-3 py-2 font-medium text-gray-600 text-xs">ไม่เกินกำหนด</th>
+                      <th class="text-right px-3 py-2 font-medium text-gray-600 text-xs">เกิน 1-30</th>
+                      <th class="text-right px-3 py-2 font-medium text-gray-600 text-xs">เกิน 31-60</th>
+                      <th class="text-right px-3 py-2 font-medium text-gray-600 text-xs">เกิน 61-90</th>
+                      <th class="text-right px-3 py-2 font-medium text-gray-600 text-xs">เกิน 90</th>
+                      <th class="text-right px-3 py-2 font-medium text-gray-600 text-xs">รวม</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr class="border-b border-gray-50">
+                      <td class="px-3 py-2 text-right font-mono text-xs" :class="amountClass(agingData.current)" x-text="fmt(agingData.current)"></td>
+                      <td class="px-3 py-2 text-right font-mono text-xs" :class="amountClass(agingData.overdue_1_30)" x-text="fmt(agingData.overdue_1_30)"></td>
+                      <td class="px-3 py-2 text-right font-mono text-xs" :class="amountClass(agingData.overdue_31_60)" x-text="fmt(agingData.overdue_31_60)"></td>
+                      <td class="px-3 py-2 text-right font-mono text-xs" :class="amountClass(agingData.overdue_61_90)" x-text="fmt(agingData.overdue_61_90)"></td>
+                      <td class="px-3 py-2 text-right font-mono text-xs" :class="amountClass(agingData.overdue_90_plus)" x-text="fmt(agingData.overdue_90_plus)"></td>
+                      <td class="px-3 py-2 text-right font-mono text-xs font-semibold" :class="amountClass(agingData.total)" x-text="fmt(agingData.total)"></td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </template>
+          <template x-if="!agingData">
+            <div class="py-6 text-center text-gray-400">ไม่มียอดค้างชำระ</div>
+          </template>
+        </div>
+
+        <div class="flex justify-end pt-4 border-t border-gray-100 mt-4">
+          <button @click="showAgingModal=false"
+                  class="px-4 py-2 rounded-lg border border-gray-200 text-sm text-gray-600 hover:bg-gray-50">
+            ปิด
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function contactPage() {
+  return {
+    contacts: [],
+    loading: false,
+
+    activeTab: 'all',
+    search: '',
+    showInactive: false,
+
+    toast: '',
+
+    showModal: false,
+    modalMode: 'add',
+    editId: null,
+    form: {
+      contact_type: 'customer',
+      name: '', name_en: '', tax_id: '', branch_code: '00000',
+      address: '', phone: '', email: '',
+      credit_days: 30, credit_limit: 0,
+      wht_rate: '', wht_type: '',
+      default_ar_account: '1110',
+      default_ap_account: '2101',
+      default_revenue_account: '4101',
+      bank_name: '', bank_branch: '', bank_account_no: '', bank_account_name: ''
+    },
+    saving: false,
+
+    showAgingModal: false,
+    agingContact: null,
+    agingData: null,
+    agingLoading: false,
+
+    deactivating: null,
+
+    token() { return document.cookie.match(/access_token=([^;]+)/)?.[1] || ''; },
+
+    fmt(v) {
+      if (v == null) return '0.00';
+      return parseFloat(v).toLocaleString('th-TH', {minimumFractionDigits:2, maximumFractionDigits:2});
+    },
+
+    get filtered() {
+      let list = this.contacts;
+      if (!this.showInactive) list = list.filter(c => c.is_active);
+      if (this.search) {
+        const q = this.search.toLowerCase();
+        list = list.filter(c =>
+          c.name.toLowerCase().includes(q) ||
+          (c.name_en||'').toLowerCase().includes(q) ||
+          (c.tax_id||'').includes(q)
+        );
+      }
+      return list;
+    },
+
+    get customerCount() { return this.contacts.filter(c => c.is_active && (c.contact_type==='customer'||c.contact_type==='both')).length; },
+    get supplierCount() { return this.contacts.filter(c => c.is_active && (c.contact_type==='supplier'||c.contact_type==='both')).length; },
+    get totalCount() { return this.contacts.filter(c => c.is_active).length; },
+
+    typeBadgeClass(t) {
+      return {
+        customer: 'bg-blue-100 text-blue-700',
+        supplier: 'bg-orange-100 text-orange-700',
+        both: 'bg-purple-100 text-purple-700',
+      }[t] || 'bg-gray-100 text-gray-700';
+    },
+
+    typeLabel(t) {
+      return {customer:'ลูกหนี้', supplier:'เจ้าหนี้', both:'ทั้งคู่'}[t] || t;
+    },
+
+    async loadContacts() {
+      this.loading = true;
+      try {
+        const params = new URLSearchParams();
+        if (this.activeTab !== 'all') params.set('contact_type', this.activeTab);
+        params.set('active_only', 'false');
+        params.set('limit', '500');
+        const r = await fetch(`/api/v1/contacts?${params}`, {
+          headers: {Authorization: 'Bearer ' + this.token()}
+        });
+        const d = await r.json();
+        this.contacts = d.data || d || [];
+      } catch(e) {
+        this.contacts = [];
+      }
+      this.loading = false;
+    },
+
+    setTab(tab) {
+      this.activeTab = tab;
+      this.loadContacts();
+    },
+
+    openAdd() {
+      this.modalMode = 'add'; this.editId = null;
+      this.form = {
+        contact_type:'customer', name:'', name_en:'', tax_id:'', branch_code:'00000',
+        address:'', phone:'', email:'',
+        credit_days:30, credit_limit:0, wht_rate:'', wht_type:'',
+        default_ar_account:'1110', default_ap_account:'2101', default_revenue_account:'4101',
+        bank_name:'', bank_branch:'', bank_account_no:'', bank_account_name:''
+      };
+      this.showModal = true;
+    },
+
+    openEdit(c) {
+      this.modalMode = 'edit'; this.editId = c.id;
+      this.form = {
+        contact_type: c.contact_type,
+        name: c.name, name_en: c.name_en||'', tax_id: c.tax_id||'', branch_code: c.branch_code||'00000',
+        address: c.address||'', phone: c.phone||'', email: c.email||'',
+        credit_days: c.credit_days||30, credit_limit: c.credit_limit||0,
+        wht_rate: c.wht_rate||'', wht_type: c.wht_type||'',
+        default_ar_account: c.default_ar_account||'1110',
+        default_ap_account: c.default_ap_account||'2101',
+        default_revenue_account: c.default_revenue_account||'4101',
+        bank_name: c.bank_name||'', bank_branch: c.bank_branch||'',
+        bank_account_no: c.bank_account_no||'', bank_account_name: c.bank_account_name||''
+      };
+      this.showModal = true;
+    },
+
+    async save() {
+      if (!this.form.name) { alert('กรุณาใส่ชื่อ'); return; }
+      this.saving = true;
+
+      const body = {...this.form};
+      if (this.modalMode === 'edit') delete body.contact_type;
+      ['name_en','tax_id','address','phone','email','wht_rate','wht_type','bank_name','bank_branch','bank_account_no','bank_account_name'].forEach(k => {
+        if (body[k] === '' || body[k] === null) delete body[k];
+      });
+      if (body.wht_rate !== undefined) body.wht_rate = parseFloat(body.wht_rate) || null;
+      body.credit_days = parseInt(body.credit_days) || 30;
+      body.credit_limit = parseFloat(body.credit_limit) || 0;
+
+      const url = this.modalMode === 'add' ? '/api/v1/contacts' : `/api/v1/contacts/${this.editId}`;
+      const method = this.modalMode === 'add' ? 'POST' : 'PUT';
+
+      try {
+        const r = await fetch(url, {
+          method,
+          headers: {'Content-Type':'application/json', Authorization:'Bearer '+this.token()},
+          body: JSON.stringify(body)
+        });
+        if (r.ok || r.status === 201) {
+          this.showModal = false;
+          this.toast = this.modalMode === 'add' ? `✅ เพิ่ม ${this.form.name} สำเร็จ` : `✅ แก้ไขสำเร็จ`;
+          setTimeout(() => { this.toast = ''; }, 3000);
+          await this.loadContacts();
+        } else {
+          const d = await r.json().catch(() => ({}));
+          alert(d.detail || 'บันทึกไม่สำเร็จ');
+        }
+      } catch(e) {
+        alert('เกิดข้อผิดพลาดในการเชื่อมต่อ');
+      }
+      this.saving = false;
+    },
+
+    async openAging(c) {
+      this.agingContact = c;
+      this.agingData = null;
+      this.agingLoading = true;
+      this.showAgingModal = true;
+      try {
+        const today = new Date().toISOString().slice(0,10);
+        const type = c.contact_type === 'supplier' ? 'ap' : 'ar';
+        const r = await fetch(`/api/v1/contacts/aging/${type}?as_of_date=${today}`, {
+          headers: {Authorization: 'Bearer ' + this.token()}
+        });
+        const d = await r.json();
+        const list = d.data || d || [];
+        this.agingData = list.find(x => x.contact_id === c.id) || null;
+      } catch(e) {
+        this.agingData = null;
+      }
+      this.agingLoading = false;
+    },
+
+    async deactivate(c) {
+      if (!confirm(`ยืนยันปิดใช้งาน "${c.name}"?`)) return;
+      this.deactivating = c.id;
+      try {
+        const r = await fetch(`/api/v1/contacts/${c.id}`, {
+          method: 'DELETE',
+          headers: {Authorization: 'Bearer ' + this.token()}
+        });
+        if (r.ok || r.status === 204) {
+          this.toast = `✅ ปิดใช้งาน ${c.name} แล้ว`;
+          setTimeout(() => { this.toast = ''; }, 3000);
+          await this.loadContacts();
+        } else {
+          const d = await r.json().catch(() => ({}));
+          alert(d.detail || 'เกิดข้อผิดพลาด');
+        }
+      } catch(e) {
+        alert('เกิดข้อผิดพลาดในการเชื่อมต่อ');
+      }
+      this.deactivating = null;
+    },
+
+    amountClass(v) {
+      return parseFloat(v || 0) > 0 ? 'text-red-600 font-medium' : 'text-gray-600';
+    },
+
+    async init() { await this.loadContacts(); }
+  };
+}
+</script>
+{% endblock %}
