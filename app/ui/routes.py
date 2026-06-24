@@ -462,6 +462,17 @@ async def report_cost_center(request: Request):
     })
 
 
+# ── Master data ───────────────────────────────────────────────────────────────
+
+@router.get("/master/coa", response_class=HTMLResponse)
+async def master_coa_page(request: Request):
+    try:
+        ctx = await get_ui_context(request)
+    except UIRedirectException as e:
+        return RedirectResponse(url=e.url, status_code=302)
+    return _r("master/coa.html", request, _ctx(ctx))
+
+
 # ── Settings ──────────────────────────────────────────────────────────────────
 
 @router.get("/settings/exchange-rates", response_class=HTMLResponse)

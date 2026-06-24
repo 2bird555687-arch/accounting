@@ -1,0 +1,702 @@
+{% extends "base.html" %}
+{% block title %}ผังบัญชี{% endblock %}
+{% block page_title %}ผังบัญชี (Chart of Accounts){% endblock %}
+
+{% block content %}
+<div x-data="coaPage()" x-init="init()">
+
+  <!-- Toast -->
+  <div x-show="toast" x-cloak
+       x-transition:enter="transition ease-out duration-200"
+       x-transition:enter-start="opacity-0 translate-y-2"
+       x-transition:enter-end="opacity-100 translate-y-0"
+       x-transition:leave="transition ease-in duration-150"
+       x-transition:leave-start="opacity-100"
+       x-transition:leave-end="opacity-0"
+       class="fixed top-4 right-4 z-50 px-4 py-3 rounded-xl shadow-lg bg-white border border-green-200 text-sm text-green-800 font-medium"
+       x-text="toast"></div>
+
+  <!-- Summary cards (8 categories) -->
+  <div class="grid grid-cols-4 md:grid-cols-8 gap-2 mb-4">
+    <template x-for="cat in [1,2,3,4,5,6,7,8]" :key="cat">
+      <button @click="filterByCat(cat)"
+              :class="filterCategory == cat ? 'ring-2 ring-blue-400 shadow-md' : 'hover:shadow-md'"
+              class="bg-white rounded-xl shadow-sm border border-gray-100 p-3 text-center cursor-pointer transition">
+        <div class="text-2xl" x-text="CATEGORY_LABELS[cat].emoji"></div>
+        <div class="text-xs font-medium mt-1 text-gray-600" x-text="CATEGORY_LABELS[cat].label"></div>
+        <div class="text-lg font-bold text-blue-600" x-text="summaryCount(cat)"></div>
+      </button>
+    </template>
+  </div>
+
+  <!-- Toolbar -->
+  <div class="flex flex-wrap items-center gap-3 mb-4">
+    <!-- Search -->
+    <input x-model="search"
+           type="text"
+           placeholder="ค้นหารหัส / ชื่อบัญชี..."
+           class="px-3 py-2 rounded-lg border border-gray-200 text-sm w-56 focus:outline-none focus:ring-2 focus:ring-blue-300" />
+
+    <!-- Show inactive toggle -->
+    <label class="flex items-center gap-2 text-sm text-gray-600 cursor-pointer">
+      <input type="checkbox" x-model="showInactive" @change="loadFlat()" class="rounded" />
+      แสดงที่ปิดใช้งาน
+    </label>
+
+    <!-- Active filter badge -->
+    <div x-show="filterCategory" class="flex items-center gap-1 px-3 py-1 bg-blue-50 border border-blue-200 rounded-full text-xs text-blue-700 font-medium">
+      <span>กรอง: </span>
+      <span x-text="filterCategory ? CATEGORY_LABELS[filterCategory].label : ''"></span>
+      <button @click="filterCategory = null" class="ml-1 text-blue-500 hover:text-blue-700 font-bold">&times;</button>
+    </div>
+
+    <!-- Spacer -->
+    <div class="flex-1"></div>
+
+    <!-- View toggle -->
+    <div class="flex rounded-lg border border-gray-200 overflow-hidden text-sm">
+      <button @click="viewMode='tree'"
+              :class="viewMode==='tree' ? 'bg-blue-600 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'"
+              class="px-3 py-2 transition">
+        &#127794; Tree
+      </button>
+      <button @click="viewMode='list'"
+              :class="viewMode==='list' ? 'bg-blue-600 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'"
+              class="px-3 py-2 border-l border-gray-200 transition">
+        &#128203; รายการ
+      </button>
+    </div>
+
+    <!-- Add button (accountant only) -->
+    {% if ctx and ctx.can_approve %}
+    <button @click="openAdd()"
+            class="px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-1"
+            style="background:var(--accent-l);color:var(--accent);border:1px solid var(--accent);">
+      &#10133; เพิ่มบัญชี
+    </button>
+    {% endif %}
+  </div>
+
+  <!-- Loading spinner -->
+  <div x-show="loading" class="flex items-center justify-center py-16 text-gray-400">
+    <svg class="animate-spin h-6 w-6 mr-2" fill="none" viewBox="0 0 24 24">
+      <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+      <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+    </svg>
+    กำลังโหลด...
+  </div>
+
+  <!-- ===== TREE VIEW ===== -->
+  <div x-show="viewMode==='tree' && !loading" class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+    <div class="px-4 py-2 border-b border-gray-100 bg-gray-50 text-xs text-gray-500 flex gap-6">
+      <span class="w-20 shrink-0 font-medium">รหัส</span>
+      <span class="flex-1 font-medium">ชื่อบัญชี</span>
+      <span class="w-8 text-center font-medium">Dr/Cr</span>
+      {% if ctx and ctx.can_approve %}<span class="w-12"></span>{% endif %}
+    </div>
+    <template x-if="flattenedTree.length === 0 && !loading">
+      <div class="px-4 py-8 text-center text-gray-400 text-sm">ไม่พบรายการ</div>
+    </template>
+    <template x-for="node in flattenedTree" :key="node.id + '-' + node._level">
+      <div class="flex items-center border-b border-gray-50 hover:bg-gray-50 py-2 transition"
+           :style="`padding-left: ${node._level * 24 + 12}px; padding-right: 12px;`">
+
+        <!-- Collapse toggle -->
+        <button x-show="node.is_header && node.children && node.children.length > 0"
+                @click="toggleCollapse(node.id)"
+                class="mr-1 text-gray-400 hover:text-gray-600 w-5 shrink-0 text-xs">
+          <span x-text="isCollapsed(node.id) ? '&#9654;' : '&#9660;'"></span>
+        </button>
+        <div x-show="!(node.is_header && node.children && node.children.length > 0)" class="w-5 shrink-0 mr-1"></div>
+
+        <!-- Code -->
+        <span class="font-mono text-sm w-20 shrink-0"
+              :class="node.is_header ? 'font-bold text-blue-700' : 'text-gray-700'"
+              x-text="node.code"></span>
+
+        <!-- Name -->
+        <span class="flex-1 text-sm truncate"
+              :class="{
+                'font-bold text-blue-700': node.is_header,
+                'text-gray-400 line-through': !node.is_active && !node.is_header,
+                'text-gray-700': node.is_active && !node.is_header
+              }"
+              x-text="node.name"></span>
+
+        <!-- System badge -->
+        <span x-show="node.is_system"
+              class="text-xs px-1.5 py-0.5 bg-gray-100 text-gray-500 rounded mr-2 shrink-0">ระบบ</span>
+
+        <!-- Dr/Cr -->
+        <span x-show="!node.is_header"
+              class="text-xs w-8 text-gray-500 text-center font-mono shrink-0"
+              x-text="node.normal_balance"></span>
+
+        <!-- Edit button -->
+        {% if ctx and ctx.can_approve %}
+        <button x-show="!node.is_header"
+                @click="openEdit(node)"
+                class="ml-2 text-xs text-blue-600 hover:underline px-2 shrink-0">&#9998;</button>
+        {% endif %}
+      </div>
+    </template>
+  </div>
+
+  <!-- ===== LIST VIEW ===== -->
+  <div x-show="viewMode==='list' && !loading" class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+    <table class="w-full text-sm">
+      <thead class="bg-gray-50 border-b border-gray-100">
+        <tr>
+          <th class="text-left px-4 py-3 font-medium text-gray-600">รหัส</th>
+          <th class="text-left px-4 py-3 font-medium text-gray-600">ชื่อบัญชี</th>
+          <th class="text-left px-4 py-3 font-medium text-gray-600">ชื่ออังกฤษ</th>
+          <th class="text-center px-4 py-3 font-medium text-gray-600">หมวด</th>
+          <th class="text-center px-4 py-3 font-medium text-gray-600">ประเภท</th>
+          <th class="text-center px-4 py-3 font-medium text-gray-600">Dr/Cr</th>
+          <th class="text-center px-4 py-3 font-medium text-gray-600">สถานะ</th>
+          {% if ctx and ctx.can_approve %}
+          <th class="text-center px-4 py-3 font-medium text-gray-600">จัดการ</th>
+          {% endif %}
+        </tr>
+      </thead>
+      <tbody>
+        <template x-if="filteredFlat.length === 0">
+          <tr><td colspan="8" class="px-4 py-8 text-center text-gray-400">ไม่พบรายการ</td></tr>
+        </template>
+        <template x-for="a in filteredFlat" :key="a.id">
+          <tr class="border-b border-gray-50 hover:bg-gray-50"
+              :class="!a.is_active ? 'text-gray-400' : ''">
+            <td class="px-4 py-2.5 font-mono" x-text="a.code"></td>
+            <td class="px-4 py-2.5"
+                :class="{'line-through text-gray-400': !a.is_active, 'font-bold': a.is_header}"
+                x-text="a.name"></td>
+            <td class="px-4 py-2.5 text-gray-500" x-text="a.name_en || '-'"></td>
+            <td class="px-4 py-2.5 text-center">
+              <span class="text-xs px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 font-medium"
+                    x-text="CATEGORY_LABELS[a.category] ? CATEGORY_LABELS[a.category].label : a.category"></span>
+            </td>
+            <td class="px-4 py-2.5 text-center text-xs text-gray-600" x-text="a.account_type"></td>
+            <td class="px-4 py-2.5 text-center font-mono text-xs" x-text="a.normal_balance"></td>
+            <td class="px-4 py-2.5 text-center">
+              <span :class="a.is_active ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'"
+                    class="inline-flex px-2 py-0.5 rounded-full text-xs font-medium"
+                    x-text="a.is_active ? 'ใช้งาน' : 'ปิด'"></span>
+            </td>
+            {% if ctx and ctx.can_approve %}
+            <td class="px-4 py-2.5 text-center">
+              <button @click="openEdit(a)"
+                      class="text-xs text-blue-600 hover:underline">&#9998; แก้ไข</button>
+            </td>
+            {% endif %}
+          </tr>
+        </template>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- ===== ADD MODAL ===== -->
+  {% if ctx and ctx.can_approve %}
+  <div x-show="showAddModal" x-cloak
+       class="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4"
+       @click.self="showAddModal=false">
+    <div class="bg-white rounded-xl shadow-xl w-full max-w-2xl p-6 max-h-[90vh] overflow-y-auto">
+      <h2 class="text-lg font-bold mb-5">เพิ่มบัญชีใหม่</h2>
+      <div class="grid grid-cols-2 gap-4">
+
+        <!-- Code -->
+        <div>
+          <label class="block text-xs text-gray-500 mb-1">รหัสบัญชี <span class="text-red-500">*</span></label>
+          <input x-model="addForm.code"
+                 type="text"
+                 inputmode="numeric"
+                 pattern="[0-9]{4,10}"
+                 placeholder="เช่น 1101"
+                 class="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-300" />
+        </div>
+
+        <!-- Normal balance -->
+        <div>
+          <label class="block text-xs text-gray-500 mb-1">Dr/Cr <span class="text-red-500">*</span></label>
+          <div class="flex gap-4 mt-2">
+            <label class="flex items-center gap-2 cursor-pointer">
+              <input type="radio" x-model="addForm.normal_balance" value="DR" class="accent-blue-600" />
+              <span class="text-sm font-medium">DR (เดบิต)</span>
+            </label>
+            <label class="flex items-center gap-2 cursor-pointer">
+              <input type="radio" x-model="addForm.normal_balance" value="CR" class="accent-blue-600" />
+              <span class="text-sm font-medium">CR (เครดิต)</span>
+            </label>
+          </div>
+        </div>
+
+        <!-- Name TH -->
+        <div class="col-span-2">
+          <label class="block text-xs text-gray-500 mb-1">ชื่อบัญชี (ไทย) <span class="text-red-500">*</span></label>
+          <input x-model="addForm.name"
+                 type="text"
+                 placeholder="เช่น เงินสด"
+                 class="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300" />
+        </div>
+
+        <!-- Name EN -->
+        <div class="col-span-2">
+          <label class="block text-xs text-gray-500 mb-1">ชื่อบัญชี (อังกฤษ)</label>
+          <input x-model="addForm.name_en"
+                 type="text"
+                 placeholder="เช่น Cash"
+                 class="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300" />
+        </div>
+
+        <!-- Category -->
+        <div>
+          <label class="block text-xs text-gray-500 mb-1">หมวดบัญชี <span class="text-red-500">*</span></label>
+          <select x-model="addForm.category"
+                  @change="onCategoryChange()"
+                  class="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300">
+            <option value="">-- เลือกหมวด --</option>
+            <option value="1">1 — สินทรัพย์</option>
+            <option value="2">2 — หนี้สิน</option>
+            <option value="3">3 — ทุน</option>
+            <option value="4">4 — รายได้</option>
+            <option value="5">5 — ต้นทุนขาย</option>
+            <option value="6">6 — ค่าใช้จ่าย</option>
+            <option value="7">7 — การเงิน</option>
+            <option value="8">8 — อื่นๆ</option>
+          </select>
+        </div>
+
+        <!-- Account type -->
+        <div>
+          <label class="block text-xs text-gray-500 mb-1">ประเภทบัญชี <span class="text-red-500">*</span></label>
+          <select x-model="addForm.account_type"
+                  class="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300">
+            <option value="">-- เลือกประเภท --</option>
+            <template x-for="t in ACCOUNT_TYPES" :key="t.value">
+              <option :value="t.value" x-text="t.label"></option>
+            </template>
+          </select>
+        </div>
+
+        <!-- Parent code -->
+        <div class="col-span-2">
+          <label class="block text-xs text-gray-500 mb-1">รหัสบัญชีแม่ (ถ้ามี)</label>
+          <input x-model="addForm.parent_code"
+                 type="text"
+                 inputmode="numeric"
+                 placeholder="เช่น 1100 (เว้นว่างถ้าเป็นบัญชีหลัก)"
+                 @blur="lookupParent()"
+                 class="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-300" />
+          <p x-show="parentName" x-text="parentName"
+             class="text-xs mt-1"
+             :class="parentName && parentName.startsWith('❌') ? 'text-red-500' : 'text-green-600'"></p>
+        </div>
+
+        <!-- Description -->
+        <div class="col-span-2">
+          <label class="block text-xs text-gray-500 mb-1">คำอธิบาย</label>
+          <textarea x-model="addForm.description"
+                    rows="2"
+                    placeholder="คำอธิบายเพิ่มเติม (ไม่จำเป็น)"
+                    class="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300 resize-none"></textarea>
+        </div>
+      </div>
+
+      <div class="flex justify-end gap-2 mt-6">
+        <button @click="showAddModal=false"
+                class="px-4 py-2 rounded-lg border border-gray-200 text-sm text-gray-600 hover:bg-gray-50">
+          ยกเลิก
+        </button>
+        <button @click="submitAdd()"
+                :disabled="saving"
+                class="px-5 py-2 rounded-lg text-sm font-medium text-white disabled:opacity-60"
+                style="background:var(--accent);">
+          <span x-show="!saving">บันทึก</span>
+          <span x-show="saving">กำลังบันทึก...</span>
+        </button>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- ===== EDIT MODAL ===== -->
+  {% if ctx and ctx.can_approve %}
+  <div x-show="showEditModal" x-cloak
+       class="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4"
+       @click.self="showEditModal=false">
+    <div class="bg-white rounded-xl shadow-xl w-full max-w-lg p-6">
+      <h2 class="text-lg font-bold mb-2">
+        แก้ไขบัญชี <span class="font-mono text-blue-700" x-text="editCode"></span>
+      </h2>
+
+      <!-- Read-only info -->
+      <div x-show="editItem" class="flex flex-wrap gap-2 mb-5">
+        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-700">
+          หมวด: <span class="ml-1 font-bold" x-text="editItem ? (CATEGORY_LABELS[editItem.category] ? CATEGORY_LABELS[editItem.category].label : editItem.category) : ''"></span>
+        </span>
+        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-50 text-blue-700"
+              x-text="editItem ? editItem.normal_balance : ''"></span>
+        <span x-show="editItem && editItem.is_system"
+              class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-700">
+          &#128274; บัญชีระบบ
+        </span>
+      </div>
+
+      <div class="space-y-4">
+        <!-- Name TH -->
+        <div>
+          <label class="block text-xs text-gray-500 mb-1">ชื่อบัญชี (ไทย)</label>
+          <input x-model="editForm.name"
+                 type="text"
+                 class="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300" />
+        </div>
+
+        <!-- Name EN -->
+        <div>
+          <label class="block text-xs text-gray-500 mb-1">ชื่อบัญชี (อังกฤษ)</label>
+          <input x-model="editForm.name_en"
+                 type="text"
+                 class="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300" />
+        </div>
+
+        <!-- Description -->
+        <div>
+          <label class="block text-xs text-gray-500 mb-1">คำอธิบาย</label>
+          <textarea x-model="editForm.description"
+                    rows="2"
+                    class="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300 resize-none"></textarea>
+        </div>
+
+        <!-- is_active toggle -->
+        <div class="flex items-center gap-3">
+          <label class="flex items-center gap-2 cursor-pointer"
+                 :class="editItem && editItem.is_system ? 'opacity-50 cursor-not-allowed' : ''">
+            <input type="checkbox"
+                   x-model="editForm.is_active"
+                   :disabled="editItem && editItem.is_system"
+                   class="rounded accent-blue-600" />
+            <span class="text-sm text-gray-700">เปิดใช้งาน</span>
+          </label>
+          <span x-show="editItem && editItem.is_system"
+                class="text-xs text-yellow-600 italic">บัญชีระบบไม่สามารถปิดได้</span>
+        </div>
+      </div>
+
+      <div class="flex justify-end gap-2 mt-6">
+        <button @click="showEditModal=false"
+                class="px-4 py-2 rounded-lg border border-gray-200 text-sm text-gray-600 hover:bg-gray-50">
+          ยกเลิก
+        </button>
+        <button @click="submitEdit()"
+                :disabled="editSaving"
+                class="px-5 py-2 rounded-lg text-sm font-medium text-white disabled:opacity-60"
+                style="background:var(--accent);">
+          <span x-show="!editSaving">บันทึก</span>
+          <span x-show="editSaving">กำลังบันทึก...</span>
+        </button>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
+</div><!-- end x-data -->
+{% endblock %}
+
+{% block scripts %}
+<script>
+function coaPage() {
+  return {
+    // Data
+    tree: [],
+    flatList: [],
+    summary: [],
+
+    // UI state
+    viewMode: 'tree',
+    search: '',
+    showInactive: false,
+    filterCategory: null,
+    toast: '',
+    loading: false,
+    collapsed: {},
+
+    // Add modal
+    showAddModal: false,
+    addForm: {
+      code: '', name: '', name_en: '', category: '',
+      account_type: '', normal_balance: 'DR', parent_code: '', description: ''
+    },
+    parentName: '',
+    saving: false,
+
+    // Edit modal
+    showEditModal: false,
+    editCode: null,
+    editItem: null,
+    editForm: { name: '', name_en: '', description: '', is_active: true },
+    editSaving: false,
+
+    token() {
+      return document.cookie.match(/access_token=([^;]+)/)?.[1] || '';
+    },
+
+    CATEGORY_LABELS: {
+      1: {label:'สินทรัพย์', emoji:'🏦'},
+      2: {label:'หนี้สิน', emoji:'💳'},
+      3: {label:'ทุน', emoji:'🏛️'},
+      4: {label:'รายได้', emoji:'💰'},
+      5: {label:'ต้นทุนขาย', emoji:'📦'},
+      6: {label:'ค่าใช้จ่าย', emoji:'📋'},
+      7: {label:'การเงิน', emoji:'📊'},
+      8: {label:'อื่นๆ', emoji:'📎'},
+    },
+
+    AUTO_NORMAL_BALANCE: {
+      1: 'DR', 2: 'CR', 3: 'CR', 4: 'CR', 5: 'DR', 6: 'DR', 7: 'DR', 8: 'CR'
+    },
+
+    ACCOUNT_TYPES: [
+      {value:'asset',     label:'สินทรัพย์ (Asset)'},
+      {value:'liability', label:'หนี้สิน (Liability)'},
+      {value:'equity',    label:'ทุน (Equity)'},
+      {value:'revenue',   label:'รายได้ (Revenue)'},
+      {value:'cogs',      label:'ต้นทุนขาย (COGS)'},
+      {value:'expense',   label:'ค่าใช้จ่าย (Expense)'},
+      {value:'other',     label:'อื่นๆ (Other)'},
+    ],
+
+    get filteredFlat() {
+      let list = this.flatList;
+      if (!this.showInactive) list = list.filter(a => a.is_active);
+      if (this.filterCategory) {
+        const cat = String(this.filterCategory);
+        list = list.filter(a => String(a.category) === cat);
+      }
+      if (this.search) {
+        const q = this.search.toLowerCase();
+        list = list.filter(a =>
+          a.code.toLowerCase().includes(q) ||
+          a.name.toLowerCase().includes(q) ||
+          (a.name_en || '').toLowerCase().includes(q)
+        );
+      }
+      return list;
+    },
+
+    async loadSummary() {
+      try {
+        const r = await fetch('/api/v1/coa/categories/summary', {
+          headers: {Authorization: 'Bearer ' + this.token()}
+        });
+        const d = await r.json();
+        this.summary = d.data || d || [];
+      } catch { this.summary = []; }
+    },
+
+    async loadTree() {
+      this.loading = true;
+      try {
+        const r = await fetch('/api/v1/coa?as_tree=true&active_only=false', {
+          headers: {Authorization: 'Bearer ' + this.token()}
+        });
+        const d = await r.json();
+        this.tree = d.data || d || [];
+      } catch { this.tree = []; }
+      this.loading = false;
+    },
+
+    async loadFlat() {
+      try {
+        const params = new URLSearchParams();
+        params.set('as_tree', 'false');
+        params.set('active_only', this.showInactive ? 'false' : 'true');
+        const r = await fetch(`/api/v1/coa?${params}`, {
+          headers: {Authorization: 'Bearer ' + this.token()}
+        });
+        const d = await r.json();
+        this.flatList = d.data || d || [];
+      } catch { this.flatList = []; }
+    },
+
+    async loadAll() {
+      await Promise.all([this.loadSummary(), this.loadTree(), this.loadFlat()]);
+    },
+
+    summaryCount(cat) {
+      const s = this.summary.find(x => String(x.category) === String(cat));
+      return s ? (s.count || 0) : 0;
+    },
+
+    filterByCat(cat) {
+      this.filterCategory = this.filterCategory == cat ? null : cat;
+    },
+
+    toggleCollapse(id) {
+      this.collapsed = {...this.collapsed, [id]: !this.collapsed[id]};
+    },
+
+    isCollapsed(id) { return !!this.collapsed[id]; },
+
+    // Flatten tree with _level, respecting collapse state and active filters
+    flattenTree(nodes, level) {
+      if (level === undefined) level = 0;
+      const result = [];
+      for (const n of nodes) {
+        // Apply category filter: skip top-level nodes that don't match
+        if (this.filterCategory && level === 0) {
+          const cat = String(this.filterCategory);
+          // include if node's category matches, or if any descendant matches
+          if (!this._hasCategory(n, cat)) continue;
+        }
+        // Apply search filter for tree view
+        if (this.search && !n.is_header) {
+          const q = this.search.toLowerCase();
+          if (!n.code.toLowerCase().includes(q) &&
+              !n.name.toLowerCase().includes(q) &&
+              !(n.name_en || '').toLowerCase().includes(q)) {
+            // Still add headers even if they don't match search
+          }
+        }
+        result.push({...n, _level: level});
+        if (!this.isCollapsed(n.id) && n.children && n.children.length) {
+          const childResults = this.flattenTree(n.children, level + 1);
+          for (const c of childResults) result.push(c);
+        }
+      }
+      return result;
+    },
+
+    _hasCategory(node, cat) {
+      if (String(node.category) === cat) return true;
+      if (node.children && node.children.length) {
+        return node.children.some(c => this._hasCategory(c, cat));
+      }
+      return false;
+    },
+
+    get flattenedTree() {
+      return this.flattenTree(this.tree, 0);
+    },
+
+    onCategoryChange() {
+      const cat = parseInt(this.addForm.category);
+      if (cat && this.AUTO_NORMAL_BALANCE[cat]) {
+        this.addForm.normal_balance = this.AUTO_NORMAL_BALANCE[cat];
+      }
+    },
+
+    async lookupParent() {
+      const code = this.addForm.parent_code.trim();
+      if (!code) { this.parentName = ''; return; }
+      try {
+        const r = await fetch(`/api/v1/coa/${code}`, {
+          headers: {Authorization: 'Bearer ' + this.token()}
+        });
+        if (r.ok) {
+          const d = await r.json();
+          const item = d.data || d;
+          this.parentName = item.name ? '✓ ' + item.name : '';
+        } else {
+          this.parentName = '❌ ไม่พบรหัสนี้';
+        }
+      } catch {
+        this.parentName = '❌ ข้อผิดพลาด';
+      }
+    },
+
+    openAdd() {
+      this.addForm = {
+        code: '', name: '', name_en: '', category: '',
+        account_type: '', normal_balance: 'DR', parent_code: '', description: ''
+      };
+      this.parentName = '';
+      this.showAddModal = true;
+    },
+
+    async submitAdd() {
+      if (!this.addForm.code || !this.addForm.name || !this.addForm.category ||
+          !this.addForm.account_type || !this.addForm.normal_balance) {
+        alert('กรุณากรอกข้อมูลที่จำเป็น (*)');
+        return;
+      }
+      this.saving = true;
+      const body = {
+        code: this.addForm.code,
+        name: this.addForm.name,
+        category: this.addForm.category,   // keep as string — backend validates "1"-"8"
+        account_type: this.addForm.account_type,
+        normal_balance: this.addForm.normal_balance,
+      };
+      if (this.addForm.name_en)    body.name_en = this.addForm.name_en;
+      if (this.addForm.parent_code) body.parent_code = this.addForm.parent_code;
+      if (this.addForm.description) body.description = this.addForm.description;
+
+      try {
+        const r = await fetch('/api/v1/coa', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json', Authorization: 'Bearer ' + this.token()},
+          body: JSON.stringify(body)
+        });
+        const d = await r.json();
+        if (r.ok || r.status === 201) {
+          this.showAddModal = false;
+          this.toast = '✅ เพิ่มบัญชี ' + this.addForm.code + ' สำเร็จ';
+          setTimeout(() => { this.toast = ''; }, 3000);
+          await this.loadAll();
+        } else {
+          alert(d.detail || 'เพิ่มบัญชีไม่สำเร็จ');
+        }
+      } catch (e) {
+        alert('เกิดข้อผิดพลาด: ' + e);
+      }
+      this.saving = false;
+    },
+
+    openEdit(item) {
+      this.editCode = item.code;
+      this.editItem = item;
+      this.editForm = {
+        name: item.name,
+        name_en: item.name_en || '',
+        description: item.description || '',
+        is_active: item.is_active,
+      };
+      this.showEditModal = true;
+    },
+
+    async submitEdit() {
+      this.editSaving = true;
+      const body = {
+        name: this.editForm.name || undefined,
+        is_active: this.editForm.is_active,
+      };
+      if (this.editForm.name_en)    body.name_en = this.editForm.name_en;
+      if (this.editForm.description) body.description = this.editForm.description;
+
+      try {
+        const r = await fetch(`/api/v1/coa/${this.editCode}`, {
+          method: 'PUT',
+          headers: {'Content-Type': 'application/json', Authorization: 'Bearer ' + this.token()},
+          body: JSON.stringify(body)
+        });
+        const d = await r.json();
+        if (r.ok) {
+          this.showEditModal = false;
+          this.toast = '✅ แก้ไขบัญชี ' + this.editCode + ' สำเร็จ';
+          setTimeout(() => { this.toast = ''; }, 3000);
+          await this.loadAll();
+        } else {
+          alert(d.detail || 'แก้ไขไม่สำเร็จ');
+        }
+      } catch (e) {
+        alert('เกิดข้อผิดพลาด: ' + e);
+      }
+      this.editSaving = false;
+    },
+
+    async init() {
+      await this.loadAll();
+    }
+  };
+}
+</script>
+{% endblock %}
