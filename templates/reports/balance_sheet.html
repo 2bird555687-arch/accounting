@@ -178,7 +178,7 @@ function balanceSheet(initDate) {
     report: null,
     loading: false,
     noteMap: {},      // { note_id: note_number }
-    entityType: '{{ ctx.entity_type if ctx and hasattr(ctx, "entity_type") else "company" }}',
+    entityType: '{{ entity_type | default("company") }}',
 
     async init() { await this.load(); },
 

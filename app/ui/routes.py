@@ -384,7 +384,7 @@ async def report_balance_sheet(request: Request):
     except UIRedirectException as e:
         return RedirectResponse(url=e.url, status_code=302)
     return _r("reports/balance_sheet.html", request,
-              _ctx(ctx, default_date=str(date.today())))
+              _ctx(ctx, default_date=str(date.today()), entity_type="company"))
 
 
 @router.get("/reports/income", response_class=HTMLResponse)
