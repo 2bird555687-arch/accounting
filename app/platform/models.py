@@ -73,6 +73,12 @@ class Company(Base):
     vat_registered: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     vat_id: Mapped[Optional[str]] = mapped_column(String(13))
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    entity_type: Mapped[str] = mapped_column(
+        String(20), default="company", nullable=False
+    )
+    income_statement_format: Mapped[str] = mapped_column(
+        String(30), default="by_nature", nullable=False
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )

@@ -38,6 +38,8 @@ class CompanyCreate(BaseModel):
     fiscal_year_start: int = 1
     vat_registered: bool = False
     vat_id: Optional[str] = None
+    entity_type: str = "company"
+    income_statement_format: str = "by_nature"
     coa_template: str = "trading"   # trading | service | mixed
 
     @field_validator("code")
@@ -74,6 +76,8 @@ class CompanyUpdate(BaseModel):
     vat_registered: Optional[bool] = None
     vat_id: Optional[str] = None
     is_active: Optional[bool] = None
+    entity_type: Optional[str] = None
+    income_statement_format: Optional[str] = None
 
 
 class CompanyOut(BaseModel):
@@ -87,6 +91,8 @@ class CompanyOut(BaseModel):
     vat_registered: bool
     fiscal_year_start: int
     is_active: bool
+    entity_type: str
+    income_statement_format: str
     created_at: datetime
 
     model_config = {"from_attributes": True}
