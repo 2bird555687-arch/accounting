@@ -9,6 +9,7 @@ from typing import Optional
 from fastapi import APIRouter, HTTPException, Query
 from fastapi.responses import Response
 from pydantic import BaseModel
+from sqlalchemy import select
 
 from app.api.deps import CTX, CompanyDB
 from decimal import Decimal
@@ -339,6 +340,99 @@ async def equity_manual_entry(
     db.add(entry)
     await db.commit()
     return {"ok": True, "id": entry.id}
+
+
+# ── Notes ─────────────────────────────────────────────────────────────────────
+
+class NoteTemplateIn(BaseModel):
+    title: Optional[str] = None
+    content: Optional[str] = None
+    enabled: Optional[bool] = None
+    display_order: Optional[int] = None
+
+
+@router.get("/notes")
+async def notes_report(
+    ctx: CTX,
+    db: CompanyDB,
+    period: str = Query(..., description="YYYY-MM"),
+    fmt: Optional[str] = Query(None),
+):
+    from app.reports import notes as nt
+    report = await nt.generate(ctx, db, period)
+    if fmt:
+        return _export(report, fmt, f"Notes_{period}")
+    return report.model_dump()
+
+
+@router.get("/notes/templates")
+async def list_note_templates(
+    ctx: CTX,
+    db: CompanyDB,
+):
+    from app.core.models import NoteTemplate
+    from app.reports.notes import NOTE_DEFAULTS
+    templates_result = await db.execute(
+        select(NoteTemplate).where(
+            NoteTemplate.company_id == ctx.company_id,
+            NoteTemplate.period.is_(None),
+        ).order_by(NoteTemplate.display_order)
+    )
+    templates = list(templates_result.scalars().all())
+    result = []
+    for note_id, defaults in NOTE_DEFAULTS.items():
+        tmpl = next((t for t in templates if t.note_id == note_id), None)
+        result.append({
+            "note_id": note_id,
+            "title": tmpl.title if tmpl else defaults["title"],
+            "enabled": tmpl.enabled if tmpl else True,
+            "display_order": tmpl.display_order if tmpl else defaults["display_order"],
+            "note_required": defaults.get("note_required", False),
+        })
+    result.sort(key=lambda x: x["display_order"])
+    return result
+
+
+@router.put("/notes/templates/{note_id}")
+async def update_note_template(
+    note_id: str,
+    data: NoteTemplateIn,
+    ctx: CTX,
+    db: CompanyDB,
+):
+    from app.core.models import NoteTemplate
+    from app.reports.notes import NOTE_DEFAULTS
+    tmpl_result = await db.execute(
+        select(NoteTemplate).where(
+            NoteTemplate.company_id == ctx.company_id,
+            NoteTemplate.note_id == note_id,
+            NoteTemplate.period.is_(None),
+        )
+    )
+    tmpl = tmpl_result.scalar_one_or_none()
+    if not tmpl:
+        defaults = NOTE_DEFAULTS.get(note_id, {})
+        tmpl = NoteTemplate(
+            company_id=ctx.company_id,
+            note_id=note_id,
+            period=None,
+            title=data.title or defaults.get("title", note_id),
+            content=data.content,
+            enabled=data.enabled if data.enabled is not None else True,
+            display_order=data.display_order if data.display_order is not None else defaults.get("display_order", 99),
+        )
+        db.add(tmpl)
+    else:
+        if data.title is not None:
+            tmpl.title = data.title
+        if data.content is not None:
+            tmpl.content = data.content
+        if data.enabled is not None:
+            tmpl.enabled = data.enabled
+        if data.display_order is not None:
+            tmpl.display_order = data.display_order
+    await db.commit()
+    return {"ok": True}
 
 
 # ── Consolidation ─────────────────────────────────────────────────────────────
