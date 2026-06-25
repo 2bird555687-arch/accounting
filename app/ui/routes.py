@@ -16,16 +16,14 @@ router = APIRouter(tags=["UI"])
 templates = Jinja2Templates(directory="templates")
 
 
-@templates.env.filter
-def currency(value):
+def _filter_currency(value):
     try:
         return f"{float(value):,.2f}"
     except (TypeError, ValueError):
         return "0.00"
 
 
-@templates.env.filter
-def thdate(value):
+def _filter_thdate(value):
     if not value:
         return "-"
     months = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.',
@@ -34,6 +32,10 @@ def thdate(value):
         return f"{value.day} {months[value.month-1]} {str(value.year+543)[2:]}"
     except Exception:
         return str(value)
+
+
+templates.env.filters['currency'] = _filter_currency
+templates.env.filters['thdate'] = _filter_thdate
 
 
 def _ctx(ctx=None, user=None, **extra) -> dict:
