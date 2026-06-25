@@ -31,10 +31,12 @@ class ISSection(BaseModel):
 class IncomeStatementReport(BaseReport):
     date_from: str
     date_to: str
+    format: str = "by_nature"
     revenue: ISSection
     cost_of_sales: ISSection
     gross_profit: Decimal
     gross_profit_prior: Decimal = Decimal(0)
+    operating_profit: Optional[Decimal] = None
     expenses: ISSection
     finance_costs: ISSection
     other_income: ISSection
@@ -94,6 +96,7 @@ async def generate(
     date_to: date,
     branch_ids: Optional[list[int]] = None,
     compare_prior_year: bool = False,
+    fmt: str = "by_nature",
 ) -> IncomeStatementReport:
     """สร้างงบกำไรขาดทุน."""
     branches = branch_ids or [ctx.branch_id]
@@ -102,15 +105,54 @@ async def generate(
 
     revenue = await _sum_section(rows, ["4"], "รายได้จากการขาย/บริการ", is_cr_normal=True)
     cogs = await _sum_section(rows, ["5"], "ต้นทุนขาย", is_cr_normal=False)
-    expenses = await _sum_section(rows, ["6"], "ค่าใช้จ่ายในการดำเนินงาน", is_cr_normal=False)
     finance = await _sum_section(rows, ["7"], "รายได้(ค่าใช้จ่าย)ทางการเงิน", is_cr_normal=True)
     other = await _sum_section(rows, ["8"], "รายได้อื่น", is_cr_normal=True)
 
     gross = revenue.total - cogs.total
+
+    # Build expenses section — split by account_type for by_function formats
+    if fmt in ("by_function_single", "by_function_multi"):
+        selling_lines = []
+        admin_lines = []
+        other_exp_lines = []
+        for coa, dr, cr in rows:
+            if coa.category != "6":
+                continue
+            amount = dr - cr
+            line = ISLine(account_code=coa.code, account_name=coa.name, current_amount=amount)
+            acct_type = (coa.account_type or "").lower()
+            if "selling" in acct_type or "sale" in acct_type:
+                selling_lines.append(line)
+            elif "admin" in acct_type or "general" in acct_type:
+                admin_lines.append(line)
+            else:
+                other_exp_lines.append(line)
+
+        selling = ISSection(
+            label="ค่าใช้จ่ายในการขาย",
+            lines=selling_lines,
+            total=sum(ln.current_amount for ln in selling_lines),
+        )
+        admin = ISSection(
+            label="ค่าใช้จ่ายในการบริหาร",
+            lines=admin_lines,
+            total=sum(ln.current_amount for ln in admin_lines),
+        )
+        # For compatibility, store all expenses in the expenses field
+        all_exp_lines = selling_lines + admin_lines + other_exp_lines
+        expenses = ISSection(
+            label="ค่าใช้จ่ายในการดำเนินงาน",
+            lines=all_exp_lines,
+            total=sum(ln.current_amount for ln in all_exp_lines),
+        )
+        operating_profit = gross - selling.total - admin.total
+    else:
+        expenses = await _sum_section(rows, ["6"], "ค่าใช้จ่ายในการดำเนินงาน", is_cr_normal=False)
+        operating_profit = None
+
     net = gross - expenses.total + finance.total + other.total
 
     # Prior year comparison
-    prior_revenue = ISSection(label=revenue.label, lines=[], total=Decimal(0))
     prior_net = Decimal(0)
     if compare_prior_year:
         from dateutil.relativedelta import relativedelta
@@ -128,9 +170,11 @@ async def generate(
     return IncomeStatementReport(
         date_from=str(date_from),
         date_to=str(date_to),
+        format=fmt,
         revenue=revenue,
         cost_of_sales=cogs,
         gross_profit=gross,
+        operating_profit=operating_profit,
         expenses=expenses,
         finance_costs=finance,
         other_income=other,

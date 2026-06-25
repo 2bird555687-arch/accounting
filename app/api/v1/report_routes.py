@@ -88,12 +88,32 @@ async def income_statement(
     branch_ids: Optional[str] = Query(None),
     compare_prior_year: bool = Query(False),
     fmt: Optional[str] = Query(None),
+    format: Optional[str] = Query(None, description="by_nature | by_function_single | by_function_multi"),
 ):
     from app.reports import income_statement as ist
     branches = [int(x) for x in branch_ids.split(",")] if branch_ids else None
+
+    # Resolve format: query param > company setting > default
+    resolved_format = format
+    if not resolved_format:
+        try:
+            from app.database import get_shared_session
+            from app.platform.models import Company as PlatformCompany
+            async with get_shared_session() as shared_db:
+                company_obj = await shared_db.scalar(
+                    select(PlatformCompany).where(PlatformCompany.id == ctx.company_id)
+                )
+                if company_obj:
+                    resolved_format = company_obj.income_statement_format or "by_nature"
+        except Exception:
+            pass
+    if not resolved_format:
+        resolved_format = "by_nature"
+
     try:
         report = await ist.generate(ctx, db, date_from, date_to,
-                                     branch_ids=branches, compare_prior_year=compare_prior_year)
+                                     branch_ids=branches, compare_prior_year=compare_prior_year,
+                                     fmt=resolved_format)
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
     if fmt:
