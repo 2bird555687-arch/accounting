@@ -455,6 +455,25 @@ async def update_note_template(
     return {"ok": True}
 
 
+# ── Working Paper ─────────────────────────────────────────────────────────────
+
+@router.get("/working-paper")
+async def working_paper(
+    ctx: CTX,
+    db: CompanyDB,
+    period: str = Query(..., description="YYYY-MM"),
+    columns: int = Query(10, description="6, 8 หรือ 10"),
+    fmt: Optional[str] = Query(None),
+):
+    if columns not in (6, 8, 10):
+        raise HTTPException(400, "columns ต้องเป็น 6, 8 หรือ 10")
+    from app.reports import working_paper as wp
+    report = await wp.generate(ctx, db, period, columns)
+    if fmt:
+        return _export(report, fmt, f"WorkingPaper_{period}_{columns}col")
+    return report.model_dump()
+
+
 # ── Consolidation ─────────────────────────────────────────────────────────────
 
 @router.get("/consolidation/{year}/{month}")
