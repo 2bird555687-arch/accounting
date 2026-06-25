@@ -33,6 +33,8 @@ class COAOut(BaseModel):
     is_active: bool
     is_system: bool
     description: Optional[str]
+    note_id: Optional[str] = None
+    note_required: bool = False
     children_count: int = 0
 
     model_config = {"from_attributes": True}
@@ -76,6 +78,8 @@ class COAUpdate(BaseModel):
     name_en: Optional[str] = None
     description: Optional[str] = None
     is_active: Optional[bool] = None
+    note_id: Optional[str] = None
+    note_required: Optional[bool] = None
 
 
 class COATreeNode(BaseModel):

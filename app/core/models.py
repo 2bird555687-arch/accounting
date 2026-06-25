@@ -50,6 +50,8 @@ class ChartOfAccount(Base):
     is_system: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     # บัญชีระบบ — ห้ามแก้ไขหรือลบ
     description: Mapped[Optional[str]] = mapped_column(Text)
+    note_id: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
+    note_required: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
@@ -486,4 +488,50 @@ class ExchangeRate(Base):
 
     __table_args__ = (
         UniqueConstraint("company_id", "currency_code", "rate_date", name="uq_exchange_rate"),
+    )
+
+
+# ── NoteTemplate ──────────────────────────────────────────────────────────────
+
+class NoteTemplate(Base):
+    """เทมเพลตหมายเหตุประกอบงบการเงิน."""
+
+    __tablename__ = "note_templates"
+
+    __table_args__ = (
+        UniqueConstraint("company_id", "note_id", "period", name="uq_note_template"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    company_id: Mapped[int] = mapped_column(Integer, nullable=False)
+    note_id: Mapped[str] = mapped_column(String(50), nullable=False)
+    period: Mapped[Optional[str]] = mapped_column(String(7), nullable=True)
+    title: Mapped[str] = mapped_column(String(200), nullable=False)
+    content: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    enabled: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    display_order: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+
+# ── EquityChange ──────────────────────────────────────────────────────────────
+
+class EquityChange(Base):
+    """รายการเปลี่ยนแปลงส่วนของเจ้าของ."""
+
+    __tablename__ = "equity_changes"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    company_id: Mapped[int] = mapped_column(Integer, nullable=False)
+    period: Mapped[str] = mapped_column(String(7), nullable=False)
+    change_type: Mapped[str] = mapped_column(String(50), nullable=False)
+    account_code: Mapped[str] = mapped_column(String(20), nullable=False)
+    partner_name: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    amount: Mapped[Decimal] = mapped_column(Numeric(18, 2), nullable=False)
+    description: Mapped[str] = mapped_column(String(500), nullable=False, default="")
+    source: Mapped[str] = mapped_column(String(20), nullable=False, default="manual")
+    journal_ref: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
     )
