@@ -1,0 +1,279 @@
+{% extends "base.html" %}
+{% block title %}หมายเหตุประกอบงบการเงิน{% endblock %}
+{% block page_title %}รายงาน — หมายเหตุประกอบงบการเงิน{% endblock %}
+
+{% block content %}
+<div x-data="notesPage()" x-init="init()" class="flex gap-4 h-[calc(100vh-120px)]">
+
+  <!-- Left Sidebar: Template Manager -->
+  <div class="w-72 flex-shrink-0 bg-white rounded-xl shadow-sm border border-gray-100 overflow-y-auto">
+    <div class="px-4 py-3 border-b border-gray-100 bg-gray-50">
+      <h3 class="font-semibold text-gray-700 text-sm">จัดการหมายเหตุ</h3>
+    </div>
+
+    <div class="p-3 space-y-1">
+      <template x-for="(tmpl, i) in templates" :key="tmpl.note_id">
+        <div class="flex items-center gap-2 p-2 rounded-lg hover:bg-gray-50"
+          :class="tmpl.enabled ? '' : 'opacity-50'">
+          <span class="text-xs text-gray-400 w-5 text-right font-mono"
+            x-text="tmpl.enabled ? getNumber(tmpl.note_id) : '-'"></span>
+          <label class="flex items-center gap-2 flex-1 cursor-pointer text-sm text-gray-700" :title="tmpl.note_id">
+            <input type="checkbox" :checked="tmpl.enabled"
+              @change="toggleNote(tmpl.note_id, $event.target.checked)"
+              :disabled="tmpl.note_required"
+              class="rounded"/>
+            <span x-text="tmpl.title" class="truncate"></span>
+          </label>
+          <div class="flex flex-col gap-0.5">
+            <button @click="moveUp(i)" :disabled="i === 0"
+              class="text-gray-400 hover:text-gray-700 disabled:opacity-20 text-xs leading-none">▲</button>
+            <button @click="moveDown(i)" :disabled="i === templates.length - 1"
+              class="text-gray-400 hover:text-gray-700 disabled:opacity-20 text-xs leading-none">▼</button>
+          </div>
+        </div>
+      </template>
+    </div>
+  </div>
+
+  <!-- Right: Preview -->
+  <div class="flex-1 flex flex-col min-w-0">
+    <!-- Period filter -->
+    <div class="bg-white rounded-xl p-3 shadow-sm border border-gray-100 mb-3 flex items-center gap-3">
+      <label class="text-sm font-medium text-gray-700">งวด</label>
+      <input type="month" x-model="period"
+        class="px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"/>
+      <button @click="loadReport()" class="px-4 py-2 bg-blue-700 text-white rounded-lg text-sm font-medium hover:bg-blue-800">โหลด</button>
+      <div class="ml-auto flex gap-2">
+        <button @click="window.print()"
+          class="px-3 py-2 border border-gray-300 text-gray-600 rounded-lg text-sm hover:bg-gray-50">พิมพ์</button>
+        <a :href="'/api/v1/reports/notes?period=' + period + '&fmt=excel'"
+          class="px-3 py-2 border border-gray-300 text-gray-600 rounded-lg text-sm hover:bg-gray-50">Excel</a>
+        <a :href="'/api/v1/reports/notes?period=' + period + '&fmt=pdf'"
+          class="px-3 py-2 border border-gray-300 text-gray-600 rounded-lg text-sm hover:bg-gray-50">PDF</a>
+      </div>
+    </div>
+
+    <!-- Notes preview -->
+    <div class="flex-1 bg-white rounded-xl shadow-sm border border-gray-100 overflow-y-auto p-5 space-y-6" id="notes-print-area">
+      <template x-if="loading">
+        <div class="text-center text-gray-400 py-8">
+          <svg class="animate-spin w-8 h-8 mx-auto" fill="none" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+          </svg>
+        </div>
+      </template>
+
+      <template x-if="!loading && report">
+        <div>
+          <template x-for="sec in report.sections.filter(s => s.enabled)" :key="sec.note_id">
+            <div class="mb-8 border-b border-gray-100 pb-6">
+              <!-- Header -->
+              <h3 class="font-bold text-gray-800 text-base mb-3"
+                x-text="'หมายเหตุที่ ' + sec.note_number + ' — ' + sec.title"></h3>
+
+              <!-- Policy: editable textarea -->
+              <template x-if="sec.note_id === 'NOTE_POLICY'">
+                <div>
+                  <textarea
+                    :value="sec.content"
+                    @blur="savePolicyContent($event.target.value)"
+                    rows="8"
+                    class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm font-mono text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-y"
+                  ></textarea>
+                  <p class="text-xs text-gray-400 mt-1">แก้ไขข้อความแล้วคลิกนอกกล่องเพื่อบันทึก</p>
+                </div>
+              </template>
+
+              <!-- Others: data table or content -->
+              <template x-if="sec.note_id !== 'NOTE_POLICY'">
+                <div>
+                  <template x-if="sec.content">
+                    <pre class="text-sm text-gray-700 whitespace-pre-wrap" x-text="sec.content"></pre>
+                  </template>
+                  <template x-if="sec.data && sec.data.รายการ && Array.isArray(sec.data.รายการ)">
+                    <div>
+                      <table class="w-full text-sm border border-gray-100 rounded-lg overflow-hidden">
+                        <thead>
+                          <tr class="bg-gray-50">
+                            <th class="text-left px-3 py-2 font-semibold text-gray-600">รหัสบัญชี</th>
+                            <th class="text-left px-3 py-2 font-semibold text-gray-600">ชื่อบัญชี</th>
+                            <th class="text-right px-3 py-2 font-semibold text-gray-600">ยอดคงเหลือ</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          <template x-for="row in sec.data.รายการ" :key="row.code">
+                            <tr class="border-t border-gray-50">
+                              <td class="px-3 py-2 font-mono text-gray-600" x-text="row.code"></td>
+                              <td class="px-3 py-2 text-gray-700" x-text="row.name"></td>
+                              <td class="px-3 py-2 text-right font-mono text-gray-800" x-text="fmt(row.balance)"></td>
+                            </tr>
+                          </template>
+                        </tbody>
+                        <tfoot>
+                          <tr class="bg-gray-50 font-semibold">
+                            <td class="px-3 py-2" colspan="2">รวม</td>
+                            <td class="px-3 py-2 text-right font-mono" x-text="fmt(sec.data.รวม)"></td>
+                          </tr>
+                        </tfoot>
+                      </table>
+                    </div>
+                  </template>
+                  <template x-if="sec.data && sec.data.รวม !== undefined && !(sec.data.รายการ && Array.isArray(sec.data.รายการ))">
+                    <p class="text-sm text-gray-700">ยอดรวม: <span class="font-mono font-semibold" x-text="fmt(sec.data.รวม)"></span></p>
+                  </template>
+                  <template x-if="!sec.content && !sec.data">
+                    <p class="text-sm text-gray-400 italic">ยังไม่มีข้อมูลสำหรับงวดนี้</p>
+                  </template>
+                </div>
+              </template>
+            </div>
+          </template>
+        </div>
+      </template>
+
+      <template x-if="!loading && !report">
+        <p class="text-gray-400 text-sm text-center py-8">เลือกงวดและกด "โหลด" เพื่อดูหมายเหตุ</p>
+      </template>
+    </div>
+  </div>
+
+  <!-- Toast -->
+  <template x-if="toast">
+    <div class="fixed bottom-6 right-6 bg-green-600 text-white px-5 py-3 rounded-xl shadow-lg text-sm font-medium z-50"
+      x-text="toast"></div>
+  </template>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<style>
+@media print {
+  #sidebar, #topbar, .bg-white.rounded-xl.p-3 { display: none !important; }
+  #notes-print-area { height: auto !important; overflow: visible !important; }
+}
+</style>
+<script>
+function notesPage() {
+  const today = new Date();
+  const defaultPeriod = today.toISOString().slice(0, 7);
+
+  return {
+    period: defaultPeriod,
+    templates: [],
+    report: null,
+    loading: false,
+    toast: null,
+
+    async init() {
+      await this.loadTemplates();
+    },
+
+    async loadTemplates() {
+      const token = document.cookie.match(/access_token=([^;]+)/)?.[1] || '';
+      try {
+        const r = await fetch('/api/v1/reports/notes/templates', {
+          headers: { Authorization: 'Bearer ' + token }
+        });
+        this.templates = await r.json();
+      } catch { this.templates = []; }
+    },
+
+    async loadReport() {
+      this.loading = true;
+      const token = document.cookie.match(/access_token=([^;]+)/)?.[1] || '';
+      try {
+        const r = await fetch('/api/v1/reports/notes?period=' + this.period, {
+          headers: { Authorization: 'Bearer ' + token }
+        });
+        this.report = await r.json();
+      } catch { this.report = null; }
+      this.loading = false;
+    },
+
+    getNumber(noteId) {
+      let num = 0;
+      for (const t of this.templates) {
+        if (t.enabled) num++;
+        if (t.note_id === noteId) return num;
+      }
+      return '-';
+    },
+
+    async toggleNote(noteId, enabled) {
+      const token = document.cookie.match(/access_token=([^;]+)/)?.[1] || '';
+      await fetch('/api/v1/reports/notes/templates/' + noteId, {
+        method: 'PUT',
+        headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ enabled }),
+      });
+      const t = this.templates.find(t => t.note_id === noteId);
+      if (t) t.enabled = enabled;
+      this.showToast(enabled ? 'เปิดใช้งานแล้ว' : 'ปิดใช้งานแล้ว');
+    },
+
+    async moveUp(i) {
+      if (i === 0) return;
+      const token = document.cookie.match(/access_token=([^;]+)/)?.[1] || '';
+      const current = this.templates[i];
+      const prev = this.templates[i - 1];
+      const newOrder = prev.display_order;
+      const prevOrder = current.display_order;
+      await fetch('/api/v1/reports/notes/templates/' + current.note_id, {
+        method: 'PUT',
+        headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ display_order: newOrder }),
+      });
+      await fetch('/api/v1/reports/notes/templates/' + prev.note_id, {
+        method: 'PUT',
+        headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ display_order: prevOrder }),
+      });
+      this.templates.splice(i - 1, 2, current, prev);
+      current.display_order = newOrder;
+      prev.display_order = prevOrder;
+    },
+
+    async moveDown(i) {
+      if (i >= this.templates.length - 1) return;
+      const token = document.cookie.match(/access_token=([^;]+)/)?.[1] || '';
+      const current = this.templates[i];
+      const next = this.templates[i + 1];
+      const newOrder = next.display_order;
+      const nextOrder = current.display_order;
+      await fetch('/api/v1/reports/notes/templates/' + current.note_id, {
+        method: 'PUT',
+        headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ display_order: newOrder }),
+      });
+      await fetch('/api/v1/reports/notes/templates/' + next.note_id, {
+        method: 'PUT',
+        headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ display_order: nextOrder }),
+      });
+      this.templates.splice(i, 2, next, current);
+      current.display_order = newOrder;
+      next.display_order = nextOrder;
+    },
+
+    async savePolicyContent(content) {
+      const token = document.cookie.match(/access_token=([^;]+)/)?.[1] || '';
+      await fetch('/api/v1/reports/notes/templates/NOTE_POLICY', {
+        method: 'PUT',
+        headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ content }),
+      });
+      this.showToast('บันทึกนโยบายแล้ว');
+    },
+
+    showToast(msg) {
+      this.toast = msg;
+      setTimeout(() => { this.toast = null; }, 3000);
+    },
+
+    fmt(v) { return new Intl.NumberFormat('th-TH', { minimumFractionDigits: 2 }).format(v || 0); },
+  };
+}
+</script>
+{% endblock %}

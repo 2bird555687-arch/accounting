@@ -4,6 +4,7 @@
 
 {% block content %}
 <div x-data="balanceSheet('{{ default_date }}')" x-init="init()">
+  <!-- noteMap: { note_id: note_number } populated alongside BS load -->
 
   <!-- Filter -->
   <div class="bg-white rounded-xl p-4 shadow-sm border border-gray-100 mb-4 flex items-center gap-3">
@@ -43,7 +44,12 @@
           <p class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">สินทรัพย์หมุนเวียน</p>
           <template x-for="l in report.current_assets.lines" :key="l.account_code">
             <div class="flex justify-between py-1.5 text-sm border-b border-gray-50">
-              <span class="text-gray-700" x-text="l.account_code + ' ' + l.account_name"></span>
+              <span class="text-gray-700">
+                <span x-text="l.account_code + ' ' + l.account_name"></span>
+                <template x-if="l.note_id && noteMap[l.note_id]">
+                  <span class="ml-1 text-xs text-blue-500 font-medium" x-text="'(หมายเหตุ ' + noteMap[l.note_id] + ')'"></span>
+                </template>
+              </span>
               <span class="font-mono text-gray-800" x-text="fmt(l.amount)"></span>
             </div>
           </template>
@@ -58,7 +64,12 @@
           <p class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">สินทรัพย์ไม่หมุนเวียน</p>
           <template x-for="l in report.non_current_assets.lines" :key="l.account_code">
             <div class="flex justify-between py-1.5 text-sm border-b border-gray-50">
-              <span class="text-gray-700" x-text="l.account_code + ' ' + l.account_name"></span>
+              <span class="text-gray-700">
+                <span x-text="l.account_code + ' ' + l.account_name"></span>
+                <template x-if="l.note_id && noteMap[l.note_id]">
+                  <span class="ml-1 text-xs text-blue-500 font-medium" x-text="'(หมายเหตุ ' + noteMap[l.note_id] + ')'"></span>
+                </template>
+              </span>
               <span class="font-mono text-gray-800" x-text="fmt(l.amount)"></span>
             </div>
           </template>
@@ -86,7 +97,12 @@
           <p class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">หนี้สินหมุนเวียน</p>
           <template x-for="l in report.current_liabilities.lines" :key="l.account_code">
             <div class="flex justify-between py-1.5 text-sm border-b border-gray-50">
-              <span class="text-gray-700" x-text="l.account_code + ' ' + l.account_name"></span>
+              <span class="text-gray-700">
+                <span x-text="l.account_code + ' ' + l.account_name"></span>
+                <template x-if="l.note_id && noteMap[l.note_id]">
+                  <span class="ml-1 text-xs text-blue-500 font-medium" x-text="'(หมายเหตุ ' + noteMap[l.note_id] + ')'"></span>
+                </template>
+              </span>
               <span class="font-mono text-gray-800" x-text="fmt(l.amount)"></span>
             </div>
           </template>
@@ -101,7 +117,12 @@
           <p class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">หนี้สินไม่หมุนเวียน</p>
           <template x-for="l in report.non_current_liabilities.lines" :key="l.account_code">
             <div class="flex justify-between py-1.5 text-sm border-b border-gray-50">
-              <span class="text-gray-700" x-text="l.account_code + ' ' + l.account_name"></span>
+              <span class="text-gray-700">
+                <span x-text="l.account_code + ' ' + l.account_name"></span>
+                <template x-if="l.note_id && noteMap[l.note_id]">
+                  <span class="ml-1 text-xs text-blue-500 font-medium" x-text="'(หมายเหตุ ' + noteMap[l.note_id] + ')'"></span>
+                </template>
+              </span>
               <span class="font-mono text-gray-800" x-text="fmt(l.amount)"></span>
             </div>
           </template>
@@ -113,10 +134,16 @@
 
         <!-- Equity -->
         <div class="px-5 pt-3 pb-4">
-          <p class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">ส่วนของเจ้าของ</p>
+          <p class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2"
+            x-text="entityType === 'partnership' ? 'ส่วนของผู้เป็นหุ้นส่วน' : 'ส่วนของเจ้าของ'"></p>
           <template x-for="l in report.equity.lines" :key="l.account_code">
             <div class="flex justify-between py-1.5 text-sm border-b border-gray-50">
-              <span class="text-gray-700" x-text="l.account_code + ' ' + l.account_name"></span>
+              <span class="text-gray-700">
+                <span x-text="l.account_code + ' ' + l.account_name"></span>
+                <template x-if="l.note_id && noteMap[l.note_id]">
+                  <span class="ml-1 text-xs text-blue-500 font-medium" x-text="'(หมายเหตุ ' + noteMap[l.note_id] + ')'"></span>
+                </template>
+              </span>
               <span class="font-mono text-gray-800" x-text="fmt(l.amount)"></span>
             </div>
           </template>
@@ -150,18 +177,36 @@ function balanceSheet(initDate) {
     asOf: initDate,
     report: null,
     loading: false,
+    noteMap: {},      // { note_id: note_number }
+    entityType: '{{ ctx.entity_type if ctx and hasattr(ctx, "entity_type") else "company" }}',
 
     async init() { await this.load(); },
 
     async load() {
       this.loading = true;
       const token = document.cookie.match(/access_token=([^;]+)/)?.[1] || '';
+      // Derive period string YYYY-MM from asOf date
+      const period = this.asOf ? this.asOf.slice(0, 7) : new Date().toISOString().slice(0, 7);
       try {
-        const r = await fetch('/api/v1/reports/balance-sheet?as_of=' + this.asOf, {
-          headers: { Authorization: 'Bearer ' + token }
-        });
-        const d = await r.json();
-        this.report = d;
+        const [bsResp, notesResp] = await Promise.all([
+          fetch('/api/v1/reports/balance-sheet?as_of=' + this.asOf, {
+            headers: { Authorization: 'Bearer ' + token }
+          }),
+          fetch('/api/v1/reports/notes?period=' + period, {
+            headers: { Authorization: 'Bearer ' + token }
+          }),
+        ]);
+        this.report = await bsResp.json();
+        const notesData = await notesResp.json();
+        // Build noteMap from sections
+        this.noteMap = {};
+        if (notesData && notesData.sections) {
+          for (const sec of notesData.sections) {
+            if (sec.enabled && sec.note_id) {
+              this.noteMap[sec.note_id] = sec.note_number;
+            }
+          }
+        }
       } catch { this.report = null; }
       this.loading = false;
     },

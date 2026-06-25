@@ -20,6 +20,18 @@
       <input type="checkbox" x-model="comparePY" class="rounded"/>
       เปรียบเทียบปีก่อน
     </label>
+    <div class="flex items-center gap-2 ml-2">
+      <label class="text-sm text-gray-600 font-medium">รูปแบบ:</label>
+      <label class="flex items-center gap-1 text-sm cursor-pointer">
+        <input type="radio" x-model="format" value="by_nature" @change="load()" class="accent-blue-700"/> ตามธรรมชาติ
+      </label>
+      <label class="flex items-center gap-1 text-sm cursor-pointer">
+        <input type="radio" x-model="format" value="by_function_single" @change="load()" class="accent-blue-700"/> ตามหน้าที่ (ขั้นเดียว)
+      </label>
+      <label class="flex items-center gap-1 text-sm cursor-pointer">
+        <input type="radio" x-model="format" value="by_function_multi" @change="load()" class="accent-blue-700"/> ตามหน้าที่ (หลายขั้น)
+      </label>
+    </div>
     <button @click="load()" class="px-4 py-2 bg-blue-700 text-white rounded-lg text-sm font-medium hover:bg-blue-800">แสดง</button>
     <div class="ml-auto flex gap-2">
       <a :href="'/api/v1/reports/income-statement?date_from=' + dateFrom + '&date_to=' + dateTo + '&fmt=excel'"
@@ -96,6 +108,42 @@
           </div>
         </div>
 
+        <!-- Operating Profit (by_function_multi only) -->
+        <template x-if="report.format === 'by_function_multi' && report.operating_profit !== null && report.operating_profit !== undefined">
+          <div class="flex justify-between py-3 bg-blue-50 px-3 rounded-lg mb-6 font-semibold text-sm">
+            <span>กำไรจากการดำเนินงาน</span>
+            <span class="font-mono" :class="report.operating_profit >= 0 ? 'text-blue-700' : 'text-red-600'"
+              x-text="fmt(report.operating_profit)"></span>
+          </div>
+        </template>
+
+        <!-- Finance costs & Other income (shown in all formats) -->
+        <template x-if="(report.finance_costs?.lines || []).length > 0 || (report.other_income?.lines || []).length > 0">
+          <div class="mb-6">
+            <template x-if="(report.finance_costs?.lines || []).length > 0">
+              <div>
+                <p class="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">ต้นทุนทางการเงิน / รายได้อื่น</p>
+                <template x-for="l in (report.finance_costs?.lines || [])" :key="l.account_code">
+                  <div class="flex justify-between py-1.5 text-sm border-b border-gray-50">
+                    <span class="text-gray-700 pl-4" x-text="l.account_code + ' ' + l.account_name"></span>
+                    <span class="font-mono text-gray-800" x-text="fmt(l.current_amount)"></span>
+                  </div>
+                </template>
+              </div>
+            </template>
+            <template x-if="(report.other_income?.lines || []).length > 0">
+              <div>
+                <template x-for="l in (report.other_income?.lines || [])" :key="l.account_code">
+                  <div class="flex justify-between py-1.5 text-sm border-b border-gray-50">
+                    <span class="text-gray-700 pl-4" x-text="l.account_code + ' ' + l.account_name"></span>
+                    <span class="font-mono text-gray-800" x-text="fmt(l.current_amount)"></span>
+                  </div>
+                </template>
+              </div>
+            </template>
+          </div>
+        </template>
+
         <!-- Net Profit -->
         <div class="p-4 rounded-xl border-2 flex justify-between font-bold text-base"
           :class="report.net_profit >= 0 ? 'border-green-300 bg-green-50' : 'border-red-300 bg-red-50'">
@@ -116,14 +164,21 @@
 function incomeStatement(initFrom, initTo) {
   return {
     dateFrom: initFrom, dateTo: initTo, comparePY: false,
+    format: localStorage.getItem('is_format') || 'by_nature',
     report: null, loading: false,
 
     async init() { await this.load(); },
 
     async load() {
       this.loading = true;
+      localStorage.setItem('is_format', this.format);
       const token = document.cookie.match(/access_token=([^;]+)/)?.[1] || '';
-      const params = new URLSearchParams({ date_from: this.dateFrom, date_to: this.dateTo, compare_prior_year: this.comparePY });
+      const params = new URLSearchParams({
+        date_from: this.dateFrom,
+        date_to: this.dateTo,
+        compare_prior_year: this.comparePY,
+        format: this.format,
+      });
       try {
         const r = await fetch('/api/v1/reports/income-statement?' + params, { headers: { Authorization: 'Bearer ' + token } });
         this.report = await r.json();

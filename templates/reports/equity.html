@@ -1,0 +1,200 @@
+{% extends "base.html" %}
+{% block title %}งบแสดงการเปลี่ยนแปลงส่วนของเจ้าของ{% endblock %}
+{% block page_title %}รายงาน — งบแสดงการเปลี่ยนแปลงส่วนของเจ้าของ{% endblock %}
+
+{% block content %}
+<div x-data="equityReport()" x-init="init()">
+
+  <!-- Filter bar -->
+  <div class="bg-white rounded-xl p-4 shadow-sm border border-gray-100 mb-4 flex items-center gap-3 flex-wrap">
+    <label class="text-sm font-medium text-gray-700">งวด</label>
+    <input type="month" x-model="period"
+      class="px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"/>
+    <button @click="load()" class="px-4 py-2 bg-blue-700 text-white rounded-lg text-sm font-medium hover:bg-blue-800">แสดง</button>
+    <div class="ml-auto flex gap-2">
+      <a :href="'/api/v1/reports/equity?period=' + period + '&fmt=excel'"
+        class="px-3 py-2 border border-gray-300 text-gray-600 rounded-lg text-sm hover:bg-gray-50">Excel</a>
+      <a :href="'/api/v1/reports/equity?period=' + period + '&fmt=pdf'"
+        class="px-3 py-2 border border-gray-300 text-gray-600 rounded-lg text-sm hover:bg-gray-50">PDF</a>
+      <button @click="showManualModal = true"
+        class="px-3 py-2 bg-orange-600 text-white rounded-lg text-sm hover:bg-orange-700">บันทึกรายการ Manual</button>
+    </div>
+  </div>
+
+  <!-- Loading -->
+  <template x-if="loading">
+    <div class="bg-white rounded-xl p-8 text-center text-gray-400 shadow-sm border border-gray-100">
+      <svg class="animate-spin w-8 h-8 mx-auto" fill="none" viewBox="0 0 24 24">
+        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+      </svg>
+    </div>
+  </template>
+
+  <!-- Report Table -->
+  <template x-if="!loading && report">
+    <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+      <div class="px-5 py-4 bg-purple-700 text-white">
+        <h2 class="font-semibold">งบแสดงการเปลี่ยนแปลงส่วนของเจ้าของ</h2>
+        <p class="text-purple-200 text-sm" x-text="'งวด ' + report.period"></p>
+      </div>
+      <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+          <thead>
+            <tr class="bg-gray-50 border-b border-gray-200">
+              <th class="text-left px-4 py-3 font-semibold text-gray-700">รายการ</th>
+              <th class="text-right px-4 py-3 font-semibold text-gray-700">ยอดต้นงวด</th>
+              <th class="text-right px-4 py-3 font-semibold text-gray-700">กำไร(ขาดทุน)สุทธิ</th>
+              <th class="text-right px-4 py-3 font-semibold text-gray-700">เงินปันผล/ถอนทุน</th>
+              <th class="text-right px-4 py-3 font-semibold text-gray-700">รายการอื่น</th>
+              <th class="text-right px-4 py-3 font-semibold text-gray-700">ยอดสิ้นงวด</th>
+            </tr>
+          </thead>
+          <tbody>
+            <template x-for="(ln, i) in report.lines" :key="i">
+              <tr class="border-b border-gray-50 hover:bg-gray-50">
+                <td class="px-4 py-2 text-gray-700" x-text="ln.label"></td>
+                <td class="px-4 py-2 text-right font-mono text-gray-800" x-text="fmt(ln.opening)"></td>
+                <td class="px-4 py-2 text-right font-mono"
+                  :class="ln.net_profit >= 0 ? 'text-green-700' : 'text-red-600'"
+                  x-text="fmt(ln.net_profit)"></td>
+                <td class="px-4 py-2 text-right font-mono text-red-600" x-text="ln.dividends ? fmt(ln.dividends) : '-'"></td>
+                <td class="px-4 py-2 text-right font-mono text-gray-800" x-text="ln.other ? fmt(ln.other) : '-'"></td>
+                <td class="px-4 py-2 text-right font-mono font-semibold text-gray-900" x-text="fmt(ln.closing)"></td>
+              </tr>
+            </template>
+          </tbody>
+          <tfoot>
+            <tr class="bg-purple-50 font-bold text-purple-800">
+              <td class="px-4 py-3">รวมทั้งสิ้น</td>
+              <td class="px-4 py-3 text-right font-mono" x-text="fmt(report.total_opening)"></td>
+              <td class="px-4 py-3"></td>
+              <td class="px-4 py-3"></td>
+              <td class="px-4 py-3"></td>
+              <td class="px-4 py-3 text-right font-mono" x-text="fmt(report.total_closing)"></td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+    </div>
+  </template>
+
+  <!-- Manual Entry Modal -->
+  <template x-if="showManualModal">
+    <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+      <div class="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-md">
+        <h3 class="font-bold text-gray-800 text-lg mb-4">บันทึกรายการ Manual</h3>
+
+        <div class="space-y-3">
+          <div>
+            <label class="text-sm text-gray-600 font-medium">ประเภทรายการ</label>
+            <select x-model="manualForm.change_type"
+              class="w-full mt-1 px-3 py-2 border border-gray-200 rounded-lg text-sm">
+              <option value="dividend">เงินปันผล / ถอนทุน</option>
+              <option value="capital_increase">เพิ่มทุน</option>
+              <option value="other">อื่นๆ</option>
+            </select>
+          </div>
+          <div>
+            <label class="text-sm text-gray-600 font-medium">รหัสบัญชี</label>
+            <input type="text" x-model="manualForm.account_code" placeholder="เช่น 3101"
+              class="w-full mt-1 px-3 py-2 border border-gray-200 rounded-lg text-sm"/>
+          </div>
+          <div>
+            <label class="text-sm text-gray-600 font-medium">ชื่อผู้ถือหุ้น / หุ้นส่วน (ถ้ามี)</label>
+            <input type="text" x-model="manualForm.partner_name"
+              class="w-full mt-1 px-3 py-2 border border-gray-200 rounded-lg text-sm"/>
+          </div>
+          <div>
+            <label class="text-sm text-gray-600 font-medium">จำนวนเงิน</label>
+            <input type="number" x-model="manualForm.amount" step="0.01"
+              class="w-full mt-1 px-3 py-2 border border-gray-200 rounded-lg text-sm"/>
+          </div>
+          <div>
+            <label class="text-sm text-gray-600 font-medium">คำอธิบาย</label>
+            <input type="text" x-model="manualForm.description"
+              class="w-full mt-1 px-3 py-2 border border-gray-200 rounded-lg text-sm"/>
+          </div>
+        </div>
+
+        <div class="flex gap-2 mt-5">
+          <button @click="submitManual()"
+            class="flex-1 px-4 py-2 bg-blue-700 text-white rounded-lg text-sm font-medium hover:bg-blue-800">บันทึก</button>
+          <button @click="showManualModal = false"
+            class="flex-1 px-4 py-2 border border-gray-300 text-gray-600 rounded-lg text-sm hover:bg-gray-50">ยกเลิก</button>
+        </div>
+      </div>
+    </div>
+  </template>
+
+  <!-- Toast -->
+  <template x-if="toast">
+    <div class="fixed bottom-6 right-6 bg-green-600 text-white px-5 py-3 rounded-xl shadow-lg text-sm font-medium z-50"
+      x-text="toast"></div>
+  </template>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function equityReport() {
+  const today = new Date();
+  const defaultPeriod = today.toISOString().slice(0, 7);
+
+  return {
+    period: defaultPeriod,
+    report: null,
+    loading: false,
+    showManualModal: false,
+    toast: null,
+    manualForm: {
+      change_type: 'dividend',
+      account_code: '',
+      partner_name: '',
+      amount: 0,
+      description: '',
+    },
+
+    async init() { await this.load(); },
+
+    async load() {
+      this.loading = true;
+      const token = document.cookie.match(/access_token=([^;]+)/)?.[1] || '';
+      try {
+        const r = await fetch('/api/v1/reports/equity?period=' + this.period, {
+          headers: { Authorization: 'Bearer ' + token }
+        });
+        this.report = await r.json();
+      } catch { this.report = null; }
+      this.loading = false;
+    },
+
+    async submitManual() {
+      const token = document.cookie.match(/access_token=([^;]+)/)?.[1] || '';
+      try {
+        const r = await fetch('/api/v1/reports/equity/manual-entry', {
+          method: 'POST',
+          headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ...this.manualForm, period: this.period }),
+        });
+        if (r.ok) {
+          this.showManualModal = false;
+          this.showToast('บันทึกสำเร็จ');
+          await this.load();
+        } else {
+          this.showToast('เกิดข้อผิดพลาด');
+        }
+      } catch { this.showToast('เกิดข้อผิดพลาด'); }
+    },
+
+    showToast(msg) {
+      this.toast = msg;
+      setTimeout(() => { this.toast = null; }, 3000);
+    },
+
+    fmt(v) { return new Intl.NumberFormat('th-TH', { minimumFractionDigits: 2 }).format(v || 0); },
+  };
+}
+</script>
+{% endblock %}

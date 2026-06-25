@@ -1,0 +1,237 @@
+{% extends "base.html" %}
+{% block title %}กระดาษทำการ{% endblock %}
+{% block page_title %}รายงาน — กระดาษทำการ (Working Paper){% endblock %}
+
+{% block content %}
+<div x-data="workingPaperPage()" x-init="init()">
+
+  <!-- Filter bar -->
+  <div class="bg-white rounded-xl p-4 shadow-sm border border-gray-100 mb-4 flex items-center gap-3 flex-wrap">
+    <label class="text-sm font-medium text-gray-700">งวด</label>
+    <input type="month" x-model="period"
+      class="px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"/>
+
+    <div class="flex items-center gap-3 ml-2">
+      <label class="text-sm text-gray-600 font-medium">ช่อง:</label>
+      <label class="flex items-center gap-1.5 text-sm cursor-pointer">
+        <input type="radio" x-model.number="columns" value="6" class="accent-blue-700"/> 6 ช่อง
+      </label>
+      <label class="flex items-center gap-1.5 text-sm cursor-pointer">
+        <input type="radio" x-model.number="columns" value="8" class="accent-blue-700"/> 8 ช่อง
+      </label>
+      <label class="flex items-center gap-1.5 text-sm cursor-pointer">
+        <input type="radio" x-model.number="columns" value="10" class="accent-blue-700"/> 10 ช่อง
+      </label>
+    </div>
+
+    <button @click="load()" class="px-4 py-2 bg-blue-700 text-white rounded-lg text-sm font-medium hover:bg-blue-800">แสดง</button>
+    <div class="ml-auto flex gap-2">
+      <a :href="'/api/v1/reports/working-paper?period=' + period + '&columns=' + columns + '&fmt=excel'"
+        class="px-3 py-2 border border-gray-300 text-gray-600 rounded-lg text-sm hover:bg-gray-50">Excel</a>
+    </div>
+  </div>
+
+  <!-- Loading -->
+  <template x-if="loading">
+    <div class="bg-white rounded-xl p-8 text-center text-gray-400 shadow-sm border border-gray-100">
+      <svg class="animate-spin w-8 h-8 mx-auto" fill="none" viewBox="0 0 24 24">
+        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+      </svg>
+    </div>
+  </template>
+
+  <!-- Table -->
+  <template x-if="!loading && report">
+    <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+      <div class="px-5 py-3 border-b border-gray-100 bg-gray-50">
+        <span class="text-sm font-semibold text-gray-700"
+          x-text="'กระดาษทำการ ' + report.columns + ' ช่อง — งวด ' + report.period"></span>
+      </div>
+      <div class="overflow-x-auto">
+        <table class="w-full text-xs border-collapse">
+          <thead>
+            <tr>
+              <!-- Account columns always shown -->
+              <th rowspan="2" class="px-2 py-2 text-left border border-gray-200 bg-gray-50 text-gray-700 font-semibold w-20">รหัส</th>
+              <th rowspan="2" class="px-2 py-2 text-left border border-gray-200 bg-gray-50 text-gray-700 font-semibold min-w-[180px]">ชื่อบัญชี</th>
+              <!-- Trial Balance — blue -->
+              <th colspan="2" class="px-2 py-1.5 text-center border border-gray-200 font-semibold text-white" style="background:#2563eb;">งบทดลอง</th>
+              <!-- Adjusting — orange (columns >= 8) -->
+              <template x-if="report.columns >= 8">
+                <th colspan="2" class="px-2 py-1.5 text-center border border-gray-200 font-semibold text-white" style="background:#ea580c;">รายการปรับปรุง</th>
+              </template>
+              <!-- P&L — green (columns >= 10) -->
+              <template x-if="report.columns >= 10">
+                <th colspan="2" class="px-2 py-1.5 text-center border border-gray-200 font-semibold text-white" style="background:#16a34a;">กำไรขาดทุน</th>
+              </template>
+              <!-- BS — purple (columns >= 10) -->
+              <template x-if="report.columns >= 10">
+                <th colspan="2" class="px-2 py-1.5 text-center border border-gray-200 font-semibold text-white" style="background:#7c3aed;">งบดุล</th>
+              </template>
+            </tr>
+            <tr>
+              <th class="px-2 py-1.5 text-right border border-gray-200 text-white font-medium" style="background:#3b82f6;">เดบิต</th>
+              <th class="px-2 py-1.5 text-right border border-gray-200 text-white font-medium" style="background:#3b82f6;">เครดิต</th>
+              <template x-if="report.columns >= 8">
+                <th class="px-2 py-1.5 text-right border border-gray-200 text-white font-medium" style="background:#f97316;">เดบิต</th>
+              </template>
+              <template x-if="report.columns >= 8">
+                <th class="px-2 py-1.5 text-right border border-gray-200 text-white font-medium" style="background:#f97316;">เครดิต</th>
+              </template>
+              <template x-if="report.columns >= 10">
+                <th class="px-2 py-1.5 text-right border border-gray-200 text-white font-medium" style="background:#22c55e;">เดบิต</th>
+              </template>
+              <template x-if="report.columns >= 10">
+                <th class="px-2 py-1.5 text-right border border-gray-200 text-white font-medium" style="background:#22c55e;">เครดิต</th>
+              </template>
+              <template x-if="report.columns >= 10">
+                <th class="px-2 py-1.5 text-right border border-gray-200 text-white font-medium" style="background:#8b5cf6;">เดบิต</th>
+              </template>
+              <template x-if="report.columns >= 10">
+                <th class="px-2 py-1.5 text-right border border-gray-200 text-white font-medium" style="background:#8b5cf6;">เครดิต</th>
+              </template>
+            </tr>
+          </thead>
+          <tbody>
+            <template x-for="(ln, i) in report.lines" :key="i">
+              <tr :class="ln.account_code === '' ? 'bg-yellow-50 font-semibold' : 'hover:bg-gray-50'">
+                <td class="px-2 py-1.5 border border-gray-100 font-mono text-gray-600" x-text="ln.account_code"></td>
+                <td class="px-2 py-1.5 border border-gray-100 text-gray-700" x-text="ln.account_name"></td>
+                <td class="px-2 py-1.5 border border-gray-100 text-right font-mono"
+                  :class="ln.trial_dr > 0 ? 'text-blue-700' : 'text-gray-300'"
+                  x-text="ln.trial_dr > 0 ? fmt(ln.trial_dr) : ''"></td>
+                <td class="px-2 py-1.5 border border-gray-100 text-right font-mono"
+                  :class="ln.trial_cr > 0 ? 'text-blue-700' : 'text-gray-300'"
+                  x-text="ln.trial_cr > 0 ? fmt(ln.trial_cr) : ''"></td>
+                <template x-if="report.columns >= 8">
+                  <td class="px-2 py-1.5 border border-gray-100 text-right font-mono"
+                    :class="ln.adjust_dr > 0 ? 'text-orange-600' : 'text-gray-300'"
+                    x-text="ln.adjust_dr > 0 ? fmt(ln.adjust_dr) : ''"></td>
+                </template>
+                <template x-if="report.columns >= 8">
+                  <td class="px-2 py-1.5 border border-gray-100 text-right font-mono"
+                    :class="ln.adjust_cr > 0 ? 'text-orange-600' : 'text-gray-300'"
+                    x-text="ln.adjust_cr > 0 ? fmt(ln.adjust_cr) : ''"></td>
+                </template>
+                <template x-if="report.columns >= 10">
+                  <td class="px-2 py-1.5 border border-gray-100 text-right font-mono"
+                    :class="ln.pl_dr > 0 ? 'text-green-700' : 'text-gray-300'"
+                    x-text="ln.pl_dr > 0 ? fmt(ln.pl_dr) : ''"></td>
+                </template>
+                <template x-if="report.columns >= 10">
+                  <td class="px-2 py-1.5 border border-gray-100 text-right font-mono"
+                    :class="ln.pl_cr > 0 ? 'text-green-700' : 'text-gray-300'"
+                    x-text="ln.pl_cr > 0 ? fmt(ln.pl_cr) : ''"></td>
+                </template>
+                <template x-if="report.columns >= 10">
+                  <td class="px-2 py-1.5 border border-gray-100 text-right font-mono"
+                    :class="ln.bs_dr > 0 ? 'text-purple-700' : 'text-gray-300'"
+                    x-text="ln.bs_dr > 0 ? fmt(ln.bs_dr) : ''"></td>
+                </template>
+                <template x-if="report.columns >= 10">
+                  <td class="px-2 py-1.5 border border-gray-100 text-right font-mono"
+                    :class="ln.bs_cr > 0 ? 'text-purple-700' : 'text-gray-300'"
+                    x-text="ln.bs_cr > 0 ? fmt(ln.bs_cr) : ''"></td>
+                </template>
+              </tr>
+            </template>
+          </tbody>
+          <tfoot>
+            <tr class="bg-gray-100 font-bold text-gray-800">
+              <td class="px-2 py-2 border border-gray-200" colspan="2">รวมทั้งสิ้น</td>
+              <td class="px-2 py-2 border border-gray-200 text-right font-mono text-blue-700" x-text="fmt(report.total_trial_dr)"></td>
+              <td class="px-2 py-2 border border-gray-200 text-right font-mono text-blue-700" x-text="fmt(report.total_trial_cr)"></td>
+              <template x-if="report.columns >= 8">
+                <td class="px-2 py-2 border border-gray-200 text-right font-mono text-orange-600" x-text="fmt(report.total_adjust_dr)"></td>
+              </template>
+              <template x-if="report.columns >= 8">
+                <td class="px-2 py-2 border border-gray-200 text-right font-mono text-orange-600" x-text="fmt(report.total_adjust_cr)"></td>
+              </template>
+              <template x-if="report.columns >= 10">
+                <td class="px-2 py-2 border border-gray-200 text-right font-mono text-green-700" x-text="fmt(report.total_pl_dr)"></td>
+              </template>
+              <template x-if="report.columns >= 10">
+                <td class="px-2 py-2 border border-gray-200 text-right font-mono text-green-700" x-text="fmt(report.total_pl_cr)"></td>
+              </template>
+              <template x-if="report.columns >= 10">
+                <td class="px-2 py-2 border border-gray-200 text-right font-mono text-purple-700" x-text="fmt(report.total_bs_dr)"></td>
+              </template>
+              <template x-if="report.columns >= 10">
+                <td class="px-2 py-2 border border-gray-200 text-right font-mono text-purple-700" x-text="fmt(report.total_bs_cr)"></td>
+              </template>
+            </tr>
+            <!-- Net profit/loss row for 10-col -->
+            <template x-if="report.columns >= 10 && report.net_profit_loss !== 0">
+              <tr class="bg-yellow-50 font-semibold text-yellow-800">
+                <td class="px-2 py-2 border border-gray-200" colspan="2"
+                  x-text="report.net_profit_loss >= 0 ? 'กำไรสุทธิ' : 'ขาดทุนสุทธิ'"></td>
+                <td class="px-2 py-2 border border-gray-200" colspan="2"></td>
+                <td class="px-2 py-2 border border-gray-200" colspan="2"></td>
+                <td class="px-2 py-2 border border-gray-200 text-right font-mono"
+                  x-text="report.net_profit_loss >= 0 ? fmt(report.net_profit_loss) : ''"></td>
+                <td class="px-2 py-2 border border-gray-200 text-right font-mono"
+                  x-text="report.net_profit_loss < 0 ? fmt(Math.abs(report.net_profit_loss)) : ''"></td>
+                <td class="px-2 py-2 border border-gray-200 text-right font-mono"
+                  x-text="report.net_profit_loss < 0 ? fmt(Math.abs(report.net_profit_loss)) : ''"></td>
+                <td class="px-2 py-2 border border-gray-200 text-right font-mono"
+                  x-text="report.net_profit_loss >= 0 ? fmt(report.net_profit_loss) : ''"></td>
+              </tr>
+            </template>
+          </tfoot>
+        </table>
+      </div>
+
+      <!-- Balance check -->
+      <div class="px-5 py-3 border-t border-gray-100 flex gap-6 text-sm">
+        <span class="text-gray-500">งบทดลอง:
+          <span :class="Math.abs(report.total_trial_dr - report.total_trial_cr) < 0.01 ? 'text-green-600 font-medium' : 'text-red-600 font-medium'"
+            x-text="Math.abs(report.total_trial_dr - report.total_trial_cr) < 0.01 ? '✓ สมดุล' : '✗ ไม่สมดุล'">
+          </span>
+        </span>
+        <template x-if="report.columns >= 10">
+          <span class="text-gray-500">กำไร(ขาดทุน)สุทธิ:
+            <span :class="report.net_profit_loss >= 0 ? 'text-green-600 font-semibold' : 'text-red-600 font-semibold'"
+              x-text="(report.net_profit_loss >= 0 ? '+' : '') + fmt(report.net_profit_loss)">
+            </span>
+          </span>
+        </template>
+      </div>
+    </div>
+  </template>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function workingPaperPage() {
+  const today = new Date();
+  const defaultPeriod = today.toISOString().slice(0, 7);
+
+  return {
+    period: defaultPeriod,
+    columns: 10,
+    report: null,
+    loading: false,
+
+    async init() { await this.load(); },
+
+    async load() {
+      this.loading = true;
+      const token = document.cookie.match(/access_token=([^;]+)/)?.[1] || '';
+      try {
+        const params = new URLSearchParams({ period: this.period, columns: this.columns });
+        const r = await fetch('/api/v1/reports/working-paper?' + params, {
+          headers: { Authorization: 'Bearer ' + token }
+        });
+        this.report = await r.json();
+      } catch { this.report = null; }
+      this.loading = false;
+    },
+
+    fmt(v) { return new Intl.NumberFormat('th-TH', { minimumFractionDigits: 2 }).format(v || 0); },
+  };
+}
+</script>
+{% endblock %}

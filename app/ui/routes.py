@@ -462,6 +462,33 @@ async def report_cost_center(request: Request):
     })
 
 
+@router.get("/reports/equity", response_class=HTMLResponse)
+async def reports_equity_page(request: Request):
+    try:
+        ctx = await get_ui_context(request)
+    except UIRedirectException as e:
+        return RedirectResponse(url=e.url, status_code=302)
+    return _r("reports/equity.html", request, _ctx(ctx))
+
+
+@router.get("/reports/notes", response_class=HTMLResponse)
+async def reports_notes_page(request: Request):
+    try:
+        ctx = await get_ui_context(request)
+    except UIRedirectException as e:
+        return RedirectResponse(url=e.url, status_code=302)
+    return _r("reports/notes.html", request, _ctx(ctx))
+
+
+@router.get("/reports/working-paper", response_class=HTMLResponse)
+async def reports_working_paper_page(request: Request):
+    try:
+        ctx = await get_ui_context(request)
+    except UIRedirectException as e:
+        return RedirectResponse(url=e.url, status_code=302)
+    return _r("reports/working_paper.html", request, _ctx(ctx))
+
+
 # ── Master data ───────────────────────────────────────────────────────────────
 
 @router.get("/master/coa", response_class=HTMLResponse)
