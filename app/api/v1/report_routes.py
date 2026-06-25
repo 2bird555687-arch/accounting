@@ -11,6 +11,7 @@ from fastapi.responses import Response
 from pydantic import BaseModel
 
 from app.api.deps import CTX, CompanyDB
+from decimal import Decimal
 
 router = APIRouter(prefix="/reports", tags=["Reports"])
 
@@ -291,6 +292,53 @@ async def cost_center_report(
     if fmt:
         return _export(report, fmt, f"CostCenter_{date_from}_{date_to}")
     return report.model_dump()
+
+
+# ── Equity Changes ───────────────────────────────────────────────────────────
+
+class EquityChangeIn(BaseModel):
+    change_type: str
+    account_code: str
+    partner_name: Optional[str] = None
+    amount: Decimal
+    description: str = ""
+    period: str
+
+
+@router.get("/equity")
+async def equity_report(
+    ctx: CTX,
+    db: CompanyDB,
+    period: str = Query(..., description="YYYY-MM"),
+    fmt: Optional[str] = Query(None),
+):
+    from app.reports import equity_changes as eq
+    report = await eq.generate(ctx, db, period)
+    if fmt:
+        return _export(report, fmt, f"Equity_{period}")
+    return report.model_dump()
+
+
+@router.post("/equity/manual-entry", status_code=201)
+async def equity_manual_entry(
+    data: EquityChangeIn,
+    ctx: CTX,
+    db: CompanyDB,
+):
+    from app.core.models import EquityChange
+    entry = EquityChange(
+        company_id=ctx.company_id,
+        period=data.period,
+        change_type=data.change_type,
+        account_code=data.account_code,
+        partner_name=data.partner_name,
+        amount=data.amount,
+        description=data.description,
+        source="manual",
+    )
+    db.add(entry)
+    await db.commit()
+    return {"ok": True, "id": entry.id}
 
 
 # ── Consolidation ─────────────────────────────────────────────────────────────
