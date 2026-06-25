@@ -13,6 +13,8 @@
   <script src="https://unpkg.com/htmx.org@1.9.12" defer></script>
   <!-- Alpine.js -->
   <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+  <!-- Tabler Icons -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
 
   {% block head %}{% endblock %}
 </head>
@@ -37,7 +39,7 @@
 
   <!-- สมุดรายวัน — collapsible group -->
   <div class="sb-group-head {% if '/journals' in request.url.path %}open{% endif %}" onclick="toggleGroup(this)">
-    <span class="sb-item-icon">📒</span>
+    <span class="sb-item-icon"><i class="ti ti-book-2"></i></span>
     <a href="/journals" style="color:inherit;text-decoration:none;flex:1;" onclick="event.stopPropagation();">สมุดรายวัน</a>
     <span class="sb-group-chev {% if '/journals' in request.url.path %}open{% endif %}">▶</span>
   </div>
@@ -54,8 +56,14 @@
 
   <!-- AR group -->
   <div class="sb-group-head {% if '/ar/' in request.url.path %}open{% endif %}" onclick="toggleGroup(this)">
-    <span class="sb-item-icon">🧾</span>
+    <span class="sb-item-icon"><i class="ti ti-file-invoice"></i></span>
     งานขาย (AR)
+    <span id="ar-overdue-badge"
+      hx-get="/api/v1/contacts/aging/ar?overdue_only=true"
+      hx-trigger="load"
+      hx-swap="innerHTML"
+      style="margin-left:auto;font-size:10px;background:var(--red);color:#fff;padding:1px 6px;border-radius:10px;display:none;">
+    </span>
     <span class="sb-group-chev {% if '/ar/' in request.url.path %}open{% endif %}">▶</span>
   </div>
   <div class="sb-sub {% if '/ar/' in request.url.path %}open{% endif %}">
@@ -69,7 +77,7 @@
 
   <!-- AP group -->
   <div class="sb-group-head {% if '/ap/' in request.url.path %}open{% endif %}" onclick="toggleGroup(this)">
-    <span class="sb-item-icon">🏷️</span>
+    <span class="sb-item-icon"><i class="ti ti-shopping-cart"></i></span>
     งานซื้อ (AP)
     <span class="sb-group-chev {% if '/ap/' in request.url.path %}open{% endif %}">▶</span>
   </div>
@@ -84,7 +92,7 @@
 
   <!-- INV group -->
   <div class="sb-group-head {% if '/inventory' in request.url.path %}open{% endif %}" onclick="toggleGroup(this)">
-    <span class="sb-item-icon">📦</span>
+    <span class="sb-item-icon"><i class="ti ti-box"></i></span>
     สินค้า/คลัง
     <span class="sb-group-chev {% if '/inventory' in request.url.path %}open{% endif %}">▶</span>
   </div>
@@ -95,7 +103,7 @@
 
   <div class="sb-section">ธนาคาร</div>
   <div class="sb-group-head {% if '/bank/' in request.url.path %}open{% endif %}" onclick="toggleGroup(this)">
-    <span class="sb-item-icon">🏦</span>
+    <span class="sb-item-icon"><i class="ti ti-building-bank"></i></span>
     ธนาคาร
     <span class="sb-group-chev {% if '/bank/' in request.url.path %}open{% endif %}">▶</span>
   </div>
@@ -108,7 +116,7 @@
 
   <div class="sb-section">เงินเดือน</div>
   <div class="sb-group-head {% if '/payroll/' in request.url.path %}open{% endif %}" onclick="toggleGroup(this)">
-    <span class="sb-item-icon">👥</span>
+    <span class="sb-item-icon"><i class="ti ti-users"></i></span>
     เงินเดือน
     <span class="sb-group-chev {% if '/payroll/' in request.url.path %}open{% endif %}">▶</span>
   </div>
@@ -129,7 +137,7 @@
 
   <div class="sb-section">อัตโนมัติ</div>
   <div class="sb-group-head {% if '/automation/' in request.url.path %}open{% endif %}" onclick="toggleGroup(this)">
-    <span class="sb-item-icon">🔄</span>
+    <span class="sb-item-icon"><i class="ti ti-refresh"></i></span>
     อัตโนมัติ
     <span class="sb-group-chev {% if '/automation/' in request.url.path %}open{% endif %}">▶</span>
   </div>
@@ -141,7 +149,7 @@
 
   <div class="sb-section">สินทรัพย์</div>
   <div class="sb-group-head {% if '/assets' in request.url.path %}open{% endif %}" onclick="toggleGroup(this)">
-    <span class="sb-item-icon">🏗️</span>
+    <span class="sb-item-icon"><i class="ti ti-building"></i></span>
     สินทรัพย์ถาวร
     <span class="sb-group-chev {% if '/assets' in request.url.path %}open{% endif %}">▶</span>
   </div>
@@ -151,14 +159,14 @@
 
   <div class="sb-section">เครื่องมือ</div>
   <a href="/ocr" class="sb-item {% if '/ocr' in request.url.path %}active{% endif %}">
-    <span class="sb-item-icon">📷</span>OCR สแกนเอกสาร
+    <span class="sb-item-icon"><i class="ti ti-scan"></i></span>OCR สแกนเอกสาร
   </a>
 
   <div class="sb-section">รายงาน</div>
 
   <!-- Reports group -->
   <div class="sb-group-head {% if '/reports' in request.url.path or request.url.path == '/ledger' %}open{% endif %}" onclick="toggleGroup(this)">
-    <span class="sb-item-icon">📊</span>
+    <span class="sb-item-icon"><i class="ti ti-chart-bar"></i></span>
     รายงาน
     <span class="sb-group-chev {% if '/reports' in request.url.path %}open{% endif %}">▶</span>
   </div>
@@ -181,20 +189,20 @@
   <div class="sb-section">ตั้งค่า</div>
   <a href="/master/coa"
      class="sb-item {% if '/master/coa' in request.url.path %}active{% endif %}">
-    <span class="sb-item-icon">📑</span>ผังบัญชี
+    <span class="sb-item-icon"><i class="ti ti-list"></i></span>ผังบัญชี
   </a>
   <a href="/master/contacts"
      class="sb-item {% if '/master/contacts' in request.url.path %}active{% endif %}">
-    <span class="sb-item-icon">👥</span>ทะเบียนลูกหนี้/เจ้าหนี้
+    <span class="sb-item-icon"><i class="ti ti-users"></i></span>ทะเบียนลูกหนี้/เจ้าหนี้
   </a>
   <a href="/settings/exchange-rates"
      class="sb-item {% if '/settings/exchange-rates' in request.url.path %}active{% endif %}">
-    <span class="sb-item-icon">💱</span>อัตราแลกเปลี่ยน
+    <span class="sb-item-icon"><i class="ti ti-currency-exchange"></i></span>อัตราแลกเปลี่ยน
   </a>
 
   {% if ctx and ctx.user_role.value in ('FIRM_ADMIN', 'ACCOUNTANT') %}
   <a href="/firm" class="sb-item {% if '/firm' in request.url.path %}active{% endif %}">
-    <span class="sb-item-icon">🏢</span>จัดการสำนักงาน
+    <span class="sb-item-icon"><i class="ti ti-building"></i></span>จัดการสำนักงาน
   </a>
   {% endif %}
 
@@ -254,5 +262,49 @@ function toggleGroup(head) {
 </script>
 
 {% block scripts %}{% endblock %}
+
+<div x-data="toastManager()" @notify.window="add($event.detail)" class="toast-wrap">
+  <template x-for="t in toasts" :key="t.id">
+    <div class="toast" :class="t.type" x-show="t.show" x-transition>
+      <i class="ti" :class="t.type==='ok' ? 'ti-check' : (t.type==='err' ? 'ti-x' : 'ti-alert-triangle')"></i>
+      <span x-text="t.msg"></span>
+    </div>
+  </template>
+</div>
+
+<script>
+function toastManager() {
+  return {
+    toasts: [],
+    add({ msg, type='ok' }) {
+      const id = Date.now();
+      this.toasts.push({ id, msg, type, show: true });
+      setTimeout(() => {
+        const t = this.toasts.find(t=>t.id===id);
+        if(t) t.show = false;
+        setTimeout(() => this.toasts = this.toasts.filter(t=>t.id!==id), 400);
+      }, 3000);
+    }
+  };
+}
+function notify(msg, type='ok') {
+  window.dispatchEvent(new CustomEvent('notify', { detail: { msg, type } }));
+}
+function getCookie(name) {
+  const m = document.cookie.match(new RegExp('(?:^|; )' + name + '=([^;]*)'));
+  return m ? decodeURIComponent(m[1]) : '';
+}
+async function api(method, url, body) {
+  const token = getCookie('access_token');
+  const opts = {
+    method,
+    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+  };
+  if (body) opts.body = JSON.stringify(body);
+  const res = await fetch(url, opts);
+  const data = await res.json();
+  return { ok: res.ok, data, status: res.status };
+}
+</script>
 </body>
 </html>

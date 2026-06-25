@@ -1,0 +1,9 @@
+{% macro empty_state(icon="ti-inbox", title="ไม่มีข้อมูล", subtitle="") %}
+<div style="text-align:center; padding:48px 24px; color:var(--text3);">
+  <i class="ti {{ icon }}" style="font-size:40px; display:block; margin-bottom:12px;"></i>
+  <div style="font-size:14px; font-weight:500; color:var(--text2);">{{ title }}</div>
+  {% if subtitle %}
+  <div style="font-size:12px; margin-top:4px;">{{ subtitle }}</div>
+  {% endif %}
+</div>
+{% endmacro %}

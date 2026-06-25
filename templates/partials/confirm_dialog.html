@@ -1,0 +1,18 @@
+{% macro confirm_dialog(id, title, message, action_label="ยืนยัน", danger=true) %}
+<div x-data="{ open: false }" :id="'dialog-' + '{{ id }}'"
+     @open-dialog-{{ id }}.window="open=true" x-show="open">
+  <div class="dialog-overlay" @click.self="open=false">
+    <div class="dialog-box">
+      <h3>{{ title }}</h3>
+      <p>{{ message }}</p>
+      <div class="dialog-actions">
+        <button class="btn btn-ghost" @click="open=false">ยกเลิก</button>
+        <button class="btn {% if danger %}btn-danger{% else %}btn-primary{% endif %}"
+                @click="$dispatch('confirmed-{{ id }}'); open=false">
+          {{ action_label }}
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+{% endmacro %}

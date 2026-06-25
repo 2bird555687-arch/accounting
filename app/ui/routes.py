@@ -16,6 +16,26 @@ router = APIRouter(tags=["UI"])
 templates = Jinja2Templates(directory="templates")
 
 
+@templates.env.filter
+def currency(value):
+    try:
+        return f"{float(value):,.2f}"
+    except (TypeError, ValueError):
+        return "0.00"
+
+
+@templates.env.filter
+def thdate(value):
+    if not value:
+        return "-"
+    months = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.',
+              'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.']
+    try:
+        return f"{value.day} {months[value.month-1]} {str(value.year+543)[2:]}"
+    except Exception:
+        return str(value)
+
+
 def _ctx(ctx=None, user=None, **extra) -> dict:
     """Build template context dict — request is passed separately in Starlette 1.x."""
     return {"ctx": ctx, "user": user, "today": date.today(), **extra}
