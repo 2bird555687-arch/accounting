@@ -1,0 +1,272 @@
+{% extends "base.html" %}
+{% block title %}บันทึกสมุดรายวัน{% endblock %}
+{% block page_title %}สมุดรายวัน — บันทึกรายการใหม่{% endblock %}
+
+{% block content %}
+<div x-data="journalNew()" x-init="init()">
+
+  <div style="margin-bottom:12px;">
+    <a href="/journals" class="btn btn-ghost btn-sm">← กลับสมุดรายวัน</a>
+  </div>
+
+  <div class="grid2">
+
+    <!-- Left: form -->
+    <div style="display:flex;flex-direction:column;gap:16px;">
+
+      <!-- Header -->
+      <div class="panel">
+        <div class="panel-head"><span class="panel-title">ข้อมูลหัว</span></div>
+        <div class="form-grid">
+
+          <div class="form-group">
+            <label>ประเภทสมุด <span style="color:var(--red)">*</span></label>
+            <select x-model="form.journal_type">
+              <option value="GJ">GJ — รายวันทั่วไป</option>
+              <option value="SJ">SJ — สมุดขาย</option>
+              <option value="PJ">PJ — สมุดซื้อ</option>
+              <option value="CR">CR — รับเงิน</option>
+              <option value="CP">CP — จ่ายเงิน</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label>วันที่ <span style="color:var(--red)">*</span></label>
+            <input type="date" x-model="form.entry_date" />
+          </div>
+
+          <div class="form-group" style="grid-column:1/-1">
+            <label>คำอธิบาย <span style="color:var(--red)">*</span></label>
+            <input type="text" x-model="form.description" placeholder="รายละเอียดรายการ..." />
+          </div>
+
+          <div class="form-group">
+            <label>เลขที่อ้างอิง</label>
+            <input type="text" x-model="form.reference" placeholder="เลขที่เอกสารอ้างอิง..." />
+          </div>
+
+        </div>
+      </div>
+
+      <!-- Lines -->
+      <div class="panel">
+        <div class="panel-head">
+          <span class="panel-title">รายการบัญชี</span>
+          <button @click="addLine()" class="btn btn-ghost btn-sm">+ เพิ่มบรรทัด</button>
+        </div>
+        <div class="panel-body">
+          <table>
+            <thead>
+              <tr>
+                <th style="width:110px">รหัสบัญชี</th>
+                <th>ชื่อบัญชี</th>
+                <th style="width:70px;text-align:center">Dr/Cr</th>
+                <th class="num" style="width:130px">จำนวนเงิน</th>
+                <th style="width:160px">คำอธิบายบรรทัด</th>
+                <th style="width:30px"></th>
+              </tr>
+            </thead>
+            <tbody>
+              <template x-for="(line, i) in form.lines" :key="i">
+                <tr>
+                  <td>
+                    <input type="text" x-model="line.account_code"
+                      @blur="lookupAccount(i)"
+                      placeholder="เช่น 1101"
+                      style="font-family:var(--mono);width:100px;" />
+                  </td>
+                  <td>
+                    <span x-show="line.account_name" style="font-size:12px;color:var(--text2)" x-text="line.account_name"></span>
+                    <span x-show="line.account_error" style="font-size:11px;color:var(--red)" x-text="line.account_error"></span>
+                  </td>
+                  <td style="text-align:center">
+                    <div style="display:flex;border:1px solid var(--border);border-radius:var(--r);overflow:hidden;width:80px;margin:auto;">
+                      <div @click="line.side='DR'"
+                        :style="line.side==='DR' ? 'background:var(--blue);color:#fff;' : 'background:var(--surface);color:var(--text2);'"
+                        style="flex:1;padding:4px 0;text-align:center;cursor:pointer;font-size:12px;font-weight:600;">Dr</div>
+                      <div @click="line.side='CR'"
+                        :style="line.side==='CR' ? 'background:var(--red);color:#fff;' : 'background:var(--surface);color:var(--text2);'"
+                        style="flex:1;padding:4px 0;text-align:center;cursor:pointer;font-size:12px;font-weight:600;">Cr</div>
+                    </div>
+                  </td>
+                  <td>
+                    <input type="number" x-model.number="line.amount" @input="calcBalance()"
+                      min="0" step="0.01" style="text-align:right;" placeholder="0.00" />
+                  </td>
+                  <td>
+                    <input type="text" x-model="line.description" placeholder="รายละเอียด..." style="font-size:12px;" />
+                  </td>
+                  <td>
+                    <button @click="removeLine(i)" x-show="form.lines.length > 2"
+                      style="background:none;border:none;cursor:pointer;color:var(--text3);font-size:16px;"
+                      onmouseover="this.style.color='var(--red)'" onmouseout="this.style.color='var(--text3)'">×</button>
+                  </td>
+                </tr>
+              </template>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- Right: summary -->
+    <div>
+      <div class="panel">
+        <div class="panel-head"><span class="panel-title">สรุปยอด</span></div>
+        <div style="padding:16px;display:flex;flex-direction:column;gap:12px;">
+
+          <!-- Dr total -->
+          <div style="display:flex;justify-content:space-between;align-items:center;">
+            <span style="font-size:13px;color:var(--text2)">รวมเดบิต</span>
+            <span style="font-family:var(--mono);font-size:15px;color:var(--blue);font-weight:600;" x-text="fmt(totalDr)"></span>
+          </div>
+          <!-- Cr total -->
+          <div style="display:flex;justify-content:space-between;align-items:center;">
+            <span style="font-size:13px;color:var(--text2)">รวมเครดิต</span>
+            <span style="font-family:var(--mono);font-size:15px;color:var(--red);font-weight:600;" x-text="fmt(totalCr)"></span>
+          </div>
+
+          <!-- Balance indicator -->
+          <div style="padding:10px;border-radius:var(--r);text-align:center;font-size:13px;font-weight:600;"
+            :style="isBalanced ? 'background:var(--green-l);color:var(--green)' : 'background:var(--red-l);color:var(--red)'">
+            <span x-text="isBalanced ? '✓ Dr = Cr สมดุล' : '✗ Dr ≠ Cr ต่าง ' + fmt(Math.abs(totalDr - totalCr))"></span>
+          </div>
+
+          <div style="border-top:1px solid var(--border);padding-top:12px;display:flex;flex-direction:column;gap:8px;">
+            <button @click="save()" :disabled="!canSave || saving" class="btn btn-primary" style="width:100%;justify-content:center;">
+              <span x-text="saving ? 'กำลังบันทึก...' : 'บันทึก JE'"></span>
+            </button>
+          </div>
+
+          <div x-show="error" style="padding:10px;background:var(--red-l);border-radius:var(--r);font-size:12px;color:var(--red)" x-text="error"></div>
+        </div>
+      </div>
+
+      <!-- Quick COA lookup -->
+      <div class="panel" style="margin-top:12px;">
+        <div class="panel-head"><span class="panel-title" style="font-size:12px;">บัญชีที่ใช้บ่อย</span></div>
+        <div style="padding:12px;display:flex;flex-direction:column;gap:4px;">
+          <template x-for="c in commonAccounts" :key="c.code">
+            <div style="display:flex;justify-content:space-between;font-size:11px;padding:3px 0;border-bottom:1px solid var(--bg);">
+              <span style="font-family:var(--mono);color:var(--accent)" x-text="c.code"></span>
+              <span style="color:var(--text2)" x-text="c.name"></span>
+            </div>
+          </template>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function journalNew() {
+  const today = new Date().toISOString().slice(0, 10);
+  return {
+    form: {
+      journal_type: 'GJ',
+      entry_date: today,
+      description: '',
+      reference: '',
+      lines: [
+        { account_code: '', account_name: '', account_error: '', side: 'DR', amount: 0, description: '' },
+        { account_code: '', account_name: '', account_error: '', side: 'CR', amount: 0, description: '' },
+      ],
+    },
+    totalDr: 0,
+    totalCr: 0,
+    saving: false,
+    error: '',
+
+    commonAccounts: [
+      { code: '1101', name: 'เงินสด' },
+      { code: '1102', name: 'เงินฝากธนาคาร' },
+      { code: '1110', name: 'ลูกหนี้การค้า' },
+      { code: '2101', name: 'เจ้าหนี้การค้า' },
+      { code: '3101', name: 'ทุน' },
+      { code: '4101', name: 'รายได้จากการขาย' },
+      { code: '5101', name: 'ต้นทุนขาย' },
+      { code: '6101', name: 'เงินเดือน' },
+      { code: '6102', name: 'ค่าเช่า' },
+      { code: '6199', name: 'ค่าใช้จ่ายอื่น' },
+    ],
+
+    token() { return document.cookie.match(/access_token=([^;]+)/)?.[1] || ''; },
+
+    get isBalanced() { return Math.abs(this.totalDr - this.totalCr) < 0.01 && this.totalDr > 0; },
+    get canSave() { return this.isBalanced && this.form.description.trim() && !this.saving; },
+
+    addLine() {
+      this.form.lines.push({ account_code: '', account_name: '', account_error: '', side: 'DR', amount: 0, description: '' });
+    },
+
+    removeLine(i) {
+      if (this.form.lines.length > 2) {
+        this.form.lines.splice(i, 1);
+        this.calcBalance();
+      }
+    },
+
+    calcBalance() {
+      this.totalDr = this.form.lines.filter(l => l.side === 'DR').reduce((s, l) => s + (parseFloat(l.amount) || 0), 0);
+      this.totalCr = this.form.lines.filter(l => l.side === 'CR').reduce((s, l) => s + (parseFloat(l.amount) || 0), 0);
+    },
+
+    async lookupAccount(i) {
+      const code = this.form.lines[i].account_code.trim();
+      if (!code) return;
+      const r = await fetch('/api/v1/coa/' + code, { headers: { Authorization: 'Bearer ' + this.token() } });
+      if (r.ok) {
+        const d = await r.json();
+        const acc = d.data || d;
+        this.form.lines[i].account_name = acc.name || acc.account_name || '';
+        this.form.lines[i].account_error = '';
+      } else {
+        this.form.lines[i].account_name = '';
+        this.form.lines[i].account_error = 'ไม่พบบัญชี ' + code;
+      }
+    },
+
+    async save() {
+      this.saving = true; this.error = '';
+      const validLines = this.form.lines.filter(l => l.account_code.trim() && l.amount > 0);
+      const body = {
+        journal_type: this.form.journal_type,
+        entry_date: this.form.entry_date,
+        description: this.form.description,
+        reference: this.form.reference || null,
+        lines: validLines.map(l => ({
+          account_code: l.account_code.trim(),
+          side: l.side,
+          amount: parseFloat(l.amount),
+          description: l.description || null,
+        })),
+      };
+      try {
+        const r = await fetch('/api/v1/journals', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + this.token() },
+          body: JSON.stringify(body),
+        });
+        const d = await r.json();
+        if (r.ok || r.status === 201) {
+          const jno = d.data?.entry_no || d.entry_no || '';
+          window.location = '/journals' + (jno ? '/' + jno : '');
+        } else {
+          this.error = d.detail || JSON.stringify(d) || 'เกิดข้อผิดพลาด';
+        }
+      } catch (err) {
+        this.error = 'ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์: ' + err.message;
+      }
+      this.saving = false;
+    },
+
+    fmt(v) { return new Intl.NumberFormat('th-TH', { minimumFractionDigits: 2 }).format(v || 0); },
+
+    init() { this.calcBalance(); },
+  };
+}
+</script>
+{% endblock %}

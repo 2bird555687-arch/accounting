@@ -120,6 +120,15 @@ async def journal_list(request: Request, jtype: str = ""):
     return _r("journals/list.html", request, _ctx(ctx, jtype=jtype))
 
 
+@router.get("/journals/new", response_class=HTMLResponse)
+async def journal_new(request: Request):
+    try:
+        ctx = await get_ui_context(request)
+    except UIRedirectException as e:
+        return RedirectResponse(url=e.url, status_code=302)
+    return _r("journals/new.html", request, _ctx(ctx))
+
+
 @router.get("/journals/{entry_no}", response_class=HTMLResponse)
 async def journal_detail(request: Request, entry_no: str):
     try:
