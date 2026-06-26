@@ -2,11 +2,12 @@
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import date, datetime
 from typing import Optional
 
 from sqlalchemy import (
     Boolean,
+    Date,
     DateTime,
     ForeignKey,
     Integer,
@@ -201,3 +202,32 @@ class UserPermission(Base):
         return (
             f"<UserPermission user={self.user_id} company={self.company_id} role={self.role!r}>"
         )
+
+
+# ── FiscalYear ────────────────────────────────────────────────────────────────
+
+class FiscalYear(Base):
+    """ปีงบการเงินของ Company (เก็บใน platform DB)."""
+
+    __tablename__ = "fiscal_years"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    company_id: Mapped[int] = mapped_column(Integer, ForeignKey("companies.id"), nullable=False)
+    year: Mapped[int] = mapped_column(Integer, nullable=False)
+    start_date: Mapped[date] = mapped_column(Date, nullable=False)
+    end_date: Mapped[date] = mapped_column(Date, nullable=False)
+    status: Mapped[str] = mapped_column(String(20), default="active", nullable=False)
+    # "active" | "closing" | "closed"
+    is_locked: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+    __table_args__ = (
+        UniqueConstraint("company_id", "year", name="uq_fiscal_year"),
+    )
+
+    company: Mapped[Company] = relationship("Company")
+
+    def __repr__(self) -> str:
+        return f"<FiscalYear company={self.company_id} year={self.year} status={self.status!r}>"

@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
+from pydantic import BaseModel
 
 from app.api.deps import CTX, SharedDB
 from app.api.responses import ok, paginated
@@ -358,9 +359,67 @@ async def list_user_permissions(
     return ok([PermissionOut.model_validate(p) for p in perms])
 
 
+# ══════════════════════════════════════════════════════════════════════════════
+# FISCAL YEARS
+# ══════════════════════════════════════════════════════════════════════════════
+
+from datetime import date as _date
+
+fiscal_years = APIRouter(prefix="/companies/{company_id}/fiscal-years")
+
+
+@fiscal_years.get("", response_model=dict, summary="รายการปีงบการเงิน")
+async def list_fiscal_years(company_id: int, ctx: CTX, shared: SharedDB) -> dict:
+    from sqlalchemy import select
+    from app.platform.models import FiscalYear
+
+    rows = await shared.scalars(
+        select(FiscalYear).where(FiscalYear.company_id == company_id).order_by(FiscalYear.year.desc())
+    )
+    result = [
+        {
+            "id": r.id, "company_id": r.company_id, "year": r.year,
+            "start_date": str(r.start_date), "end_date": str(r.end_date),
+            "status": r.status, "is_locked": r.is_locked,
+        }
+        for r in rows.all()
+    ]
+    return ok(result)
+
+
+class FiscalYearCreate(BaseModel):
+    year: int
+    start_date: str
+    end_date: str
+
+
+@fiscal_years.post("", response_model=dict, status_code=201, summary="สร้างปีงบการเงิน")
+async def create_fiscal_year(company_id: int, data: FiscalYearCreate, ctx: CTX, shared: SharedDB) -> dict:
+    from sqlalchemy import select
+    from app.platform.models import FiscalYear
+
+    existing = await shared.scalar(
+        select(FiscalYear).where(FiscalYear.company_id == company_id, FiscalYear.year == data.year)
+    )
+    if existing:
+        raise HTTPException(400, f"ปีงบ {data.year} มีอยู่แล้ว")
+
+    fy = FiscalYear(
+        company_id=company_id,
+        year=data.year,
+        start_date=_date.fromisoformat(data.start_date),
+        end_date=_date.fromisoformat(data.end_date),
+        status="active",
+    )
+    shared.add(fy)
+    await shared.flush()
+    return ok({"id": fy.id, "year": fy.year, "status": fy.status}, "สร้างปีงบสำเร็จ")
+
+
 # ── Register all sub-routers ──────────────────────────────────────────────────
 
 router.include_router(firms)
 router.include_router(companies)
 router.include_router(branches)
 router.include_router(users)
+router.include_router(fiscal_years)

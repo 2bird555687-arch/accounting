@@ -1,0 +1,313 @@
+{% extends "base.html" %}
+{% block title %}จัดการผู้ใช้งาน{% endblock %}
+{% block page_title %}จัดการผู้ใช้งาน{% endblock %}
+
+{% block content %}
+<div x-data="usersAdmin()" x-init="init()">
+
+  <!-- Header -->
+  <div class="flex items-center justify-between mb-6">
+    <div>
+      <h1 class="text-xl font-bold text-gray-800">จัดการผู้ใช้งาน</h1>
+      <p class="text-sm text-gray-500 mt-1">ผู้ใช้งานทั้งหมดในสำนักงาน</p>
+    </div>
+    <button @click="openCreate()" class="btn-primary flex items-center gap-2">
+      <i class="ti ti-user-plus"></i> เพิ่มผู้ใช้
+    </button>
+  </div>
+
+  <!-- Search -->
+  <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-4 mb-4">
+    <input
+      x-model="search"
+      @input.debounce.300ms="filterList()"
+      type="text" placeholder="ค้นหาชื่อ / username / email..."
+      class="input-field w-full max-w-sm"
+    />
+  </div>
+
+  <!-- Table -->
+  <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+    <table class="w-full text-sm">
+      <thead class="bg-gray-50 text-xs text-gray-500 uppercase">
+        <tr>
+          <th class="px-4 py-3 text-left">ชื่อ-นามสกุล</th>
+          <th class="px-4 py-3 text-left">Username</th>
+          <th class="px-4 py-3 text-left">Email</th>
+          <th class="px-4 py-3 text-left">Role</th>
+          <th class="px-4 py-3 text-center">สถานะ</th>
+          <th class="px-4 py-3 text-center">จัดการ</th>
+        </tr>
+      </thead>
+      <tbody>
+        <template x-if="loading">
+          <tr><td colspan="6" class="px-4 py-8 text-center text-gray-400">กำลังโหลด...</td></tr>
+        </template>
+        <template x-if="!loading && filtered.length === 0">
+          <tr><td colspan="6" class="px-4 py-8 text-center text-gray-400">ไม่พบข้อมูล</td></tr>
+        </template>
+        <template x-for="u in filtered" :key="u.id">
+          <tr class="border-t border-gray-100 hover:bg-gray-50">
+            <td class="px-4 py-3 font-medium" x-text="u.full_name"></td>
+            <td class="px-4 py-3 font-mono text-xs" x-text="u.username"></td>
+            <td class="px-4 py-3 text-gray-500 text-xs" x-text="u.email"></td>
+            <td class="px-4 py-3">
+              <span class="badge-info text-xs" x-text="roleLabel(u.default_role)"></span>
+            </td>
+            <td class="px-4 py-3 text-center">
+              <span
+                :class="u.is_active ? 'badge-success' : 'badge-muted'"
+                x-text="u.is_active ? 'ใช้งาน' : 'ปิด'"
+              ></span>
+            </td>
+            <td class="px-4 py-3 text-center">
+              <button @click="openPermissions(u)" class="btn-sm-ghost" title="สิทธิ์">
+                <i class="ti ti-shield-check"></i>
+              </button>
+              <button @click="openEdit(u)" class="btn-sm-ghost" title="แก้ไข">
+                <i class="ti ti-edit"></i>
+              </button>
+              <button @click="resetPwd(u)" class="btn-sm-ghost text-amber-500" title="รีเซ็ตรหัสผ่าน">
+                <i class="ti ti-key"></i>
+              </button>
+            </td>
+          </tr>
+        </template>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Create / Edit Modal -->
+  <div x-show="showModal" x-cloak class="modal-overlay" @click.self="showModal=false">
+    <div class="modal-box w-full max-w-lg">
+      <div class="modal-header">
+        <h2 class="text-base font-semibold" x-text="editId ? 'แก้ไขผู้ใช้' : 'เพิ่มผู้ใช้ใหม่'"></h2>
+        <button @click="showModal=false" class="btn-icon"><i class="ti ti-x"></i></button>
+      </div>
+      <div class="modal-body space-y-4">
+        <div>
+          <label class="form-label">ชื่อ-นามสกุล <span class="text-red-500">*</span></label>
+          <input x-model="form.full_name" type="text" class="input-field w-full" />
+        </div>
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <label class="form-label">Username <span class="text-red-500">*</span></label>
+            <input x-model="form.username" type="text" class="input-field w-full font-mono" :disabled="!!editId" />
+          </div>
+          <div>
+            <label class="form-label">Role</label>
+            <select x-model="form.default_role" class="input-field w-full">
+              <option value="firm_admin">Firm Admin</option>
+              <option value="accountant">นักบัญชี</option>
+              <option value="junior">Junior</option>
+              <option value="readonly">อ่านอย่างเดียว</option>
+            </select>
+          </div>
+        </div>
+        <div>
+          <label class="form-label">Email <span class="text-red-500">*</span></label>
+          <input x-model="form.email" type="email" class="input-field w-full" />
+        </div>
+        <template x-if="!editId">
+          <div>
+            <label class="form-label">รหัสผ่านเริ่มต้น <span class="text-red-500">*</span></label>
+            <input x-model="form.password" type="password" class="input-field w-full" />
+          </div>
+        </template>
+      </div>
+      <div class="modal-footer">
+        <button @click="showModal=false" class="btn-secondary">ยกเลิก</button>
+        <button @click="save()" :disabled="saving" class="btn-primary" x-text="saving ? 'กำลังบันทึก...' : 'บันทึก'"></button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Permissions Modal -->
+  <div x-show="showPerms" x-cloak class="modal-overlay" @click.self="showPerms=false">
+    <div class="modal-box w-full max-w-xl">
+      <div class="modal-header">
+        <h2 class="text-base font-semibold">สิทธิ์การเข้าถึง — <span x-text="permUser?.full_name"></span></h2>
+        <button @click="showPerms=false" class="btn-icon"><i class="ti ti-x"></i></button>
+      </div>
+      <div class="modal-body">
+        <p class="text-xs text-gray-500 mb-3">บริษัทที่ผู้ใช้นี้เข้าถึงได้</p>
+        <table class="w-full text-sm mb-4">
+          <thead class="text-xs text-gray-500 uppercase border-b">
+            <tr>
+              <th class="py-2 text-left">บริษัท</th>
+              <th class="py-2 text-left">Role</th>
+              <th class="py-2 text-center">สถานะ</th>
+              <th class="py-2 text-center">ลบ</th>
+            </tr>
+          </thead>
+          <tbody>
+            <template x-for="p in permissions" :key="p.id">
+              <tr class="border-b border-gray-100">
+                <td class="py-2" x-text="p.company_name || p.company_id"></td>
+                <td class="py-2 text-xs" x-text="roleLabel(p.role)"></td>
+                <td class="py-2 text-center">
+                  <span :class="p.is_active ? 'badge-success' : 'badge-muted'" x-text="p.is_active ? 'ใช้งาน' : 'ปิด'"></span>
+                </td>
+                <td class="py-2 text-center">
+                  <button @click="revokePerm(p)" class="btn-sm-ghost text-red-400"><i class="ti ti-trash"></i></button>
+                </td>
+              </tr>
+            </template>
+            <template x-if="permissions.length === 0">
+              <tr><td colspan="4" class="py-4 text-center text-gray-400">ยังไม่มีสิทธิ์</td></tr>
+            </template>
+          </tbody>
+        </table>
+        <!-- Grant permission -->
+        <div class="border-t pt-4 space-y-2">
+          <p class="text-xs text-gray-500 font-semibold">เพิ่มสิทธิ์</p>
+          <div class="flex gap-2">
+            <select x-model.number="grantForm.company_id" class="input-field flex-1">
+              <option value="">— เลือกบริษัท —</option>
+              <template x-for="c in companies" :key="c.id">
+                <option :value="c.id" x-text="c.name"></option>
+              </template>
+            </select>
+            <select x-model="grantForm.role" class="input-field w-36">
+              <option value="accountant">นักบัญชี</option>
+              <option value="junior">Junior</option>
+              <option value="readonly">อ่านอย่างเดียว</option>
+            </select>
+            <button @click="grantPerm()" :disabled="!grantForm.company_id || savingPerm" class="btn-primary text-sm px-3" x-text="savingPerm ? '...' : 'เพิ่ม'"></button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+function usersAdmin() {
+  return {
+    loading: true, saving: false, savingPerm: false,
+    showModal: false, showPerms: false,
+    search: '', list: [], filtered: [],
+    companies: [],
+    editId: null,
+    permUser: null, permissions: [],
+    form: { full_name: '', username: '', email: '', default_role: 'junior', password: '' },
+    grantForm: { company_id: '', role: 'accountant' },
+
+    async init() {
+      await Promise.all([this.load(), this.loadCompanies()]);
+    },
+
+    async load() {
+      this.loading = true;
+      try {
+        const r = await api('GET', '/api/v1/platform/users');
+        this.list = r.data || [];
+        this.filterList();
+      } finally { this.loading = false; }
+    },
+
+    async loadCompanies() {
+      const r = await api('GET', '/api/v1/platform/companies');
+      this.companies = r.data || [];
+    },
+
+    filterList() {
+      const q = this.search.toLowerCase();
+      this.filtered = q
+        ? this.list.filter(u =>
+            u.full_name.toLowerCase().includes(q) ||
+            u.username.toLowerCase().includes(q) ||
+            u.email.toLowerCase().includes(q)
+          )
+        : [...this.list];
+    },
+
+    openCreate() {
+      this.editId = null;
+      this.form = { full_name: '', username: '', email: '', default_role: 'junior', password: '' };
+      this.showModal = true;
+    },
+
+    openEdit(u) {
+      this.editId = u.id;
+      this.form = { ...u };
+      this.showModal = true;
+    },
+
+    async save() {
+      if (!this.form.full_name || !this.form.username || !this.form.email) {
+        notify('กรอกข้อมูลให้ครบ', 'error'); return;
+      }
+      this.saving = true;
+      try {
+        if (this.editId) {
+          await api('PUT', `/api/v1/platform/users/${this.editId}`, this.form);
+          notify('แก้ไขข้อมูลสำเร็จ');
+        } else {
+          if (!this.form.password) { notify('กรอกรหัสผ่าน', 'error'); this.saving = false; return; }
+          await api('POST', '/api/v1/platform/users', this.form);
+          notify('เพิ่มผู้ใช้สำเร็จ');
+        }
+        this.showModal = false;
+        await this.load();
+      } catch(e) { notify(e.message || 'เกิดข้อผิดพลาด', 'error'); }
+      finally { this.saving = false; }
+    },
+
+    async openPermissions(u) {
+      this.permUser = u;
+      this.permissions = [];
+      this.grantForm = { company_id: '', role: 'accountant' };
+      this.showPerms = true;
+      const r = await api('GET', `/api/v1/platform/users/${u.id}/permissions`);
+      // enrich with company names
+      const perms = r.data || [];
+      perms.forEach(p => {
+        const c = this.companies.find(x => x.id === p.company_id);
+        p.company_name = c ? c.name : `Company ${p.company_id}`;
+      });
+      this.permissions = perms;
+    },
+
+    async grantPerm() {
+      this.savingPerm = true;
+      try {
+        await api('POST', `/api/v1/platform/users/${this.permUser.id}/grant-company`, this.grantForm);
+        notify('เพิ่มสิทธิ์สำเร็จ');
+        const r = await api('GET', `/api/v1/platform/users/${this.permUser.id}/permissions`);
+        const perms = r.data || [];
+        perms.forEach(p => {
+          const c = this.companies.find(x => x.id === p.company_id);
+          p.company_name = c ? c.name : `Company ${p.company_id}`;
+        });
+        this.permissions = perms;
+      } catch(e) { notify(e.message || 'เกิดข้อผิดพลาด', 'error'); }
+      finally { this.savingPerm = false; }
+    },
+
+    async revokePerm(p) {
+      if (!confirm('ยืนยันการยกเลิกสิทธิ์?')) return;
+      try {
+        await api('DELETE', `/api/v1/platform/users/${this.permUser.id}/revoke-company/${p.company_id}`);
+        notify('ยกเลิกสิทธิ์สำเร็จ');
+        this.permissions = this.permissions.filter(x => x.id !== p.id);
+      } catch(e) { notify(e.message || 'เกิดข้อผิดพลาด', 'error'); }
+    },
+
+    async resetPwd(u) {
+      const pwd = prompt(`รหัสผ่านใหม่สำหรับ ${u.username}:`);
+      if (!pwd) return;
+      try {
+        await api('POST', `/api/v1/platform/users/${u.id}/change-password`, { new_password: pwd, old_password: '' });
+        notify('รีเซ็ตรหัสผ่านสำเร็จ');
+      } catch(e) { notify(e.message || 'เกิดข้อผิดพลาด', 'error'); }
+    },
+
+    roleLabel(r) {
+      return { firm_admin: 'Firm Admin', accountant: 'นักบัญชี', junior: 'Junior', readonly: 'อ่านอย่างเดียว' }[r] || r;
+    },
+  };
+}
+</script>
+{% endblock %}

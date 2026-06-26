@@ -201,8 +201,18 @@
   </a>
 
   {% if ctx and ctx.user_role.value in ('FIRM_ADMIN', 'ACCOUNTANT') %}
-  <a href="/firm" class="sb-item {% if '/firm' in request.url.path %}active{% endif %}">
+  <a href="/firm" class="sb-item {% if request.url.path == '/firm' %}active{% endif %}">
     <span class="sb-item-icon"><i class="ti ti-building"></i></span>จัดการสำนักงาน
+  </a>
+  {% endif %}
+
+  {% if ctx and ctx.user_role.value == 'FIRM_ADMIN' %}
+  <div class="sb-section">Admin</div>
+  <a href="/platform/companies" class="sb-item {% if '/platform/companies' in request.url.path %}active{% endif %}">
+    <span class="sb-item-icon"><i class="ti ti-building-skyscraper"></i></span>บริษัท
+  </a>
+  <a href="/platform/users" class="sb-item {% if '/platform/users' in request.url.path %}active{% endif %}">
+    <span class="sb-item-icon"><i class="ti ti-users"></i></span>ผู้ใช้งาน
   </a>
   {% endif %}
 

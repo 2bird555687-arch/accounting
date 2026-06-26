@@ -24,7 +24,7 @@ from app.platform.auth import (
     get_current_user,
     verify_access_token,
 )
-from app.platform.models import User
+from app.platform.models import Company, FiscalYear, User, UserPermission
 from app.platform.user_service import LoginOut, UserLogin, UserOut, UserService
 
 router = APIRouter(prefix="/auth", tags=["Auth"])
@@ -38,6 +38,12 @@ class RefreshRequest(BaseModel):
 
 class SwitchPeriodRequest(BaseModel):
     period: date  # เปลี่ยน active period (YYYY-MM-01)
+
+
+class SelectContextRequest(BaseModel):
+    company_id: int
+    fiscal_year_id: Optional[int] = None
+    branch_id: Optional[int] = None  # None = ทุกสาขา
 
 
 # ── Routes ────────────────────────────────────────────────────────────────────
@@ -199,3 +205,83 @@ async def switch_period(body: SwitchPeriodRequest, ctx: CTX) -> dict:
         "expires_in": settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
         "period": body.period.isoformat(),
     })
+
+
+@router.get("/my-companies", response_model=dict, summary="รายการบริษัทที่ user เข้าได้")
+async def my_companies(ctx: CTX, shared: SharedDB) -> dict:
+    """คืนรายการ company + fiscal_years + branches ที่ user มีสิทธิ์เข้าถึง."""
+    perms = await shared.scalars(
+        select(UserPermission).where(
+            UserPermission.user_id == ctx.user_id,
+            UserPermission.is_active == True,  # noqa: E712
+        )
+    )
+    company_ids = list({p.company_id for p in perms.all()})
+
+    result = []
+    for cid in company_ids:
+        company = await shared.scalar(select(Company).where(Company.id == cid, Company.is_active == True))  # noqa: E712
+        if not company:
+            continue
+        fy_rows = await shared.scalars(
+            select(FiscalYear).where(FiscalYear.company_id == cid).order_by(FiscalYear.year.desc())
+        )
+        fiscal_years = [
+            {"id": f.id, "year": f.year, "start_date": str(f.start_date),
+             "end_date": str(f.end_date), "status": f.status}
+            for f in fy_rows.all()
+        ]
+        result.append({
+            "id": company.id, "code": company.code, "name": company.name,
+            "entity_type": company.entity_type, "fiscal_year_start": company.fiscal_year_start,
+            "fiscal_years": fiscal_years,
+        })
+    return ok(result)
+
+
+@router.post("/select-context", response_model=dict, summary="เลือก context หลัง login")
+async def select_context(body: SelectContextRequest, ctx: CTX, shared: SharedDB) -> dict:
+    """เลือก company + fiscal_year + branch แล้วออก JWT ใหม่."""
+    company = await shared.scalar(
+        select(Company).where(Company.id == body.company_id, Company.is_active == True)  # noqa: E712
+    )
+    if not company:
+        raise HTTPException(404, "ไม่พบบริษัท")
+
+    # ตรวจสิทธิ์
+    perm = await shared.scalar(
+        select(UserPermission).where(
+            UserPermission.user_id == ctx.user_id,
+            UserPermission.company_id == body.company_id,
+            UserPermission.is_active == True,  # noqa: E712
+        )
+    )
+    if not perm and ctx.user_role != UserRole.FIRM_ADMIN:
+        raise HTTPException(403, "ไม่มีสิทธิ์เข้า company นี้")
+
+    # กำหนด period = วันแรกของเดือนปัจจุบัน
+    today = date.today()
+    period = date(today.year, today.month, 1)
+
+    from app.platform.auth import TokenClaims, create_access_token
+    claims = TokenClaims(
+        sub=str(ctx.user_id),
+        firm_id=ctx.firm_id,
+        company_id=body.company_id,
+        branch_id=body.branch_id or 1,
+        role=perm.role if perm else str(ctx.user_role),
+        period=period.isoformat(),
+    )
+    new_token = create_access_token(claims)
+    return ok({
+        "access_token": new_token,
+        "token_type": "bearer",
+        "company_id": body.company_id,
+        "period": period.isoformat(),
+    })
+
+
+@router.post("/switch-context", response_model=dict, summary="สลับ company/branch")
+async def switch_context(body: SelectContextRequest, ctx: CTX, shared: SharedDB) -> dict:
+    """สลับ company หรือ branch โดยไม่ต้อง logout."""
+    return await select_context(body, ctx, shared)

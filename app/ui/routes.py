@@ -620,3 +620,23 @@ async def firm_dashboard(request: Request):
     except UIRedirectException as e:
         return RedirectResponse(url=e.url, status_code=302)
     return _r("firm_dashboard.html", request, _ctx(ctx))
+
+
+# ── Platform Admin ─────────────────────────────────────────────────────────────
+
+@router.get("/platform/companies", response_class=HTMLResponse)
+async def platform_companies(request: Request):
+    try:
+        ctx = await get_ui_context(request)
+    except UIRedirectException as e:
+        return RedirectResponse(url=e.url, status_code=302)
+    return _r("platform/companies.html", request, _ctx(ctx))
+
+
+@router.get("/platform/users", response_class=HTMLResponse)
+async def platform_users(request: Request):
+    try:
+        ctx = await get_ui_context(request)
+    except UIRedirectException as e:
+        return RedirectResponse(url=e.url, status_code=302)
+    return _r("platform/users.html", request, _ctx(ctx))

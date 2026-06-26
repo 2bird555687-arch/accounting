@@ -1,0 +1,276 @@
+{% extends "base.html" %}
+{% block title %}จัดการบริษัท{% endblock %}
+{% block page_title %}จัดการบริษัท{% endblock %}
+
+{% block content %}
+<div x-data="companiesAdmin()" x-init="init()">
+
+  <!-- Header -->
+  <div class="flex items-center justify-between mb-6">
+    <div>
+      <h1 class="text-xl font-bold text-gray-800">จัดการบริษัท</h1>
+      <p class="text-sm text-gray-500 mt-1">บริษัททั้งหมดในสำนักงาน</p>
+    </div>
+    <button @click="openCreate()" class="btn-primary flex items-center gap-2">
+      <i class="ti ti-plus"></i> เพิ่มบริษัท
+    </button>
+  </div>
+
+  <!-- Search -->
+  <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-4 mb-4">
+    <input
+      x-model="search"
+      @input.debounce.300ms="filterList()"
+      type="text" placeholder="ค้นหาชื่อ / รหัสบริษัท..."
+      class="input-field w-full max-w-sm"
+    />
+  </div>
+
+  <!-- Table -->
+  <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+    <table class="w-full text-sm">
+      <thead class="bg-gray-50 text-xs text-gray-500 uppercase">
+        <tr>
+          <th class="px-4 py-3 text-left">รหัส</th>
+          <th class="px-4 py-3 text-left">ชื่อบริษัท</th>
+          <th class="px-4 py-3 text-left">เลขภาษี</th>
+          <th class="px-4 py-3 text-left">ประเภท</th>
+          <th class="px-4 py-3 text-center">สถานะ</th>
+          <th class="px-4 py-3 text-center">จัดการ</th>
+        </tr>
+      </thead>
+      <tbody>
+        <template x-if="loading">
+          <tr><td colspan="6" class="px-4 py-8 text-center text-gray-400">กำลังโหลด...</td></tr>
+        </template>
+        <template x-if="!loading && filtered.length === 0">
+          <tr><td colspan="6" class="px-4 py-8 text-center text-gray-400">ไม่พบข้อมูล</td></tr>
+        </template>
+        <template x-for="c in filtered" :key="c.id">
+          <tr class="border-t border-gray-100 hover:bg-gray-50">
+            <td class="px-4 py-3 font-mono text-xs" x-text="c.code"></td>
+            <td class="px-4 py-3 font-medium" x-text="c.name"></td>
+            <td class="px-4 py-3 text-gray-500 font-mono text-xs" x-text="c.tax_id || '—'"></td>
+            <td class="px-4 py-3 text-gray-500" x-text="entityLabel(c.entity_type)"></td>
+            <td class="px-4 py-3 text-center">
+              <span
+                :class="c.is_active ? 'badge-success' : 'badge-muted'"
+                x-text="c.is_active ? 'ใช้งาน' : 'ปิด'"
+              ></span>
+            </td>
+            <td class="px-4 py-3 text-center">
+              <button @click="openFY(c)" class="btn-sm-ghost" title="ปีงบ">
+                <i class="ti ti-calendar"></i>
+              </button>
+              <button @click="openEdit(c)" class="btn-sm-ghost" title="แก้ไข">
+                <i class="ti ti-edit"></i>
+              </button>
+            </td>
+          </tr>
+        </template>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Create / Edit Modal -->
+  <div x-show="showModal" x-cloak class="modal-overlay" @click.self="showModal=false">
+    <div class="modal-box w-full max-w-lg">
+      <div class="modal-header">
+        <h2 class="text-base font-semibold" x-text="editId ? 'แก้ไขบริษัท' : 'เพิ่มบริษัทใหม่'"></h2>
+        <button @click="showModal=false" class="btn-icon"><i class="ti ti-x"></i></button>
+      </div>
+      <div class="modal-body space-y-4">
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <label class="form-label">รหัสบริษัท <span class="text-red-500">*</span></label>
+            <input x-model="form.code" type="text" class="input-field w-full" placeholder="เช่น ABC" />
+          </div>
+          <div>
+            <label class="form-label">ประเภทนิติบุคคล</label>
+            <select x-model="form.entity_type" class="input-field w-full">
+              <option value="company">บริษัท</option>
+              <option value="partnership">ห้างหุ้นส่วน</option>
+              <option value="sole_proprietor">เจ้าของคนเดียว</option>
+              <option value="foundation">มูลนิธิ/สมาคม</option>
+            </select>
+          </div>
+        </div>
+        <div>
+          <label class="form-label">ชื่อบริษัท (ไทย) <span class="text-red-500">*</span></label>
+          <input x-model="form.name" type="text" class="input-field w-full" />
+        </div>
+        <div>
+          <label class="form-label">ชื่อบริษัท (อังกฤษ)</label>
+          <input x-model="form.name_en" type="text" class="input-field w-full" />
+        </div>
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <label class="form-label">เลขนิติบุคคล / ผู้เสียภาษี</label>
+            <input x-model="form.tax_id" type="text" class="input-field w-full font-mono" maxlength="13" />
+          </div>
+          <div>
+            <label class="form-label">เดือนเริ่มปีบัญชี</label>
+            <select x-model.number="form.fiscal_year_start" class="input-field w-full">
+              <template x-for="m in 12" :key="m">
+                <option :value="m" x-text="monthName(m)"></option>
+              </template>
+            </select>
+          </div>
+        </div>
+        <div class="flex items-center gap-3">
+          <input id="chk-vat" x-model="form.vat_registered" type="checkbox" class="h-4 w-4" />
+          <label for="chk-vat" class="form-label mb-0">จดทะเบียนภาษีมูลค่าเพิ่ม (VAT)</label>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button @click="showModal=false" class="btn-secondary">ยกเลิก</button>
+        <button @click="save()" :disabled="saving" class="btn-primary" x-text="saving ? 'กำลังบันทึก...' : 'บันทึก'"></button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Fiscal Year Modal -->
+  <div x-show="showFY" x-cloak class="modal-overlay" @click.self="showFY=false">
+    <div class="modal-box w-full max-w-md">
+      <div class="modal-header">
+        <h2 class="text-base font-semibold">ปีงบการเงิน — <span x-text="fyCompany?.name"></span></h2>
+        <button @click="showFY=false" class="btn-icon"><i class="ti ti-x"></i></button>
+      </div>
+      <div class="modal-body">
+        <table class="w-full text-sm mb-4">
+          <thead class="text-xs text-gray-500 uppercase border-b">
+            <tr>
+              <th class="py-2 text-left">ปี</th>
+              <th class="py-2 text-left">วันเริ่ม</th>
+              <th class="py-2 text-left">วันสิ้นสุด</th>
+              <th class="py-2 text-center">สถานะ</th>
+            </tr>
+          </thead>
+          <tbody>
+            <template x-for="fy in fiscalYears" :key="fy.id">
+              <tr class="border-b border-gray-100">
+                <td class="py-2 font-semibold" x-text="fy.year"></td>
+                <td class="py-2 text-gray-500 text-xs" x-text="fy.start_date"></td>
+                <td class="py-2 text-gray-500 text-xs" x-text="fy.end_date"></td>
+                <td class="py-2 text-center">
+                  <span :class="fy.status === 'active' ? 'badge-success' : 'badge-muted'" x-text="fy.status"></span>
+                </td>
+              </tr>
+            </template>
+            <template x-if="fiscalYears.length === 0">
+              <tr><td colspan="4" class="py-4 text-center text-gray-400">ยังไม่มีปีงบ</td></tr>
+            </template>
+          </tbody>
+        </table>
+        <div class="border-t pt-4">
+          <p class="text-xs text-gray-500 font-semibold mb-2">เพิ่มปีงบใหม่</p>
+          <div class="flex gap-2 items-end">
+            <div class="flex-1">
+              <label class="form-label text-xs">ปี (ค.ศ.)</label>
+              <input x-model.number="newFY.year" type="number" class="input-field w-full" :placeholder="new Date().getFullYear()" />
+            </div>
+            <button @click="addFY()" :disabled="savingFY" class="btn-primary text-sm h-9 px-4" x-text="savingFY ? '...' : 'เพิ่ม'"></button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+function companiesAdmin() {
+  return {
+    loading: true, saving: false, savingFY: false,
+    showModal: false, showFY: false,
+    search: '', list: [], filtered: [],
+    editId: null,
+    fyCompany: null, fiscalYears: [],
+    form: { code: '', name: '', name_en: '', tax_id: '', entity_type: 'company', fiscal_year_start: 1, vat_registered: false },
+    newFY: { year: new Date().getFullYear() },
+
+    async init() {
+      await this.load();
+    },
+
+    async load() {
+      this.loading = true;
+      try {
+        const r = await api('GET', '/api/v1/platform/companies');
+        this.list = r.data || [];
+        this.filterList();
+      } finally { this.loading = false; }
+    },
+
+    filterList() {
+      const q = this.search.toLowerCase();
+      this.filtered = q
+        ? this.list.filter(c => c.name.toLowerCase().includes(q) || c.code.toLowerCase().includes(q))
+        : [...this.list];
+    },
+
+    openCreate() {
+      this.editId = null;
+      this.form = { code: '', name: '', name_en: '', tax_id: '', entity_type: 'company', fiscal_year_start: 1, vat_registered: false };
+      this.showModal = true;
+    },
+
+    openEdit(c) {
+      this.editId = c.id;
+      this.form = { ...c };
+      this.showModal = true;
+    },
+
+    async save() {
+      if (!this.form.code || !this.form.name) { notify('กรอกรหัสและชื่อบริษัทให้ครบ', 'error'); return; }
+      this.saving = true;
+      try {
+        if (this.editId) {
+          await api('PUT', `/api/v1/platform/companies/${this.editId}`, this.form);
+          notify('แก้ไขข้อมูลสำเร็จ');
+        } else {
+          await api('POST', '/api/v1/platform/companies', this.form);
+          notify('เพิ่มบริษัทสำเร็จ');
+        }
+        this.showModal = false;
+        await this.load();
+      } catch(e) { notify(e.message || 'เกิดข้อผิดพลาด', 'error'); }
+      finally { this.saving = false; }
+    },
+
+    async openFY(c) {
+      this.fyCompany = c;
+      this.fiscalYears = [];
+      this.showFY = true;
+      const r = await api('GET', `/api/v1/platform/companies/${c.id}/fiscal-years`);
+      this.fiscalYears = r.data || [];
+    },
+
+    async addFY() {
+      if (!this.newFY.year) return;
+      this.savingFY = true;
+      try {
+        const yr = this.newFY.year;
+        await api('POST', `/api/v1/platform/companies/${this.fyCompany.id}/fiscal-years`, {
+          year: yr,
+          start_date: `${yr}-01-01`,
+          end_date: `${yr}-12-31`,
+        });
+        notify('เพิ่มปีงบสำเร็จ');
+        const r = await api('GET', `/api/v1/platform/companies/${this.fyCompany.id}/fiscal-years`);
+        this.fiscalYears = r.data || [];
+      } catch(e) { notify(e.message || 'เกิดข้อผิดพลาด', 'error'); }
+      finally { this.savingFY = false; }
+    },
+
+    entityLabel(t) {
+      return { company: 'บริษัท', partnership: 'ห้างหุ้นส่วน', sole_proprietor: 'เจ้าของคนเดียว', foundation: 'มูลนิธิ' }[t] || t;
+    },
+
+    monthName(m) {
+      return ['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'][m-1];
+    },
+  };
+}
+</script>
+{% endblock %}
