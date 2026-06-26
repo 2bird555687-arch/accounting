@@ -4,22 +4,28 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>{% block title %}AccCloud{% endblock %}</title>
-  <link rel="stylesheet" href="/static/css/theme.css">
+  <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet"
     href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
   <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+  <style>
+    [x-cloak] { display: none !important; }
+    .spin { animation: spin .7s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
 </head>
-<body>
-  <div class="minimal-wrap">
-    {% block content %}{% endblock %}
-  </div>
+<body class="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+  {% block content %}{% endblock %}
 
   <script>
     async function api(method, url, body) {
       const token = document.cookie.match(/access_token=([^;]+)/)?.[1] || '';
       const opts = {
         method,
-        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token }
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer ' + token
+        }
       };
       if (body) opts.body = JSON.stringify(body);
       const res = await fetch(url, opts);
@@ -27,7 +33,7 @@
       if (!res.ok) {
         const msg = data?.detail || data?.message || 'เกิดข้อผิดพลาด';
         const err = new Error(msg);
-        err.data = data;
+        err.status = res.status;
         throw err;
       }
       return data;

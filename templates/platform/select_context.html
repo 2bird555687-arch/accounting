@@ -2,229 +2,274 @@
 {% block title %}เลือกบริษัท — AccCloud{% endblock %}
 
 {% block content %}
-<div style="width:100%;max-width:540px" x-data="selectCtxPage()" x-init="init()">
+<div class="w-full max-w-lg" x-data="selectCtxPage()" x-init="init()">
 
-  <!-- Step Bar -->
-  <div class="step-bar">
-    <div class="step" :class="{ active: step===2, done: step>2 }">
-      <div class="step-circle">
-        <i x-show="step<=2" class="ti ti-building-skyscraper" style="font-size:14px"></i>
-        <i x-show="step>2" class="ti ti-check" style="font-size:14px"></i>
-      </div>
-      <span>บริษัท & ปีงบ</span>
-    </div>
-    <div class="step-line" :class="{ done: step>2 }"></div>
-    <div class="step" :class="{ active: step===3, done: step>3 }">
-      <div class="step-circle">
-        <i x-show="step<=3" class="ti ti-git-branch" style="font-size:14px"></i>
-        <i x-show="step>3" class="ti ti-check" style="font-size:14px"></i>
-      </div>
-      <span>สาขา</span>
-    </div>
-    <div class="step-line" :class="{ done: step>3 }"></div>
-    <div class="step" :class="{ active: step===4 }">
-      <div class="step-circle">
-        <i class="ti ti-circle-check" style="font-size:14px"></i>
-      </div>
-      <span>ยืนยัน</span>
-    </div>
-  </div>
+  <!-- Card -->
+  <div class="bg-white rounded-2xl shadow-lg overflow-hidden">
 
-  <!-- Loading -->
-  <div x-show="loading" style="text-align:center;padding:40px 0;color:var(--text3)">
-    <i class="ti ti-loader spin-icon loading-md"></i>
-    <p style="margin-top:10px;font-size:13px">กำลังโหลดข้อมูล...</p>
-  </div>
+    <!-- Header -->
+    <div class="px-6 pt-6 pb-4 border-b border-gray-100">
+      <h1 class="text-lg font-bold text-gray-900">เลือกบริษัทและปีงบการเงิน</h1>
+      <p class="text-xs text-gray-500 mt-1">AccCloud — ระบบบัญชีออนไลน์</p>
 
-  <!-- Step 2 — Company + FiscalYear accordion -->
-  <div x-show="!loading && step===2">
-    <div class="panel">
-      <div class="panel-header">
-        <span style="font-size:13px;font-weight:600">เลือกบริษัทและปีงบการเงิน</span>
+      <!-- Step indicator -->
+      <div class="flex items-center mt-4 gap-1">
+        <div class="flex items-center gap-1.5">
+          <div class="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold"
+               :class="step===2 ? 'bg-blue-700 text-white' : step>2 ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-400'">
+            <i x-show="step>2" class="ti ti-check text-xs"></i>
+            <span x-show="step<=2">1</span>
+          </div>
+          <span class="text-xs" :class="step===2 ? 'text-blue-700 font-medium' : 'text-gray-400'">บริษัท & ปีงบ</span>
+        </div>
+        <div class="flex-1 h-px mx-2" :class="step>2 ? 'bg-green-400' : 'bg-gray-200'"></div>
+        <div class="flex items-center gap-1.5">
+          <div class="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold"
+               :class="step===3 ? 'bg-blue-700 text-white' : step>3 ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-400'">
+            <i x-show="step>3" class="ti ti-check text-xs"></i>
+            <span x-show="step<=3">2</span>
+          </div>
+          <span class="text-xs" :class="step===3 ? 'text-blue-700 font-medium' : 'text-gray-400'">สาขา</span>
+        </div>
+        <div class="flex-1 h-px mx-2" :class="step>3 ? 'bg-green-400' : 'bg-gray-200'"></div>
+        <div class="flex items-center gap-1.5">
+          <div class="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold"
+               :class="step===4 ? 'bg-blue-700 text-white' : 'bg-gray-100 text-gray-400'">
+            <span>3</span>
+          </div>
+          <span class="text-xs" :class="step===4 ? 'text-blue-700 font-medium' : 'text-gray-400'">ยืนยัน</span>
+        </div>
       </div>
-      <div class="panel-body" style="padding:12px">
+    </div>
+
+    <!-- Body -->
+    <div class="px-6 py-4 min-h-48">
+
+      <!-- Loading -->
+      <div x-show="loading" class="flex flex-col items-center justify-center py-12 text-gray-400">
+        <i class="ti ti-loader spin text-3xl mb-2"></i>
+        <p class="text-sm">กำลังโหลดข้อมูล...</p>
+      </div>
+
+      <!-- ───── Step 2: Company + FY ───── -->
+      <div x-show="!loading && step===2">
+        <p class="text-xs text-gray-500 font-medium uppercase tracking-wide mb-3">เลือกบริษัท</p>
 
         <template x-if="companies.length===0">
-          <div style="text-align:center;padding:32px;color:var(--text3);font-size:13px">
-            <i class="ti ti-building-off" style="font-size:32px;display:block;margin-bottom:8px"></i>
-            ไม่พบบริษัทที่เข้าถึงได้
+          <div class="text-center py-10 text-gray-400">
+            <i class="ti ti-building-off text-4xl block mb-2"></i>
+            <p class="text-sm">ไม่พบบริษัทที่เข้าถึงได้</p>
           </div>
         </template>
 
-        <template x-for="co in companies" :key="co.id">
-          <div class="co-item">
-            <div class="co-row" @click="openCoId = openCoId===co.id ? null : co.id">
-              <div class="co-icon" x-text="co.name[0]"></div>
-              <div>
-                <div class="co-name" x-text="co.name"></div>
-                <div class="co-sub" x-text="entityLabel(co.entity_type)"></div>
-              </div>
-              <i class="ti ti-chevron-right chev" :class="{ open: openCoId===co.id }"></i>
-            </div>
-
-            <div class="yr-list" x-show="openCoId===co.id">
-              <template x-if="!co.fiscal_years || co.fiscal_years.length===0">
-                <div style="padding:12px 16px;font-size:12px;color:var(--text3)">ยังไม่มีปีงบ</div>
-              </template>
-              <template x-for="fy in co.fiscal_years" :key="fy.id">
-                <div class="yr-row" @click="pickYear(co, fy)">
-                  <div class="yr-dot" :class="`yr-dot--${fy.status}`"></div>
-                  <div>
-                    <div class="yr-name" x-text="`ปีงบ ${fy.year}`"></div>
-                    <div class="yr-period" x-text="`${fy.start_date} – ${fy.end_date}`"></div>
-                  </div>
-                  <span class="badge" :class="statusBadge(fy.status)" style="margin-left:auto"
-                        x-text="statusLabel(fy.status)"></span>
-                  <template x-if="fy.is_locked">
-                    <i class="ti ti-lock" style="color:var(--amber);font-size:13px;margin-left:4px"></i>
-                  </template>
+        <div class="space-y-2">
+          <template x-for="co in companies" :key="co.id">
+            <div class="border border-gray-200 rounded-xl overflow-hidden">
+              <!-- Company row -->
+              <div class="flex items-center gap-3 px-4 py-3 cursor-pointer hover:bg-gray-50 transition-colors"
+                   @click="openCoId = openCoId===co.id ? null : co.id">
+                <div class="w-9 h-9 rounded-lg bg-blue-100 text-blue-700 flex items-center justify-center font-bold text-sm shrink-0"
+                     x-text="co.name[0]"></div>
+                <div class="min-w-0 flex-1">
+                  <div class="font-medium text-sm text-gray-900 truncate" x-text="co.name"></div>
+                  <div class="text-xs text-gray-500" x-text="entityLabel(co.entity_type)"></div>
                 </div>
-              </template>
-            </div>
-          </div>
-        </template>
-
-      </div>
-    </div>
-  </div>
-
-  <!-- Step 3 — Branch -->
-  <div x-show="!loading && step===3">
-    <div class="panel">
-      <div class="panel-header" style="display:flex;align-items:center;gap:10px">
-        <button @click="step=2" class="btn btn-ghost btn-sm">
-          <i class="ti ti-arrow-left"></i> เลือกบริษัทอื่น
-        </button>
-        <span style="font-size:13px;font-weight:600;flex:1" x-text="selCoName"></span>
-      </div>
-      <div class="panel-body" style="padding:12px">
-
-        <p style="font-size:11px;color:var(--text3);margin:0 0 10px">เลือกสาขา</p>
-
-        <div x-show="loadingBranch" style="text-align:center;padding:24px;color:var(--text3)">
-          <i class="ti ti-loader spin-icon"></i>
-        </div>
-
-        <template x-if="!loadingBranch">
-          <div>
-            <!-- ทุกสาขา (firm_admin / accountant เท่านั้น) -->
-            <div x-show="canAllBranches()"
-                 class="br-row br-row--all"
-                 :class="{ selected: selBranchId==='all' }"
-                 @click="pickBranch('all', 'ทุกสาขา (รวม)')">
-              <div class="br-dot br-dot--active"></div>
-              <div>
-                <div class="br-name">ทุกสาขา (รวม)</div>
-                <div class="br-sub">ดูข้อมูลทุกสาขาพร้อมกัน</div>
+                <i class="ti ti-chevron-right text-gray-400 text-base transition-transform duration-200"
+                   :class="openCoId===co.id ? 'rotate-90' : ''"></i>
               </div>
-              <i x-show="selBranchId==='all'" class="ti ti-check"
-                 style="margin-left:auto;color:var(--accent)"></i>
-            </div>
-
-            <template x-for="br in branches" :key="br.id">
-              <div class="br-row"
-                   :class="{ selected: selBranchId===br.id, 'br-row--disabled': br.has_access===false }"
-                   @click="br.has_access!==false && pickBranch(br.id, br.name)">
-                <div class="br-dot" :class="br.is_active ? 'br-dot--active' : 'br-dot--inactive'"></div>
-                <div>
-                  <div class="br-name" x-text="br.name"></div>
-                  <div class="br-sub" x-text="br.branch_code === '00000' ? 'สาขาใหญ่ (HQ)' : `รหัส ${br.branch_code}`"></div>
-                </div>
-                <template x-if="br.has_access===false">
-                  <span class="badge b-gray" style="margin-left:auto;font-size:10px">ไม่มีสิทธิ์</span>
+              <!-- FY list -->
+              <div x-show="openCoId===co.id" class="border-t border-gray-100">
+                <template x-if="!co.fiscal_years || co.fiscal_years.length===0">
+                  <div class="px-4 py-3 text-xs text-gray-400">ยังไม่มีปีงบการเงิน</div>
                 </template>
-                <i x-show="selBranchId===br.id" class="ti ti-check"
-                   style="margin-left:auto;color:var(--accent)"></i>
+                <template x-for="fy in co.fiscal_years" :key="fy.id">
+                  <div class="flex items-center gap-3 px-4 py-2.5 pl-16 cursor-pointer
+                              hover:bg-blue-50 border-b border-gray-50 last:border-0 transition-colors"
+                       @click="pickYear(co, fy)">
+                    <div class="w-2 h-2 rounded-full shrink-0"
+                         :class="fy.status==='active' ? 'bg-green-500' : fy.status==='closing' ? 'bg-amber-500' : 'bg-gray-400'">
+                    </div>
+                    <div class="flex-1 min-w-0">
+                      <div class="text-sm font-medium text-gray-800" x-text="`ปีงบ ${fy.year}`"></div>
+                      <div class="text-xs text-gray-500" x-text="`${fy.start_date} – ${fy.end_date}`"></div>
+                    </div>
+                    <div class="flex items-center gap-1">
+                      <span class="text-xs px-2 py-0.5 rounded-full font-medium"
+                            :class="fy.status==='active' ? 'bg-green-100 text-green-700' : fy.status==='closing' ? 'bg-amber-100 text-amber-700' : 'bg-gray-100 text-gray-500'"
+                            x-text="statusLabel(fy.status)"></span>
+                      <i x-show="fy.is_locked" class="ti ti-lock text-amber-500 text-xs"></i>
+                    </div>
+                  </div>
+                </template>
               </div>
-            </template>
+            </div>
+          </template>
+        </div>
+      </div>
 
-            <template x-if="branches.length===0">
-              <div style="text-align:center;padding:24px;color:var(--text3);font-size:13px">
-                ยังไม่มีสาขา
-              </div>
-            </template>
+      <!-- ───── Step 3: Branch ───── -->
+      <div x-show="!loading && step===3">
+        <div class="flex items-center gap-2 mb-4">
+          <button @click="step=2"
+                  class="text-xs text-blue-600 hover:text-blue-800 flex items-center gap-1">
+            <i class="ti ti-arrow-left text-sm"></i> เลือกบริษัทอื่น
+          </button>
+          <span class="text-gray-300">|</span>
+          <span class="text-xs text-gray-500 truncate" x-text="selCoName"></span>
+          <span class="text-xs text-gray-400">·</span>
+          <span class="text-xs text-gray-500" x-text="`ปีงบ ${selFyYear}`"></span>
+        </div>
+
+        <p class="text-xs text-gray-500 font-medium uppercase tracking-wide mb-3">เลือกสาขา</p>
+
+        <div x-show="loadingBranch" class="text-center py-8 text-gray-400">
+          <i class="ti ti-loader spin text-2xl"></i>
+        </div>
+
+        <div x-show="!loadingBranch" class="space-y-2">
+          <!-- ทุกสาขา -->
+          <div x-show="canAllBranches()"
+               class="flex items-center gap-3 px-4 py-3 rounded-xl border cursor-pointer transition-colors"
+               :class="selBranchId==='all' ? 'border-blue-500 bg-blue-50' : 'border-gray-200 bg-gray-50 hover:bg-gray-100'"
+               @click="pickBranch('all','ทุกสาขา (รวม)')">
+            <div class="w-2 h-2 rounded-full bg-green-500 shrink-0"></div>
+            <div class="flex-1">
+              <div class="text-sm font-medium text-gray-800">ทุกสาขา (รวม)</div>
+              <div class="text-xs text-gray-500">ดูข้อมูลทุกสาขาพร้อมกัน</div>
+            </div>
+            <i x-show="selBranchId==='all'" class="ti ti-check text-blue-600"></i>
           </div>
-        </template>
 
-      </div>
-    </div>
-  </div>
+          <!-- Branch list -->
+          <template x-for="br in branches" :key="br.id">
+            <div class="flex items-center gap-3 px-4 py-3 rounded-xl border cursor-pointer transition-colors"
+                 :class="selBranchId===br.id ? 'border-blue-500 bg-blue-50' :
+                         br.has_access===false ? 'border-gray-100 bg-gray-50 opacity-50 cursor-not-allowed' :
+                         'border-gray-200 hover:bg-gray-50'"
+                 @click="br.has_access!==false && pickBranch(br.id, br.name)">
+              <div class="w-2 h-2 rounded-full shrink-0"
+                   :class="br.is_active ? 'bg-green-500' : 'bg-gray-400'"></div>
+              <div class="flex-1">
+                <div class="text-sm font-medium text-gray-800" x-text="br.name"></div>
+                <div class="text-xs text-gray-500"
+                     x-text="br.branch_code==='00000' ? 'สาขาใหญ่ (HQ)' : `รหัส ${br.branch_code}`"></div>
+              </div>
+              <template x-if="br.has_access===false">
+                <span class="text-xs bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full">ไม่มีสิทธิ์</span>
+              </template>
+              <i x-show="selBranchId===br.id" class="ti ti-check text-blue-600"></i>
+            </div>
+          </template>
 
-  <!-- Step 4 — Confirm -->
-  <div x-show="!loading && step===4">
-    <div class="confirm-card">
-
-      <div class="confirm-card__icon" x-text="selCoName[0] || '?'"></div>
-      <h2 x-text="selCoName"></h2>
-      <p x-text="`ปีงบ ${selFyYear} · ${selFyPeriod}`"></p>
-
-      <div class="badges">
-        <span class="badge" :class="statusBadge(selFyStatus)" x-text="statusLabel(selFyStatus)"></span>
-        <span class="badge b-info" x-text="selBranchId==='all' ? 'ทุกสาขา' : selBranchName"></span>
-      </div>
-
-      <div class="lock-banner" x-show="selFyLocked">
-        <i class="ti ti-lock"></i>
-        <span>ปีงบนี้ถูกล็อค — โหมดอ่านอย่างเดียว</span>
-      </div>
-
-      <div class="info-grid">
-        <div class="info-cell">
-          <div class="info-label">สาขา</div>
-          <div class="info-val" x-text="selBranchId==='all' ? 'ทุกสาขา' : selBranchName"></div>
-        </div>
-        <div class="info-cell">
-          <div class="info-label">ประเภทกิจการ</div>
-          <div class="info-val" x-text="selCoEntity || '—'"></div>
-        </div>
-        <div class="info-cell">
-          <div class="info-label">ปีงบการเงิน</div>
-          <div class="info-val" x-text="selFyYear"></div>
-        </div>
-        <div class="info-cell">
-          <div class="info-label">สถานะ</div>
-          <div class="info-val" x-text="statusLabel(selFyStatus)"></div>
+          <template x-if="!loadingBranch && branches.length===0">
+            <div class="text-center py-8 text-gray-400 text-sm">ยังไม่มีสาขา</div>
+          </template>
         </div>
       </div>
 
-      <button class="btn btn-primary" style="width:100%;margin-bottom:8px"
-              @click="confirm()" :disabled="confirming">
-        <span x-show="!confirming"><i class="ti ti-login"></i> เข้าสู่ระบบ</span>
-        <span x-show="confirming">⏳ กำลังเข้าสู่ระบบ...</span>
+      <!-- ───── Step 4: Confirm ───── -->
+      <div x-show="!loading && step===4">
+        <div class="flex items-center gap-2 mb-4">
+          <button @click="step=3" class="text-xs text-blue-600 hover:text-blue-800 flex items-center gap-1">
+            <i class="ti ti-arrow-left text-sm"></i> เปลี่ยนสาขา
+          </button>
+        </div>
+
+        <!-- Confirm card -->
+        <div class="border border-gray-200 rounded-xl p-5">
+          <div class="w-12 h-12 rounded-xl bg-blue-700 text-white flex items-center justify-center
+                      font-bold text-lg mb-4" x-text="(selCoName||'?')[0]"></div>
+          <h2 class="text-base font-bold text-gray-900 mb-1" x-text="selCoName"></h2>
+          <p class="text-sm text-gray-500 mb-3" x-text="`ปีงบ ${selFyYear}  ·  ${selFyPeriod}`"></p>
+
+          <div class="flex gap-2 mb-3 flex-wrap">
+            <span class="text-xs px-2.5 py-1 rounded-full font-medium"
+                  :class="selFyStatus==='active' ? 'bg-green-100 text-green-700' :
+                          selFyStatus==='closing' ? 'bg-amber-100 text-amber-700' :
+                          'bg-gray-100 text-gray-500'"
+                  x-text="statusLabel(selFyStatus)"></span>
+            <span class="text-xs px-2.5 py-1 rounded-full bg-blue-100 text-blue-700 font-medium"
+                  x-text="selBranchId==='all' ? 'ทุกสาขา' : selBranchName"></span>
+          </div>
+
+          <!-- Lock warning -->
+          <div x-show="selFyLocked"
+               class="flex items-center gap-2 text-xs text-amber-700 bg-amber-50 border border-amber-200
+                      rounded-lg px-3 py-2 mb-4">
+            <i class="ti ti-lock shrink-0"></i>
+            <span>ปีงบนี้ถูกล็อค — จะเข้าในโหมดอ่านอย่างเดียว</span>
+          </div>
+
+          <!-- Info grid -->
+          <div class="grid grid-cols-2 gap-2 mb-4">
+            <div class="bg-gray-50 rounded-lg p-3">
+              <div class="text-xs text-gray-400 uppercase tracking-wide mb-1">สาขา</div>
+              <div class="text-sm font-medium" x-text="selBranchId==='all' ? 'ทุกสาขา' : selBranchName"></div>
+            </div>
+            <div class="bg-gray-50 rounded-lg p-3">
+              <div class="text-xs text-gray-400 uppercase tracking-wide mb-1">ประเภทกิจการ</div>
+              <div class="text-sm font-medium" x-text="selCoEntity || '—'"></div>
+            </div>
+            <div class="bg-gray-50 rounded-lg p-3">
+              <div class="text-xs text-gray-400 uppercase tracking-wide mb-1">ปีงบการเงิน</div>
+              <div class="text-sm font-medium" x-text="selFyYear"></div>
+            </div>
+            <div class="bg-gray-50 rounded-lg p-3">
+              <div class="text-xs text-gray-400 uppercase tracking-wide mb-1">สถานะ</div>
+              <div class="text-sm font-medium" x-text="statusLabel(selFyStatus)"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /body -->
+
+    <!-- Footer buttons -->
+    <div x-show="!loading && step===4" class="px-6 pb-6 pt-2 space-y-2">
+      <button @click="confirm()" :disabled="confirming"
+              class="w-full py-2.5 bg-blue-700 hover:bg-blue-800 disabled:opacity-60
+                     text-white font-semibold rounded-xl text-sm flex items-center justify-center gap-2 transition-colors">
+        <i x-show="confirming" class="ti ti-loader spin"></i>
+        <i x-show="!confirming" class="ti ti-login"></i>
+        <span x-text="confirming ? 'กำลังเข้าสู่ระบบ...' : 'เข้าสู่ระบบ'"></span>
       </button>
-      <button class="btn btn-ghost" style="width:100%" @click="step=2">
+      <button @click="step=2"
+              class="w-full py-2.5 border border-gray-200 hover:bg-gray-50
+                     text-gray-600 font-medium rounded-xl text-sm transition-colors">
         <i class="ti ti-arrows-exchange"></i> เปลี่ยนบริษัท / ปีงบ / สาขา
       </button>
-
     </div>
-  </div>
 
+    <!-- Logout link -->
+    <div class="px-6 pb-5 text-center">
+      <a href="/logout" class="text-xs text-gray-400 hover:text-gray-600">
+        <i class="ti ti-logout text-xs"></i> ออกจากระบบ
+      </a>
+    </div>
+
+  </div><!-- /card -->
 </div>
 
 <script>
 function selectCtxPage() {
   return {
-    step: 2,
-    loading: true,
-    companies: [],
-    openCoId: null,
+    step: 2, loading: true, confirming: false,
+    companies: [], openCoId: null,
     selCoId: null, selCoName: '', selCoEntity: '',
     selFyId: null, selFyYear: null, selFyStatus: '', selFyLocked: false, selFyPeriod: '',
     branches: [], loadingBranch: false,
     selBranchId: null, selBranchName: '',
     userRole: '',
-    confirming: false,
 
     async init() {
       try {
         const r = await api('GET', '/api/v1/auth/my-companies');
         this.companies = r?.data || [];
         const me = await api('GET', '/api/v1/auth/me');
-        this.userRole = me?.data?.context?.user_role || me?.data?.role || '';
+        const ctx = me?.data?.context || me?.data || {};
+        this.userRole = ctx?.user_role || ctx?.role || '';
       } catch(e) {
-        if (e.message?.includes('401') || e.message?.includes('403')) {
-          window.location.href = '/login';
-        }
+        if (e.status === 401 || e.status === 403) window.location.href = '/login';
       } finally {
         this.loading = false;
       }
@@ -239,23 +284,20 @@ function selectCtxPage() {
       this.selFyStatus = fy.status;
       this.selFyLocked = fy.is_locked || false;
       this.selFyPeriod = `${fy.start_date} – ${fy.end_date}`;
-      this.selBranchId = null;
-      this.branches = [];
       this.step = 3;
+      this.branches = [];
+      this.selBranchId = null;
       this.loadingBranch = true;
       try {
         const r = await api('GET', `/api/v1/platform/companies/${co.id}/branches`);
         this.branches = r?.data || [];
-      } catch(e) {
-        this.branches = [];
-      } finally {
-        this.loadingBranch = false;
-      }
+      } catch { this.branches = []; }
+      finally { this.loadingBranch = false; }
     },
 
-    pickBranch(branchId, branchName) {
-      this.selBranchId = branchId;
-      this.selBranchName = branchName;
+    pickBranch(id, name) {
+      this.selBranchId = id;
+      this.selBranchName = name;
       this.step = 4;
     },
 
@@ -267,28 +309,21 @@ function selectCtxPage() {
           fiscal_year_id: this.selFyId,
           branch_id:      this.selBranchId === 'all' ? null : this.selBranchId,
         });
-        const token = r?.data?.access_token;
-        if (token) {
-          document.cookie = `access_token=${token}; path=/; SameSite=Lax; max-age=86400`;
-        }
+        const token = r?.data?.access_token || r?.access_token;
+        if (token) document.cookie = `access_token=${token}; path=/; SameSite=Lax; max-age=86400`;
         window.location.href = '/';
       } catch(e) {
         alert(e.message || 'เกิดข้อผิดพลาด');
-      } finally {
-        this.confirming = false;
-      }
+      } finally { this.confirming = false; }
     },
 
     canAllBranches() {
-      return ['firm_admin', 'FIRM_ADMIN', 'accountant', 'ACCOUNTANT'].includes(this.userRole);
+      const r = (this.userRole || '').toLowerCase();
+      return r.includes('firm_admin') || r.includes('accountant');
     },
 
     statusLabel(s) {
-      return { active: 'ใช้งาน', closing: 'กำลังปิด', closed: 'ปิดแล้ว' }[s] || s;
-    },
-
-    statusBadge(s) {
-      return { active: 'b-green', closing: 'b-amber', closed: 'b-gray' }[s] || 'b-gray';
+      return { active: 'ใช้งาน', closing: 'กำลังปิด', closed: 'ปิดแล้ว' }[s] || (s || '—');
     },
 
     entityLabel(t) {
