@@ -55,40 +55,27 @@ async def login_page(request: Request):
     token = request.cookies.get("access_token")
     if token:
         try:
-            verify_access_token(token)
-            return RedirectResponse(url="/", status_code=302)
+            claims = verify_access_token(token)
+            # มี token valid + company context → redirect dashboard
+            if getattr(claims, "company_id", 0):
+                return RedirectResponse(url="/", status_code=302)
+            # มี token แต่ยังไม่เลือก company → select-context
+            return RedirectResponse(url="/select-context", status_code=302)
         except Exception:
             pass
-    return _r("auth/login.html", request, {})
+    return _r("platform/login.html", request, {"firm_name": "AccCloud"})
 
 
-@router.post("/login")
-async def login_submit(
-    request: Request,
-    username: str = Form(...),
-    password: str = Form(...),
-    company_id: int = Form(1),
-    branch_id: int = Form(1),
-):
-    import httpx
-    base = str(request.base_url).rstrip("/")
-    async with httpx.AsyncClient() as client:
-        resp = await client.post(f"{base}/api/v1/auth/login", json={
-            "username": username, "password": password,
-            "company_id": company_id, "branch_id": branch_id,
-        })
-    if resp.status_code != 200:
-        return templates.TemplateResponse(
-            request=request,
-            name="auth/login.html",
-            context={"error": "ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง"},
-            status_code=401,
-        )
-    data = resp.json()
-    token = data.get("access_token") or data.get("data", {}).get("access_token", "")
-    response = RedirectResponse(url="/", status_code=302)
-    response.set_cookie("access_token", token, httponly=True, samesite="lax", max_age=86400)
-    return response
+@router.get("/select-context", response_class=HTMLResponse)
+async def select_context_page(request: Request):
+    token = request.cookies.get("access_token")
+    if not token:
+        return RedirectResponse(url="/login", status_code=302)
+    try:
+        verify_access_token(token)
+    except Exception:
+        return RedirectResponse(url="/login", status_code=302)
+    return _r("platform/select_context.html", request, {})
 
 
 @router.get("/logout")

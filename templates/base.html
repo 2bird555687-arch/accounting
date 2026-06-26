@@ -29,10 +29,28 @@
   </div>
 
   {% if ctx %}
-  <a href="/" class="sb-company" style="text-decoration:none;display:block;cursor:pointer;">
-    <div class="sb-company-name">Company {{ ctx.company_id }}</div>
-    <div class="sb-company-branch">งวด: {{ ctx.period }}</div>
-  </a>
+  <div x-data="{ open: false }" @click.away="open=false" style="position:relative">
+    <div class="company-selector" @click="open=!open">
+      <div class="company-selector__icon">
+        {{ ctx.company_id }}
+      </div>
+      <div style="min-width:0;flex:1">
+        <div class="company-selector__name">Company {{ ctx.company_id }}</div>
+        <div class="company-selector__meta">ปีงบ {{ ctx.period.year if ctx.period else '—' }} · งวด {{ ctx.period }}</div>
+      </div>
+      <i class="ti ti-chevron-down" style="color:var(--sidebar-t);font-size:13px;flex-shrink:0"
+         :style="open ? 'transform:rotate(180deg)' : ''"></i>
+    </div>
+    <div class="company-dropdown" x-show="open" x-transition style="display:none">
+      <a href="/select-context" class="dropdown-item">
+        <i class="ti ti-arrows-exchange"></i> เปลี่ยนบริษัท / ปีงบ / สาขา
+      </a>
+      <div class="dropdown-divider"></div>
+      <a href="/logout" class="dropdown-item" style="color:var(--red)">
+        <i class="ti ti-logout"></i> ออกจากระบบ
+      </a>
+    </div>
+  </div>
   {% endif %}
 
   <div class="sb-section">บัญชี</div>
@@ -239,6 +257,14 @@
       {% endif %}
     </div>
   </div>
+
+  {% if ctx and ctx.is_read_only %}
+  <div class="global-lock-banner">
+    <i class="ti ti-lock"></i>
+    <span>ปีงบ {{ ctx.period.year if ctx.period else '' }} ถูกล็อค — <strong>อ่านอย่างเดียว</strong></span>
+    <a href="/select-context">เปลี่ยนปีงบ</a>
+  </div>
+  {% endif %}
 
   <div id="content">
     {% block content %}{% endblock %}

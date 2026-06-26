@@ -1,0 +1,301 @@
+{% extends "platform/base_minimal.html" %}
+{% block title %}เลือกบริษัท — AccCloud{% endblock %}
+
+{% block content %}
+<div style="width:100%;max-width:540px" x-data="selectCtxPage()" x-init="init()">
+
+  <!-- Step Bar -->
+  <div class="step-bar">
+    <div class="step" :class="{ active: step===2, done: step>2 }">
+      <div class="step-circle">
+        <i x-show="step<=2" class="ti ti-building-skyscraper" style="font-size:14px"></i>
+        <i x-show="step>2" class="ti ti-check" style="font-size:14px"></i>
+      </div>
+      <span>บริษัท & ปีงบ</span>
+    </div>
+    <div class="step-line" :class="{ done: step>2 }"></div>
+    <div class="step" :class="{ active: step===3, done: step>3 }">
+      <div class="step-circle">
+        <i x-show="step<=3" class="ti ti-git-branch" style="font-size:14px"></i>
+        <i x-show="step>3" class="ti ti-check" style="font-size:14px"></i>
+      </div>
+      <span>สาขา</span>
+    </div>
+    <div class="step-line" :class="{ done: step>3 }"></div>
+    <div class="step" :class="{ active: step===4 }">
+      <div class="step-circle">
+        <i class="ti ti-circle-check" style="font-size:14px"></i>
+      </div>
+      <span>ยืนยัน</span>
+    </div>
+  </div>
+
+  <!-- Loading -->
+  <div x-show="loading" style="text-align:center;padding:40px 0;color:var(--text3)">
+    <i class="ti ti-loader spin-icon loading-md"></i>
+    <p style="margin-top:10px;font-size:13px">กำลังโหลดข้อมูล...</p>
+  </div>
+
+  <!-- Step 2 — Company + FiscalYear accordion -->
+  <div x-show="!loading && step===2">
+    <div class="panel">
+      <div class="panel-header">
+        <span style="font-size:13px;font-weight:600">เลือกบริษัทและปีงบการเงิน</span>
+      </div>
+      <div class="panel-body" style="padding:12px">
+
+        <template x-if="companies.length===0">
+          <div style="text-align:center;padding:32px;color:var(--text3);font-size:13px">
+            <i class="ti ti-building-off" style="font-size:32px;display:block;margin-bottom:8px"></i>
+            ไม่พบบริษัทที่เข้าถึงได้
+          </div>
+        </template>
+
+        <template x-for="co in companies" :key="co.id">
+          <div class="co-item">
+            <div class="co-row" @click="openCoId = openCoId===co.id ? null : co.id">
+              <div class="co-icon" x-text="co.name[0]"></div>
+              <div>
+                <div class="co-name" x-text="co.name"></div>
+                <div class="co-sub" x-text="entityLabel(co.entity_type)"></div>
+              </div>
+              <i class="ti ti-chevron-right chev" :class="{ open: openCoId===co.id }"></i>
+            </div>
+
+            <div class="yr-list" x-show="openCoId===co.id">
+              <template x-if="!co.fiscal_years || co.fiscal_years.length===0">
+                <div style="padding:12px 16px;font-size:12px;color:var(--text3)">ยังไม่มีปีงบ</div>
+              </template>
+              <template x-for="fy in co.fiscal_years" :key="fy.id">
+                <div class="yr-row" @click="pickYear(co, fy)">
+                  <div class="yr-dot" :class="`yr-dot--${fy.status}`"></div>
+                  <div>
+                    <div class="yr-name" x-text="`ปีงบ ${fy.year}`"></div>
+                    <div class="yr-period" x-text="`${fy.start_date} – ${fy.end_date}`"></div>
+                  </div>
+                  <span class="badge" :class="statusBadge(fy.status)" style="margin-left:auto"
+                        x-text="statusLabel(fy.status)"></span>
+                  <template x-if="fy.is_locked">
+                    <i class="ti ti-lock" style="color:var(--amber);font-size:13px;margin-left:4px"></i>
+                  </template>
+                </div>
+              </template>
+            </div>
+          </div>
+        </template>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- Step 3 — Branch -->
+  <div x-show="!loading && step===3">
+    <div class="panel">
+      <div class="panel-header" style="display:flex;align-items:center;gap:10px">
+        <button @click="step=2" class="btn btn-ghost btn-sm">
+          <i class="ti ti-arrow-left"></i> เลือกบริษัทอื่น
+        </button>
+        <span style="font-size:13px;font-weight:600;flex:1" x-text="selCoName"></span>
+      </div>
+      <div class="panel-body" style="padding:12px">
+
+        <p style="font-size:11px;color:var(--text3);margin:0 0 10px">เลือกสาขา</p>
+
+        <div x-show="loadingBranch" style="text-align:center;padding:24px;color:var(--text3)">
+          <i class="ti ti-loader spin-icon"></i>
+        </div>
+
+        <template x-if="!loadingBranch">
+          <div>
+            <!-- ทุกสาขา (firm_admin / accountant เท่านั้น) -->
+            <div x-show="canAllBranches()"
+                 class="br-row br-row--all"
+                 :class="{ selected: selBranchId==='all' }"
+                 @click="pickBranch('all', 'ทุกสาขา (รวม)')">
+              <div class="br-dot br-dot--active"></div>
+              <div>
+                <div class="br-name">ทุกสาขา (รวม)</div>
+                <div class="br-sub">ดูข้อมูลทุกสาขาพร้อมกัน</div>
+              </div>
+              <i x-show="selBranchId==='all'" class="ti ti-check"
+                 style="margin-left:auto;color:var(--accent)"></i>
+            </div>
+
+            <template x-for="br in branches" :key="br.id">
+              <div class="br-row"
+                   :class="{ selected: selBranchId===br.id, 'br-row--disabled': br.has_access===false }"
+                   @click="br.has_access!==false && pickBranch(br.id, br.name)">
+                <div class="br-dot" :class="br.is_active ? 'br-dot--active' : 'br-dot--inactive'"></div>
+                <div>
+                  <div class="br-name" x-text="br.name"></div>
+                  <div class="br-sub" x-text="br.branch_code === '00000' ? 'สาขาใหญ่ (HQ)' : `รหัส ${br.branch_code}`"></div>
+                </div>
+                <template x-if="br.has_access===false">
+                  <span class="badge b-gray" style="margin-left:auto;font-size:10px">ไม่มีสิทธิ์</span>
+                </template>
+                <i x-show="selBranchId===br.id" class="ti ti-check"
+                   style="margin-left:auto;color:var(--accent)"></i>
+              </div>
+            </template>
+
+            <template x-if="branches.length===0">
+              <div style="text-align:center;padding:24px;color:var(--text3);font-size:13px">
+                ยังไม่มีสาขา
+              </div>
+            </template>
+          </div>
+        </template>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- Step 4 — Confirm -->
+  <div x-show="!loading && step===4">
+    <div class="confirm-card">
+
+      <div class="confirm-card__icon" x-text="selCoName[0] || '?'"></div>
+      <h2 x-text="selCoName"></h2>
+      <p x-text="`ปีงบ ${selFyYear} · ${selFyPeriod}`"></p>
+
+      <div class="badges">
+        <span class="badge" :class="statusBadge(selFyStatus)" x-text="statusLabel(selFyStatus)"></span>
+        <span class="badge b-info" x-text="selBranchId==='all' ? 'ทุกสาขา' : selBranchName"></span>
+      </div>
+
+      <div class="lock-banner" x-show="selFyLocked">
+        <i class="ti ti-lock"></i>
+        <span>ปีงบนี้ถูกล็อค — โหมดอ่านอย่างเดียว</span>
+      </div>
+
+      <div class="info-grid">
+        <div class="info-cell">
+          <div class="info-label">สาขา</div>
+          <div class="info-val" x-text="selBranchId==='all' ? 'ทุกสาขา' : selBranchName"></div>
+        </div>
+        <div class="info-cell">
+          <div class="info-label">ประเภทกิจการ</div>
+          <div class="info-val" x-text="selCoEntity || '—'"></div>
+        </div>
+        <div class="info-cell">
+          <div class="info-label">ปีงบการเงิน</div>
+          <div class="info-val" x-text="selFyYear"></div>
+        </div>
+        <div class="info-cell">
+          <div class="info-label">สถานะ</div>
+          <div class="info-val" x-text="statusLabel(selFyStatus)"></div>
+        </div>
+      </div>
+
+      <button class="btn btn-primary" style="width:100%;margin-bottom:8px"
+              @click="confirm()" :disabled="confirming">
+        <span x-show="!confirming"><i class="ti ti-login"></i> เข้าสู่ระบบ</span>
+        <span x-show="confirming">⏳ กำลังเข้าสู่ระบบ...</span>
+      </button>
+      <button class="btn btn-ghost" style="width:100%" @click="step=2">
+        <i class="ti ti-arrows-exchange"></i> เปลี่ยนบริษัท / ปีงบ / สาขา
+      </button>
+
+    </div>
+  </div>
+
+</div>
+
+<script>
+function selectCtxPage() {
+  return {
+    step: 2,
+    loading: true,
+    companies: [],
+    openCoId: null,
+    selCoId: null, selCoName: '', selCoEntity: '',
+    selFyId: null, selFyYear: null, selFyStatus: '', selFyLocked: false, selFyPeriod: '',
+    branches: [], loadingBranch: false,
+    selBranchId: null, selBranchName: '',
+    userRole: '',
+    confirming: false,
+
+    async init() {
+      try {
+        const r = await api('GET', '/api/v1/auth/my-companies');
+        this.companies = r?.data || [];
+        const me = await api('GET', '/api/v1/auth/me');
+        this.userRole = me?.data?.context?.user_role || me?.data?.role || '';
+      } catch(e) {
+        if (e.message?.includes('401') || e.message?.includes('403')) {
+          window.location.href = '/login';
+        }
+      } finally {
+        this.loading = false;
+      }
+    },
+
+    async pickYear(co, fy) {
+      this.selCoId = co.id;
+      this.selCoName = co.name;
+      this.selCoEntity = this.entityLabel(co.entity_type);
+      this.selFyId = fy.id;
+      this.selFyYear = fy.year;
+      this.selFyStatus = fy.status;
+      this.selFyLocked = fy.is_locked || false;
+      this.selFyPeriod = `${fy.start_date} – ${fy.end_date}`;
+      this.selBranchId = null;
+      this.branches = [];
+      this.step = 3;
+      this.loadingBranch = true;
+      try {
+        const r = await api('GET', `/api/v1/platform/companies/${co.id}/branches`);
+        this.branches = r?.data || [];
+      } catch(e) {
+        this.branches = [];
+      } finally {
+        this.loadingBranch = false;
+      }
+    },
+
+    pickBranch(branchId, branchName) {
+      this.selBranchId = branchId;
+      this.selBranchName = branchName;
+      this.step = 4;
+    },
+
+    async confirm() {
+      this.confirming = true;
+      try {
+        const r = await api('POST', '/api/v1/auth/select-context', {
+          company_id:     this.selCoId,
+          fiscal_year_id: this.selFyId,
+          branch_id:      this.selBranchId === 'all' ? null : this.selBranchId,
+        });
+        const token = r?.data?.access_token;
+        if (token) {
+          document.cookie = `access_token=${token}; path=/; SameSite=Lax; max-age=86400`;
+        }
+        window.location.href = '/';
+      } catch(e) {
+        alert(e.message || 'เกิดข้อผิดพลาด');
+      } finally {
+        this.confirming = false;
+      }
+    },
+
+    canAllBranches() {
+      return ['firm_admin', 'FIRM_ADMIN', 'accountant', 'ACCOUNTANT'].includes(this.userRole);
+    },
+
+    statusLabel(s) {
+      return { active: 'ใช้งาน', closing: 'กำลังปิด', closed: 'ปิดแล้ว' }[s] || s;
+    },
+
+    statusBadge(s) {
+      return { active: 'b-green', closing: 'b-amber', closed: 'b-gray' }[s] || 'b-gray';
+    },
+
+    entityLabel(t) {
+      return { company: 'บริษัทจำกัด', partnership: 'ห้างหุ้นส่วน',
+               sole_proprietor: 'เจ้าของคนเดียว', foundation: 'มูลนิธิ/สมาคม' }[t] || (t || '—');
+    },
+  }
+}
+</script>
+{% endblock %}

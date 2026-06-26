@@ -1,0 +1,90 @@
+{% extends "platform/base_minimal.html" %}
+{% block title %}เข้าสู่ระบบ — AccCloud{% endblock %}
+
+{% block content %}
+<div class="login-wrap" x-data="loginPage()">
+
+  <div class="login-logo">
+    <div class="logo-box"><i class="ti ti-calculator"></i></div>
+    <h1>AccCloud</h1>
+    <p>{{ firm_name | default("ระบบบัญชีออนไลน์") }}</p>
+  </div>
+
+  <div class="panel">
+    <div class="panel-body">
+
+      <div class="form-group">
+        <label class="form-label">ชื่อผู้ใช้</label>
+        <input type="text" x-model="username" @keyup.enter="submit()"
+               class="input-field" style="width:100%"
+               placeholder="username" autocomplete="username" autofocus>
+      </div>
+
+      <div class="form-group" style="margin-top:14px">
+        <label class="form-label">รหัสผ่าน</label>
+        <div class="pw-wrap">
+          <input :type="showPw ? 'text' : 'password'" x-model="password"
+                 @keyup.enter="submit()" class="input-field"
+                 placeholder="••••••••" autocomplete="current-password">
+          <i :class="showPw ? 'ti ti-eye-off' : 'ti ti-eye'"
+             class="pw-eye" @click="showPw=!showPw"></i>
+        </div>
+      </div>
+
+      <div class="login-options">
+        <label style="display:flex;align-items:center;gap:6px;cursor:pointer">
+          <input type="checkbox" x-model="remember"> จำการเข้าสู่ระบบ
+        </label>
+      </div>
+
+      <button class="btn btn-primary" style="width:100%"
+              @click="submit()" :disabled="loading">
+        <span x-show="!loading"><i class="ti ti-login"></i> เข้าสู่ระบบ</span>
+        <span x-show="loading">⏳ กำลังตรวจสอบ...</span>
+      </button>
+
+      <div class="login-error" x-show="error">
+        <i class="ti ti-alert-circle"></i>
+        <span x-text="error"></span>
+      </div>
+
+    </div>
+  </div>
+
+  <p style="text-align:center;font-size:11px;color:var(--text3);margin-top:16px">
+    AccCloud &copy; 2026
+  </p>
+
+</div>
+
+<script>
+function loginPage() {
+  return {
+    username: '', password: '', remember: false,
+    loading: false, error: '', showPw: false,
+
+    async submit() {
+      if (!this.username.trim() || !this.password) {
+        this.error = 'กรุณากรอกชื่อผู้ใช้และรหัสผ่าน'; return;
+      }
+      this.loading = true; this.error = '';
+      try {
+        const data = await api('POST', '/api/v1/auth/login', {
+          username: this.username, password: this.password,
+        });
+        const token = data?.data?.access_token;
+        if (token) {
+          const maxAge = this.remember ? 86400 * 30 : 86400;
+          document.cookie = `access_token=${token}; path=/; SameSite=Lax; max-age=${maxAge}`;
+        }
+        window.location.href = '/select-context';
+      } catch(e) {
+        this.error = e.message || 'ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง';
+      } finally {
+        this.loading = false;
+      }
+    }
+  }
+}
+</script>
+{% endblock %}

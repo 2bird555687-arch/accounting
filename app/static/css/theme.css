@@ -260,3 +260,125 @@ input:focus, select:focus, textarea:focus { border-color: var(--accent); box-sha
 .loading-md { width: 24px; height: 24px; }
 .spin-icon { animation: spin .7s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
+
+/* ─── LOGIN PAGE ──────────────────────────────────── */
+.login-wrap { max-width:400px; margin:0 auto; padding:32px 16px; }
+.login-logo { text-align:center; margin-bottom:28px; }
+.login-logo .logo-box {
+  width:52px; height:52px; border-radius:12px;
+  background:var(--accent); color:#fff;
+  display:inline-flex; align-items:center; justify-content:center;
+  font-size:26px; margin-bottom:10px; }
+.login-logo h1 { font-size:22px; font-weight:700; margin:0; }
+.login-logo p  { font-size:13px; color:var(--text2); margin:2px 0 0; }
+.login-options { display:flex; justify-content:space-between;
+  align-items:center; font-size:12px; margin:10px 0 16px; }
+.pw-wrap { position:relative; }
+.pw-wrap input { padding-right:36px; width:100%; }
+.pw-eye { position:absolute; right:10px; top:50%; transform:translateY(-50%);
+  cursor:pointer; color:var(--text3); font-size:16px; }
+.login-error { background:var(--red-l); color:var(--red); border-radius:6px;
+  padding:9px 12px; font-size:12px; margin-top:12px;
+  display:flex; align-items:center; gap:6px; }
+
+/* ─── STEP BAR ──────────────────────────────────── */
+.step-bar { display:flex; align-items:center; padding:20px 24px; margin-bottom:20px; }
+.step { display:flex; flex-direction:column; align-items:center; gap:5px; flex-shrink:0; }
+.step-circle {
+  width:32px; height:32px; border-radius:50%;
+  display:flex; align-items:center; justify-content:center;
+  font-size:14px; background:var(--bg); border:1.5px solid var(--border); color:var(--text3); }
+.step.active .step-circle { background:var(--accent); color:#fff; border-color:var(--accent); }
+.step.done   .step-circle { background:var(--green-l); color:var(--green); border-color:var(--green); }
+.step span { font-size:11px; color:var(--text3); white-space:nowrap; }
+.step.active span { color:var(--accent); font-weight:500; }
+.step.done   span { color:var(--green); }
+.step-line { flex:1; height:1.5px; background:var(--border); margin:0 8px; margin-bottom:18px; }
+.step-line.done { background:var(--green); }
+
+/* ─── COMPANY / YEAR LIST ───────────────────────── */
+.co-item { border:1px solid var(--border); border-radius:8px; margin-bottom:8px; overflow:hidden; }
+.co-row { display:flex; align-items:center; gap:12px; padding:12px 14px; cursor:pointer; user-select:none; }
+.co-row:hover { background:var(--bg); }
+.co-icon { width:36px; height:36px; border-radius:8px;
+  display:flex; align-items:center; justify-content:center;
+  font-size:15px; font-weight:600; flex-shrink:0; background:var(--accent-l); color:var(--accent); }
+.co-name { font-size:13px; font-weight:500; }
+.co-sub  { font-size:11px; color:var(--text3); margin-top:1px; }
+.co-row .chev { margin-left:auto; font-size:14px; color:var(--text3); transition:transform .2s; }
+.co-row .chev.open { transform:rotate(90deg); }
+.yr-list { border-top:1px solid var(--border); }
+.yr-row  { display:flex; align-items:center; gap:10px;
+  padding:10px 16px 10px 52px; cursor:pointer; border-bottom:1px solid var(--border); }
+.yr-row:last-child { border-bottom:none; }
+.yr-row:hover { background:var(--bg); }
+.yr-row.selected { background:var(--accent-l); border-left:2.5px solid var(--accent); }
+.yr-dot { width:8px; height:8px; border-radius:50%; flex-shrink:0; }
+.yr-dot--active  { background:#16a34a; }
+.yr-dot--closing { background:#d97706; }
+.yr-dot--closed  { background:#9ca3af; }
+.yr-name   { font-size:13px; font-weight:500; }
+.yr-period { font-size:11px; color:var(--text3); }
+
+/* ─── BRANCH LIST ───────────────────────────────── */
+.br-row { display:flex; align-items:center; gap:12px; padding:12px 16px; cursor:pointer;
+  border:1px solid var(--border); border-radius:8px; margin-bottom:8px; }
+.br-row:hover { background:var(--bg); }
+.br-row.selected { background:var(--accent-l); border-color:var(--accent); border-left:2.5px solid var(--accent); }
+.br-row--disabled { opacity:.45; cursor:not-allowed; pointer-events:none; }
+.br-row--all { background:var(--bg); }
+.br-dot { width:8px; height:8px; border-radius:50%; flex-shrink:0; }
+.br-dot--active   { background:#16a34a; }
+.br-dot--inactive { background:#9ca3af; }
+.br-name { font-size:13px; font-weight:500; }
+.br-sub  { font-size:11px; color:var(--text3); }
+
+/* ─── CONFIRM CARD (step 4) ─────────────────────── */
+.confirm-card {
+  max-width:440px; margin:0 auto; background:var(--surface);
+  border:1px solid var(--border); border-radius:12px; padding:28px; }
+.confirm-card__icon {
+  width:52px; height:52px; border-radius:10px;
+  background:var(--accent); color:#fff;
+  display:flex; align-items:center; justify-content:center;
+  font-size:22px; font-weight:700; margin-bottom:16px; }
+.confirm-card h2 { font-size:17px; font-weight:600; margin:0 0 4px; }
+.confirm-card p  { font-size:12px; color:var(--text2); margin:0 0 16px; }
+.confirm-card .badges { display:flex; gap:6px; flex-wrap:wrap; margin-bottom:16px; }
+.info-grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin:16px 0 20px; }
+.info-cell { padding:10px 12px; background:var(--bg); border-radius:6px; }
+.info-label { font-size:10px; text-transform:uppercase;
+  letter-spacing:.05em; color:var(--text3); margin-bottom:3px; }
+.info-val   { font-size:13px; font-weight:500; }
+
+/* ─── LOCK BANNER ───────────────────────────────── */
+.lock-banner { background:var(--amber-l); border:0.5px solid rgba(146,64,14,.2);
+  border-radius:6px; padding:9px 12px; font-size:12px; color:var(--amber);
+  display:flex; align-items:center; gap:7px; margin-bottom:16px; }
+.global-lock-banner { background:var(--amber-l); color:var(--amber);
+  padding:8px 20px; font-size:12px; display:flex; align-items:center; gap:8px;
+  border-bottom:0.5px solid rgba(146,64,14,.2); }
+.global-lock-banner a { color:var(--amber); text-decoration:underline; margin-left:auto; }
+
+/* ─── COMPANY SWITCHER (sidebar) ────────────────── */
+.company-selector { display:flex; align-items:center; gap:10px;
+  padding:10px 14px; cursor:pointer; border-radius:6px; }
+.company-selector:hover { background:rgba(255,255,255,.06); }
+.company-selector__icon { width:30px; height:30px; border-radius:6px;
+  background:var(--accent); color:#fff;
+  display:flex; align-items:center; justify-content:center;
+  font-size:13px; font-weight:600; flex-shrink:0; }
+.company-selector__name { font-size:13px; font-weight:500; color:#e8e5de; }
+.company-selector__meta { font-size:10px; color:var(--sidebar-t); }
+.company-dropdown { position:absolute; left:14px; right:14px; top:calc(100% + 4px);
+  background:var(--surface); border:1px solid var(--border); border-radius:8px;
+  box-shadow:0 4px 20px rgba(0,0,0,.12); z-index:50; overflow:hidden; }
+.dropdown-item { display:flex; align-items:center; gap:10px;
+  padding:10px 14px; font-size:13px; color:var(--text1);
+  text-decoration:none; cursor:pointer; }
+.dropdown-item:hover { background:var(--bg); }
+.dropdown-divider { border-top:1px solid var(--border); margin:2px 0; }
+
+/* ─── MINIMAL LAYOUT ────────────────────────────── */
+.minimal-wrap { min-height:100vh; display:flex; align-items:center;
+  justify-content:center; background:var(--bg); padding:16px; }

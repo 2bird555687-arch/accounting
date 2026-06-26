@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}AccCloud{% endblock %}</title>
+  <link rel="stylesheet" href="/static/css/theme.css">
+  <link rel="stylesheet"
+    href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+</head>
+<body>
+  <div class="minimal-wrap">
+    {% block content %}{% endblock %}
+  </div>
+
+  <script>
+    async function api(method, url, body) {
+      const token = document.cookie.match(/access_token=([^;]+)/)?.[1] || '';
+      const opts = {
+        method,
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token }
+      };
+      if (body) opts.body = JSON.stringify(body);
+      const res = await fetch(url, opts);
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        const msg = data?.detail || data?.message || 'เกิดข้อผิดพลาด';
+        const err = new Error(msg);
+        err.data = data;
+        throw err;
+      }
+      return data;
+    }
+  </script>
+</body>
+</html>
