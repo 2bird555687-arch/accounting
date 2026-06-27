@@ -1,5 +1,5 @@
-{% extends "platform/base_minimal.html" %}
-{% block title %}เลือกบริษัท — AccCloud{% endblock %}
+﻿{% extends "platform/base_minimal.html" %}
+{% block title %}เน€เธฅเธทเธญเธเธเธฃเธดเธฉเธฑเธ— โ€” AccCloud{% endblock %}
 
 {% block content %}
 <div class="w-full max-w-lg" x-data="selectCtxPage()" x-init="init()">
@@ -9,8 +9,8 @@
 
     <!-- Header -->
     <div class="px-6 pt-6 pb-4 border-b border-gray-100">
-      <h1 class="text-lg font-bold text-gray-900">เลือกบริษัทและปีงบการเงิน</h1>
-      <p class="text-xs text-gray-500 mt-1">AccCloud — ระบบบัญชีออนไลน์</p>
+      <h1 class="text-lg font-bold text-gray-900">เน€เธฅเธทเธญเธเธเธฃเธดเธฉเธฑเธ—เนเธฅเธฐเธเธตเธเธเธเธฒเธฃเน€เธเธดเธ</h1>
+      <p class="text-xs text-gray-500 mt-1">AccCloud โ€” เธฃเธฐเธเธเธเธฑเธเธเธตเธญเธญเธเนเธฅเธเน</p>
 
       <!-- Step indicator -->
       <div class="flex items-center mt-4 gap-1">
@@ -20,7 +20,7 @@
             <i x-show="step>2" class="ti ti-check text-xs"></i>
             <span x-show="step<=2">1</span>
           </div>
-          <span class="text-xs" :class="step===2 ? 'text-blue-700 font-medium' : 'text-gray-400'">บริษัท & ปีงบ</span>
+          <span class="text-xs" :class="step===2 ? 'text-blue-700 font-medium' : 'text-gray-400'">เธเธฃเธดเธฉเธฑเธ— & เธเธตเธเธ</span>
         </div>
         <div class="flex-1 h-px mx-2" :class="step>2 ? 'bg-green-400' : 'bg-gray-200'"></div>
         <div class="flex items-center gap-1.5">
@@ -29,7 +29,7 @@
             <i x-show="step>3" class="ti ti-check text-xs"></i>
             <span x-show="step<=3">2</span>
           </div>
-          <span class="text-xs" :class="step===3 ? 'text-blue-700 font-medium' : 'text-gray-400'">สาขา</span>
+          <span class="text-xs" :class="step===3 ? 'text-blue-700 font-medium' : 'text-gray-400'">เธชเธฒเธเธฒ</span>
         </div>
         <div class="flex-1 h-px mx-2" :class="step>3 ? 'bg-green-400' : 'bg-gray-200'"></div>
         <div class="flex items-center gap-1.5">
@@ -37,7 +37,7 @@
                :class="step===4 ? 'bg-blue-700 text-white' : 'bg-gray-100 text-gray-400'">
             <span>3</span>
           </div>
-          <span class="text-xs" :class="step===4 ? 'text-blue-700 font-medium' : 'text-gray-400'">ยืนยัน</span>
+          <span class="text-xs" :class="step===4 ? 'text-blue-700 font-medium' : 'text-gray-400'">เธขเธทเธเธขเธฑเธ</span>
         </div>
       </div>
     </div>
@@ -48,17 +48,23 @@
       <!-- Loading -->
       <div x-show="loading" class="flex flex-col items-center justify-center py-12 text-gray-400">
         <i class="ti ti-loader spin text-3xl mb-2"></i>
-        <p class="text-sm">กำลังโหลดข้อมูล...</p>
+        <p class="text-sm">เธเธณเธฅเธฑเธเนเธซเธฅเธ”เธเนเธญเธกเธนเธฅ...</p>
       </div>
 
-      <!-- ───── Step 2: Company + FY ───── -->
+      <!-- โ”€โ”€โ”€โ”€โ”€ Step 2: Company + FY โ”€โ”€โ”€โ”€โ”€ -->
       <div x-show="!loading && step===2">
-        <p class="text-xs text-gray-500 font-medium uppercase tracking-wide mb-3">เลือกบริษัท</p>
+        <div class="flex items-center justify-between mb-3">
+          <p class="text-xs text-gray-500 font-medium uppercase tracking-wide">เน€เธฅเธทเธญเธเธเธฃเธดเธฉเธฑเธ—</p>
+          <button @click="showAddCo=true"
+                  class="text-xs px-2.5 py-1.5 bg-blue-700 text-white rounded-lg hover:bg-blue-800 transition-colors flex items-center gap-1">
+            <i class="ti ti-plus text-xs"></i> เน€เธเธดเนเธกเธเธฃเธดเธฉเธฑเธ—
+          </button>
+        </div>
 
         <template x-if="companies.length===0">
           <div class="text-center py-10 text-gray-400">
             <i class="ti ti-building-off text-4xl block mb-2"></i>
-            <p class="text-sm">ไม่พบบริษัทที่เข้าถึงได้</p>
+            <p class="text-sm">เนเธกเนเธเธเธเธฃเธดเธฉเธฑเธ—เธ—เธตเนเน€เธเนเธฒเธ–เธถเธเนเธ”เน</p>
           </div>
         </template>
 
@@ -80,7 +86,7 @@
               <!-- FY list -->
               <div x-show="openCoId===co.id" class="border-t border-gray-100">
                 <template x-if="!co.fiscal_years || co.fiscal_years.length===0">
-                  <div class="px-4 py-3 text-xs text-gray-400">ยังไม่มีปีงบการเงิน</div>
+                  <div class="px-4 py-3 text-xs text-gray-400">เธขเธฑเธเนเธกเนเธกเธตเธเธตเธเธเธเธฒเธฃเน€เธเธดเธ</div>
                 </template>
                 <template x-for="fy in co.fiscal_years" :key="fy.id">
                   <div class="flex items-center gap-3 px-4 py-2.5 pl-16 cursor-pointer
@@ -90,8 +96,8 @@
                          :class="fy.status==='active' ? 'bg-green-500' : fy.status==='closing' ? 'bg-amber-500' : 'bg-gray-400'">
                     </div>
                     <div class="flex-1 min-w-0">
-                      <div class="text-sm font-medium text-gray-800" x-text="`ปีงบ ${fy.year}`"></div>
-                      <div class="text-xs text-gray-500" x-text="`${fy.start_date} – ${fy.end_date}`"></div>
+                      <div class="text-sm font-medium text-gray-800" x-text="`เธเธตเธเธ ${fy.year}`"></div>
+                      <div class="text-xs text-gray-500" x-text="`${fy.start_date} โ€“ ${fy.end_date}`"></div>
                     </div>
                     <div class="flex items-center gap-1">
                       <span class="text-xs px-2 py-0.5 rounded-full font-medium"
@@ -107,35 +113,41 @@
         </div>
       </div>
 
-      <!-- ───── Step 3: Branch ───── -->
+      <!-- โ”€โ”€โ”€โ”€โ”€ Step 3: Branch โ”€โ”€โ”€โ”€โ”€ -->
       <div x-show="!loading && step===3">
         <div class="flex items-center gap-2 mb-4">
           <button @click="step=2"
                   class="text-xs text-blue-600 hover:text-blue-800 flex items-center gap-1">
-            <i class="ti ti-arrow-left text-sm"></i> เลือกบริษัทอื่น
+            <i class="ti ti-arrow-left text-sm"></i> เน€เธฅเธทเธญเธเธเธฃเธดเธฉเธฑเธ—เธญเธทเนเธ
           </button>
           <span class="text-gray-300">|</span>
           <span class="text-xs text-gray-500 truncate" x-text="selCoName"></span>
-          <span class="text-xs text-gray-400">·</span>
-          <span class="text-xs text-gray-500" x-text="`ปีงบ ${selFyYear}`"></span>
+          <span class="text-xs text-gray-400">ยท</span>
+          <span class="text-xs text-gray-500" x-text="`เธเธตเธเธ ${selFyYear}`"></span>
         </div>
 
-        <p class="text-xs text-gray-500 font-medium uppercase tracking-wide mb-3">เลือกสาขา</p>
+        <div class="flex items-center justify-between mb-3">
+          <p class="text-xs text-gray-500 font-medium uppercase tracking-wide">เน€เธฅเธทเธญเธเธชเธฒเธเธฒ</p>
+          <button @click="showAddBr=true"
+                  class="text-xs px-2.5 py-1.5 bg-blue-700 text-white rounded-lg hover:bg-blue-800 transition-colors flex items-center gap-1">
+            <i class="ti ti-plus text-xs"></i> เน€เธเธดเนเธกเธชเธฒเธเธฒ
+          </button>
+        </div>
 
         <div x-show="loadingBranch" class="text-center py-8 text-gray-400">
           <i class="ti ti-loader spin text-2xl"></i>
         </div>
 
         <div x-show="!loadingBranch" class="space-y-2">
-          <!-- ทุกสาขา -->
+          <!-- เธ—เธธเธเธชเธฒเธเธฒ -->
           <div x-show="canAllBranches()"
                class="flex items-center gap-3 px-4 py-3 rounded-xl border cursor-pointer transition-colors"
                :class="selBranchId==='all' ? 'border-blue-500 bg-blue-50' : 'border-gray-200 bg-gray-50 hover:bg-gray-100'"
-               @click="pickBranch('all','ทุกสาขา (รวม)')">
+               @click="pickBranch('all','เธ—เธธเธเธชเธฒเธเธฒ (เธฃเธงเธก)')">
             <div class="w-2 h-2 rounded-full bg-green-500 shrink-0"></div>
             <div class="flex-1">
-              <div class="text-sm font-medium text-gray-800">ทุกสาขา (รวม)</div>
-              <div class="text-xs text-gray-500">ดูข้อมูลทุกสาขาพร้อมกัน</div>
+              <div class="text-sm font-medium text-gray-800">เธ—เธธเธเธชเธฒเธเธฒ (เธฃเธงเธก)</div>
+              <div class="text-xs text-gray-500">เธ”เธนเธเนเธญเธกเธนเธฅเธ—เธธเธเธชเธฒเธเธฒเธเธฃเนเธญเธกเธเธฑเธ</div>
             </div>
             <i x-show="selBranchId==='all'" class="ti ti-check text-blue-600"></i>
           </div>
@@ -152,26 +164,26 @@
               <div class="flex-1">
                 <div class="text-sm font-medium text-gray-800" x-text="br.name"></div>
                 <div class="text-xs text-gray-500"
-                     x-text="br.branch_code==='00000' ? 'สาขาใหญ่ (HQ)' : `รหัส ${br.branch_code}`"></div>
+                     x-text="br.branch_code==='00000' ? 'เธชเธฒเธเธฒเนเธซเธเน (HQ)' : `เธฃเธซเธฑเธช ${br.branch_code}`"></div>
               </div>
               <template x-if="br.has_access===false">
-                <span class="text-xs bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full">ไม่มีสิทธิ์</span>
+                <span class="text-xs bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full">เนเธกเนเธกเธตเธชเธดเธ—เธเธดเน</span>
               </template>
               <i x-show="selBranchId===br.id" class="ti ti-check text-blue-600"></i>
             </div>
           </template>
 
           <template x-if="!loadingBranch && branches.length===0">
-            <div class="text-center py-8 text-gray-400 text-sm">ยังไม่มีสาขา</div>
+            <div class="text-center py-8 text-gray-400 text-sm">เธขเธฑเธเนเธกเนเธกเธตเธชเธฒเธเธฒ</div>
           </template>
         </div>
       </div>
 
-      <!-- ───── Step 4: Confirm ───── -->
+      <!-- โ”€โ”€โ”€โ”€โ”€ Step 4: Confirm โ”€โ”€โ”€โ”€โ”€ -->
       <div x-show="!loading && step===4">
         <div class="flex items-center gap-2 mb-4">
           <button @click="step=3" class="text-xs text-blue-600 hover:text-blue-800 flex items-center gap-1">
-            <i class="ti ti-arrow-left text-sm"></i> เปลี่ยนสาขา
+            <i class="ti ti-arrow-left text-sm"></i> เน€เธเธฅเธตเนเธขเธเธชเธฒเธเธฒ
           </button>
         </div>
 
@@ -180,7 +192,7 @@
           <div class="w-12 h-12 rounded-xl bg-blue-700 text-white flex items-center justify-center
                       font-bold text-lg mb-4" x-text="(selCoName||'?')[0]"></div>
           <h2 class="text-base font-bold text-gray-900 mb-1" x-text="selCoName"></h2>
-          <p class="text-sm text-gray-500 mb-3" x-text="`ปีงบ ${selFyYear}  ·  ${selFyPeriod}`"></p>
+          <p class="text-sm text-gray-500 mb-3" x-text="`เธเธตเธเธ ${selFyYear}  ยท  ${selFyPeriod}`"></p>
 
           <div class="flex gap-2 mb-3 flex-wrap">
             <span class="text-xs px-2.5 py-1 rounded-full font-medium"
@@ -189,7 +201,7 @@
                           'bg-gray-100 text-gray-500'"
                   x-text="statusLabel(selFyStatus)"></span>
             <span class="text-xs px-2.5 py-1 rounded-full bg-blue-100 text-blue-700 font-medium"
-                  x-text="selBranchId==='all' ? 'ทุกสาขา' : selBranchName"></span>
+                  x-text="selBranchId==='all' ? 'เธ—เธธเธเธชเธฒเธเธฒ' : selBranchName"></span>
           </div>
 
           <!-- Lock warning -->
@@ -197,25 +209,25 @@
                class="flex items-center gap-2 text-xs text-amber-700 bg-amber-50 border border-amber-200
                       rounded-lg px-3 py-2 mb-4">
             <i class="ti ti-lock shrink-0"></i>
-            <span>ปีงบนี้ถูกล็อค — จะเข้าในโหมดอ่านอย่างเดียว</span>
+            <span>เธเธตเธเธเธเธตเนเธ–เธนเธเธฅเนเธญเธ โ€” เธเธฐเน€เธเนเธฒเนเธเนเธซเธกเธ”เธญเนเธฒเธเธญเธขเนเธฒเธเน€เธ”เธตเธขเธง</span>
           </div>
 
           <!-- Info grid -->
           <div class="grid grid-cols-2 gap-2 mb-4">
             <div class="bg-gray-50 rounded-lg p-3">
-              <div class="text-xs text-gray-400 uppercase tracking-wide mb-1">สาขา</div>
-              <div class="text-sm font-medium" x-text="selBranchId==='all' ? 'ทุกสาขา' : selBranchName"></div>
+              <div class="text-xs text-gray-400 uppercase tracking-wide mb-1">เธชเธฒเธเธฒ</div>
+              <div class="text-sm font-medium" x-text="selBranchId==='all' ? 'เธ—เธธเธเธชเธฒเธเธฒ' : selBranchName"></div>
             </div>
             <div class="bg-gray-50 rounded-lg p-3">
-              <div class="text-xs text-gray-400 uppercase tracking-wide mb-1">ประเภทกิจการ</div>
-              <div class="text-sm font-medium" x-text="selCoEntity || '—'"></div>
+              <div class="text-xs text-gray-400 uppercase tracking-wide mb-1">เธเธฃเธฐเน€เธ เธ—เธเธดเธเธเธฒเธฃ</div>
+              <div class="text-sm font-medium" x-text="selCoEntity || 'โ€”'"></div>
             </div>
             <div class="bg-gray-50 rounded-lg p-3">
-              <div class="text-xs text-gray-400 uppercase tracking-wide mb-1">ปีงบการเงิน</div>
+              <div class="text-xs text-gray-400 uppercase tracking-wide mb-1">เธเธตเธเธเธเธฒเธฃเน€เธเธดเธ</div>
               <div class="text-sm font-medium" x-text="selFyYear"></div>
             </div>
             <div class="bg-gray-50 rounded-lg p-3">
-              <div class="text-xs text-gray-400 uppercase tracking-wide mb-1">สถานะ</div>
+              <div class="text-xs text-gray-400 uppercase tracking-wide mb-1">เธชเธ–เธฒเธเธฐ</div>
               <div class="text-sm font-medium" x-text="statusLabel(selFyStatus)"></div>
             </div>
           </div>
@@ -231,23 +243,132 @@
                      text-white font-semibold rounded-xl text-sm flex items-center justify-center gap-2 transition-colors">
         <i x-show="confirming" class="ti ti-loader spin"></i>
         <i x-show="!confirming" class="ti ti-login"></i>
-        <span x-text="confirming ? 'กำลังเข้าสู่ระบบ...' : 'เข้าสู่ระบบ'"></span>
+        <span x-text="confirming ? 'เธเธณเธฅเธฑเธเน€เธเนเธฒเธชเธนเนเธฃเธฐเธเธ...' : 'เน€เธเนเธฒเธชเธนเนเธฃเธฐเธเธ'"></span>
       </button>
       <button @click="step=2"
               class="w-full py-2.5 border border-gray-200 hover:bg-gray-50
                      text-gray-600 font-medium rounded-xl text-sm transition-colors">
-        <i class="ti ti-arrows-exchange"></i> เปลี่ยนบริษัท / ปีงบ / สาขา
+        <i class="ti ti-arrows-exchange"></i> เน€เธเธฅเธตเนเธขเธเธเธฃเธดเธฉเธฑเธ— / เธเธตเธเธ / เธชเธฒเธเธฒ
       </button>
     </div>
 
     <!-- Logout link -->
     <div class="px-6 pb-5 text-center">
       <a href="/logout" class="text-xs text-gray-400 hover:text-gray-600">
-        <i class="ti ti-logout text-xs"></i> ออกจากระบบ
+        <i class="ti ti-logout text-xs"></i> เธญเธญเธเธเธฒเธเธฃเธฐเธเธ
       </a>
     </div>
 
   </div><!-- /card -->
+
+  <!-- Add Branch Mini-Modal -->
+  <div x-show="showAddBr" x-cloak
+       class="fixed inset-0 z-50 flex items-center justify-center p-4"
+       style="background:rgba(0,0,0,.45)"
+       @click.self="showAddBr=false">
+    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-sm">
+      <div class="flex items-center justify-between px-5 py-4 border-b border-gray-100">
+        <h3 class="font-bold text-gray-900 text-sm">เน€เธเธดเนเธกเธชเธฒเธเธฒเนเธซเธกเน</h3>
+        <button @click="showAddBr=false" class="w-7 h-7 flex items-center justify-center rounded-lg text-gray-400 hover:bg-gray-100">
+          <i class="ti ti-x text-sm"></i>
+        </button>
+      </div>
+      <div class="px-5 py-4 space-y-3">
+        <div x-show="addBrError" x-cloak
+             class="text-xs text-red-700 bg-red-50 border border-red-200 rounded-lg px-3 py-2"
+             x-text="addBrError"></div>
+        <div>
+          <label class="block text-xs font-medium text-gray-700 mb-1">เธเธทเนเธญเธชเธฒเธเธฒ <span class="text-red-500">*</span></label>
+          <input type="text" x-model="addBrForm.name" @keyup.enter="addBranch()"
+                 placeholder="เน€เธเนเธ เธชเธฒเธเธฒเธฅเธฒเธ”เธเธฃเนเธฒเธง"
+                 class="w-full px-3 py-2 rounded-lg border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-gray-700 mb-1">เธฃเธซเธฑเธชเธชเธฒเธเธฒ (เนเธกเนเธเธฑเธเธเธฑเธ)</label>
+          <input type="text" x-model="addBrForm.branch_code"
+                 placeholder="เน€เธเนเธ 00001"
+                 class="w-full px-3 py-2 rounded-lg border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+          <p class="text-xs text-gray-400 mt-1">เธ–เนเธฒเนเธกเนเธเธฃเธญเธ เธฃเธฐเธเธเธเธฐเธเธณเธซเธเธ”เนเธซเนเธญเธฑเธ•เนเธเธกเธฑเธ•เธด</p>
+        </div>
+      </div>
+      <div class="px-5 pb-5 flex gap-2">
+        <button @click="showAddBr=false"
+                class="flex-1 py-2 border border-gray-200 rounded-xl text-sm text-gray-600 hover:bg-gray-50 transition-colors">
+          เธขเธเน€เธฅเธดเธ
+        </button>
+        <button @click="addBranch()" :disabled="addBrSaving"
+                class="flex-1 py-2 bg-blue-700 hover:bg-blue-800 disabled:opacity-60 text-white font-semibold rounded-xl text-sm flex items-center justify-center gap-1 transition-colors">
+          <i x-show="addBrSaving" class="ti ti-loader spin text-xs"></i>
+          <span x-text="addBrSaving ? 'เธเธณเธฅเธฑเธเธเธฑเธเธ—เธถเธ...' : 'เธเธฑเธเธ—เธถเธ'"></span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Add Company Mini-Modal -->
+  <div x-show="showAddCo" x-cloak
+       class="fixed inset-0 z-50 flex items-center justify-center p-4"
+       style="background:rgba(0,0,0,.45)"
+       @click.self="showAddCo=false">
+    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-sm">
+      <div class="flex items-center justify-between px-5 py-4 border-b border-gray-100">
+        <h3 class="font-bold text-gray-900 text-sm">เน€เธเธดเนเธกเธเธฃเธดเธฉเธฑเธ—เนเธซเธกเน</h3>
+        <button @click="showAddCo=false" class="w-7 h-7 flex items-center justify-center rounded-lg text-gray-400 hover:bg-gray-100">
+          <i class="ti ti-x text-sm"></i>
+        </button>
+      </div>
+      <div class="px-5 py-4 space-y-3">
+        <div x-show="addCoError" x-cloak
+             class="text-xs text-red-700 bg-red-50 border border-red-200 rounded-lg px-3 py-2"
+             x-text="addCoError"></div>
+        <div>
+          <label class="block text-xs font-medium text-gray-700 mb-1">เธเธทเนเธญเธเธฃเธดเธฉเธฑเธ— <span class="text-red-500">*</span></label>
+          <input type="text" x-model="addCoForm.name" @keyup.enter="addCompany()"
+                 placeholder="เน€เธเนเธ เธเธฃเธดเธฉเธฑเธ— เน€เธญเธเธตเธเธต เธเธณเธเธฑเธ”"
+                 class="w-full px-3 py-2 rounded-lg border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-gray-700 mb-1">เธฃเธซเธฑเธชเธขเนเธญ (เนเธกเนเธเธฑเธเธเธฑเธ)</label>
+          <input type="text" x-model="addCoForm.code" @input="addCoForm.code=addCoForm.code.toUpperCase()"
+                 placeholder="เน€เธเนเธ ABC"
+                 class="w-full px-3 py-2 rounded-lg border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-gray-700 mb-1">เธเธฃเธฐเน€เธ เธ—เธเธดเธเธเธฒเธฃ</label>
+          <select x-model="addCoForm.entity_type"
+                  class="w-full px-3 py-2 rounded-lg border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+            <option value="company">เธเธฃเธดเธฉเธฑเธ—เธเธณเธเธฑเธ”</option>
+            <option value="partnership">เธซเนเธฒเธเธซเธธเนเธเธชเนเธงเธ</option>
+            <option value="sole_proprietor">เน€เธเนเธฒเธเธญเธเธเธเน€เธ”เธตเธขเธง</option>
+            <option value="foundation">เธกเธนเธฅเธเธดเธเธด/เธชเธกเธฒเธเธก</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-gray-700 mb-1">เธฅเธฑเธเธฉเธ“เธฐเธเธดเธเธเธฒเธฃ</label>
+          <select x-model="addCoForm.business_type"
+                  class="w-full px-3 py-2 rounded-lg border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+            <option value="">โ€” เนเธกเนเธฃเธฐเธเธธ โ€”</option>
+            <option value="trading">เธเธทเนเธญ-เธเธฒเธขเธชเธดเธเธเนเธฒ</option>
+            <option value="service">เธเธฃเธดเธเธฒเธฃ</option>
+            <option value="manufacturing">เธเธฅเธดเธ•</option>
+            <option value="construction">เธฃเธฑเธเน€เธซเธกเธฒเธเนเธญเธชเธฃเนเธฒเธ</option>
+            <option value="mixed">เธเธชเธก (เธเธทเนเธญ-เธเธฒเธข + เธเธฃเธดเธเธฒเธฃ)</option>
+          </select>
+        </div>
+      </div>
+      <div class="px-5 pb-5 flex gap-2">
+        <button @click="showAddCo=false"
+                class="flex-1 py-2 border border-gray-200 rounded-xl text-sm text-gray-600 hover:bg-gray-50 transition-colors">
+          เธขเธเน€เธฅเธดเธ
+        </button>
+        <button @click="addCompany()" :disabled="addCoSaving"
+                class="flex-1 py-2 bg-blue-700 hover:bg-blue-800 disabled:opacity-60 text-white font-semibold rounded-xl text-sm flex items-center justify-center gap-1 transition-colors">
+          <i x-show="addCoSaving" class="ti ti-loader spin text-xs"></i>
+          <span x-text="addCoSaving ? 'เธเธณเธฅเธฑเธเธเธฑเธเธ—เธถเธ...' : 'เธเธฑเธเธ—เธถเธ'"></span>
+        </button>
+      </div>
+    </div>
+  </div>
 </div>
 
 <script>
@@ -255,6 +376,8 @@ function selectCtxPage() {
   return {
     step: 2, loading: true, confirming: false,
     companies: [], openCoId: null,
+    showAddCo: false, addCoForm: { name:'', code:'', entity_type:'company', business_type:'' }, addCoSaving: false, addCoError: '',
+    showAddBr: false, addBrForm: { name:'', branch_code:'' }, addBrSaving: false, addBrError: '',
     selCoId: null, selCoName: '', selCoEntity: '',
     selFyId: null, selFyYear: null, selFyStatus: '', selFyLocked: false, selFyPeriod: '',
     branches: [], loadingBranch: false,
@@ -283,13 +406,13 @@ function selectCtxPage() {
       this.selFyYear = fy.year;
       this.selFyStatus = fy.status;
       this.selFyLocked = fy.is_locked || false;
-      this.selFyPeriod = `${fy.start_date} – ${fy.end_date}`;
+      this.selFyPeriod = `${fy.start_date} โ€“ ${fy.end_date}`;
       this.step = 3;
       this.branches = [];
       this.selBranchId = null;
       this.loadingBranch = true;
       try {
-        const r = await api('GET', `/api/v1/platform/companies/${co.id}/branches`);
+        const r = await api('GET', `/api/v1/companies/${co.id}/branches`);
         this.branches = r?.data || [];
       } catch { this.branches = []; }
       finally { this.loadingBranch = false; }
@@ -313,8 +436,44 @@ function selectCtxPage() {
         if (token) document.cookie = `access_token=${token}; path=/; SameSite=Lax; max-age=86400`;
         window.location.href = '/';
       } catch(e) {
-        alert(e.message || 'เกิดข้อผิดพลาด');
+        alert(e.message || 'เน€เธเธดเธ”เธเนเธญเธเธดเธ”เธเธฅเธฒเธ”');
       } finally { this.confirming = false; }
+    },
+
+    async addBranch() {
+      if (!this.addBrForm.name.trim()) { this.addBrError = 'เธเธฃเธธเธ“เธฒเธเธฃเธญเธเธเธทเนเธญเธชเธฒเธเธฒ'; return; }
+      this.addBrSaving = true; this.addBrError = '';
+      try {
+        await api('POST', `/api/v1/companies/${this.selCoId}/branches`, {
+          name: this.addBrForm.name.trim(),
+          branch_code: this.addBrForm.branch_code.trim() || undefined,
+        });
+        this.showAddBr = false;
+        this.addBrForm = { name:'', branch_code:'' };
+        const r = await api('GET', `/api/v1/companies/${this.selCoId}/branches`);
+        this.branches = r?.data || [];
+      } catch(e) {
+        this.addBrError = e.message || 'เน€เธเธดเธ”เธเนเธญเธเธดเธ”เธเธฅเธฒเธ”';
+      } finally { this.addBrSaving = false; }
+    },
+
+    async addCompany() {
+      if (!this.addCoForm.name.trim()) { this.addCoError = 'เธเธฃเธธเธ“เธฒเธเธฃเธญเธเธเธทเนเธญเธเธฃเธดเธฉเธฑเธ—'; return; }
+      this.addCoSaving = true; this.addCoError = '';
+      try {
+        await api('POST', '/api/v1/companies', {
+          name: this.addCoForm.name.trim(),
+          code: this.addCoForm.code.trim().toUpperCase() || undefined,
+          entity_type: this.addCoForm.entity_type,
+          business_type: this.addCoForm.business_type || undefined,
+        });
+        this.showAddCo = false;
+        this.addCoForm = { name:'', code:'', entity_type:'company' };
+        const r = await api('GET', '/api/v1/auth/my-companies');
+        this.companies = r?.data || [];
+      } catch(e) {
+        this.addCoError = e.message || 'เน€เธเธดเธ”เธเนเธญเธเธดเธ”เธเธฅเธฒเธ”';
+      } finally { this.addCoSaving = false; }
     },
 
     canAllBranches() {
@@ -323,14 +482,15 @@ function selectCtxPage() {
     },
 
     statusLabel(s) {
-      return { active: 'ใช้งาน', closing: 'กำลังปิด', closed: 'ปิดแล้ว' }[s] || (s || '—');
+      return { active: 'เนเธเนเธเธฒเธ', closing: 'เธเธณเธฅเธฑเธเธเธดเธ”', closed: 'เธเธดเธ”เนเธฅเนเธง' }[s] || (s || 'โ€”');
     },
 
     entityLabel(t) {
-      return { company: 'บริษัทจำกัด', partnership: 'ห้างหุ้นส่วน',
-               sole_proprietor: 'เจ้าของคนเดียว', foundation: 'มูลนิธิ/สมาคม' }[t] || (t || '—');
+      return { company: 'เธเธฃเธดเธฉเธฑเธ—เธเธณเธเธฑเธ”', partnership: 'เธซเนเธฒเธเธซเธธเนเธเธชเนเธงเธ',
+               sole_proprietor: 'เน€เธเนเธฒเธเธญเธเธเธเน€เธ”เธตเธขเธง', foundation: 'เธกเธนเธฅเธเธดเธเธด/เธชเธกเธฒเธเธก' }[t] || (t || 'โ€”');
     },
   }
 }
 </script>
 {% endblock %}
+
