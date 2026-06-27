@@ -47,11 +47,13 @@ WORKDIR /app
 COPY --chown=appuser:appgroup app/              ./app/
 COPY --chown=appuser:appgroup templates/        ./templates/
 COPY --chown=appuser:appgroup migrations/       ./migrations/
+COPY --chown=appuser:appgroup scripts/          ./scripts/
 COPY --chown=appuser:appgroup alembic.ini       ./alembic.ini
 COPY --chown=appuser:appgroup requirements.txt  ./requirements.txt
 
 # Static files directory (may be populated at runtime)
 RUN mkdir -p app/static data backups logs \
+ && chmod +x scripts/startup.sh \
  && chown -R appuser:appgroup /app
 
 USER appuser
@@ -62,10 +64,5 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=15s --retries=3 \
 
 EXPOSE 8000
 
-# Use exec form — signals propagate to uvicorn
-CMD ["python", "-m", "uvicorn", "app.main:app", \
-     "--host", "0.0.0.0", \
-     "--port", "8000", \
-     "--workers", "2", \
-     "--log-level", "info", \
-     "--access-log"]
+# startup.sh รัน migration แล้ว start uvicorn ด้วย ${PORT} จาก Railway
+CMD ["bash", "scripts/startup.sh"]

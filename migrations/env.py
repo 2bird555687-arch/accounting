@@ -25,7 +25,7 @@ if config.config_file_name is not None:
 # Override URL จาก environment ถ้ามี
 from app.config import settings  # noqa: E402
 
-config.set_main_option("sqlalchemy.url", settings.DATABASE_URL)
+config.set_main_option("sqlalchemy.url", settings.get_platform_db_url())
 
 
 def run_migrations_offline() -> None:

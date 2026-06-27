@@ -29,13 +29,18 @@ class Settings(BaseSettings):
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60
     REFRESH_TOKEN_EXPIRE_DAYS: int = 7
 
+    # ── Server ───────────────────────────────────────────────────────────────
+    PORT: int = 8000  # Railway inject PORT อัตโนมัติ
+
     # ── Database ─────────────────────────────────────────────────────────────
-    DATABASE_URL: str = "sqlite+aiosqlite:///./data/shared.sqlite"
+    DATABASE_URL: str = ""  # ถ้าว่างจะ build จาก DATA_DIR ใน get_platform_db_url
     # production: postgresql+asyncpg://user:pass@host:5432/dbname
     DB_ECHO: bool = False  # log SQL statements
 
     # ── Data directory ────────────────────────────────────────────────────────
-    DATA_DIR: Path = Path("data")
+    # Railway: /app/data (mount volume ที่นี่)
+    # Local dev: ตั้ง DATA_DIR=data ใน .env หรือปล่อยให้ใช้ /app/data
+    DATA_DIR: Path = Path("/app/data")
 
     # ── Anthropic / OCR ───────────────────────────────────────────────────────
     ANTHROPIC_API_KEY: str = ""
@@ -66,6 +71,14 @@ class Settings(BaseSettings):
         path = Path(v)
         path.mkdir(parents=True, exist_ok=True)
         return path
+
+    def get_platform_db_url(self) -> str:
+        """คืน DATABASE_URL สำหรับ platform (shared.sqlite)."""
+        if self.DATABASE_URL:
+            return self.DATABASE_URL
+        db_path = self.DATA_DIR / "shared.sqlite"
+        db_path.parent.mkdir(parents=True, exist_ok=True)
+        return f"sqlite+aiosqlite:///{db_path}"
 
     def get_company_db_url(self, firm_id: int, company_id: int) -> str:
         """คืน DATABASE_URL สำหรับ company เฉพาะ."""

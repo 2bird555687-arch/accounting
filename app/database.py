@@ -71,7 +71,7 @@ def get_session_factory(db_url: str) -> async_sessionmaker[AsyncSession]:
 
 # ── Convenience: shared (platform) database ──────────────────────────────────
 
-_shared_engine = _make_engine(settings.DATABASE_URL, echo=settings.DB_ECHO)
+_shared_engine = _make_engine(settings.get_platform_db_url(), echo=settings.DB_ECHO)
 _shared_factory = async_sessionmaker(
     _shared_engine,
     expire_on_commit=False,
