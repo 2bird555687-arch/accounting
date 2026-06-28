@@ -379,6 +379,18 @@ input:focus, select:focus, textarea:focus { border-color: var(--accent); box-sha
 .dropdown-item:hover { background:var(--bg); }
 .dropdown-divider { border-top:1px solid var(--border); margin:2px 0; }
 
+/* ─── SIDEBAR CUSTOMIZABLE ──────────────────────── */
+.sb-group-wrap { display:flex; flex-direction:column; flex-shrink:0; transition:opacity .15s; }
+.sb-group-wrap.sb-dragging { opacity:.4; }
+.sb-group-wrap[draggable="true"] { cursor:grab; }
+.sb-group-wrap[draggable="true"]:active { cursor:grabbing; }
+.sb-section-draggable { display:flex; align-items:center; }
+.sb-edit-controls { display:flex; align-items:center; gap:3px; margin-left:auto; padding-right:8px; }
+.sb-drag-handle { font-size:12px; color:var(--sidebar-t); cursor:grab; }
+.sb-eye-btn { background:none; border:none; cursor:pointer; padding:2px;
+  color:var(--sidebar-t); line-height:1; font-size:12px; }
+.sb-eye-btn:hover { color:#fff; }
+
 /* ─── MINIMAL LAYOUT ────────────────────────────── */
 .minimal-wrap { min-height:100vh; display:flex; align-items:center;
   justify-content:center; background:var(--bg); padding:16px; }

@@ -1,5 +1,5 @@
 # ── Stage 1: Build dependencies ───────────────────────────────────────────────
-FROM python:3.11-slim AS builder
+FROM python:3.11-slim-bookworm AS builder
 
 WORKDIR /build
 
@@ -16,7 +16,7 @@ RUN pip install --upgrade pip \
 
 
 # ── Stage 2: Production image ─────────────────────────────────────────────────
-FROM python:3.11-slim AS production
+FROM python:3.11-slim-bookworm AS production
 
 LABEL org.opencontainers.image.title="AccCloud"
 LABEL org.opencontainers.image.description="Accounting Web App — FastAPI + SQLite"

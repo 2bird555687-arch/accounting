@@ -22,18 +22,20 @@
 <body hx-headers='{"Authorization": "Bearer {{ request.cookies.get("access_token", "") }}"}'>
 
 <!-- SIDEBAR -->
-<div id="sidebar">
-  <div class="sb-logo">
+<div id="sidebar" x-data="sidebarManager()" x-init="init()">
+
+  <!-- Logo — fixed top -->
+  <div class="sb-logo" style="order:-100;flex-shrink:0">
     <div class="sb-logo-name">AccCloud</div>
     <div class="sb-logo-sub">ระบบบัญชีออนไลน์</div>
   </div>
 
   {% if ctx %}
-  <div x-data="{ open: false }" @click.away="open=false" style="position:relative">
+  <!-- Company selector — fixed -->
+  <div x-data="{ open: false }" @click.away="open=false"
+       style="position:relative;order:-99;flex-shrink:0">
     <div class="company-selector" @click="open=!open">
-      <div class="company-selector__icon">
-        {{ ctx.company_id }}
-      </div>
+      <div class="company-selector__icon">{{ ctx.company_id }}</div>
       <div style="min-width:0;flex:1">
         <div class="company-selector__name">Company {{ ctx.company_id }}</div>
         <div class="company-selector__meta">ปีงบ {{ ctx.period.year if ctx.period else '—' }} · งวด {{ ctx.period }}</div>
@@ -53,190 +55,432 @@
   </div>
   {% endif %}
 
-  <div class="sb-section">บัญชี</div>
-
-  <!-- สมุดรายวัน — collapsible group -->
-  <div class="sb-group-head {% if '/journals' in request.url.path %}open{% endif %}" onclick="toggleGroup(this)">
-    <span class="sb-item-icon"><i class="ti ti-book-2"></i></span>
-    <a href="/journals" style="color:inherit;text-decoration:none;flex:1;" onclick="event.stopPropagation();">สมุดรายวัน</a>
-    <span class="sb-group-chev {% if '/journals' in request.url.path %}open{% endif %}">▶</span>
-  </div>
-  <div class="sb-sub {% if '/journals' in request.url.path %}open{% endif %}">
-    <a href="/journals" class="sb-item {% if request.url.path == '/journals' and not request.query_params.get('jtype') %}active{% endif %}">ทั้งหมด</a>
-    <a href="/journals?jtype=GJ" class="sb-item {% if request.query_params.get('jtype') == 'GJ' %}active{% endif %}">GJ — รายวันทั่วไป</a>
-    <a href="/journals?jtype=SJ" class="sb-item {% if request.query_params.get('jtype') == 'SJ' %}active{% endif %}">SJ — สมุดขาย</a>
-    <a href="/journals?jtype=PJ" class="sb-item {% if request.query_params.get('jtype') == 'PJ' %}active{% endif %}">PJ — สมุดซื้อ</a>
-    <a href="/journals?jtype=CR" class="sb-item {% if request.query_params.get('jtype') == 'CR' %}active{% endif %}">CR — รับเงิน</a>
-    <a href="/journals?jtype=CP" class="sb-item {% if request.query_params.get('jtype') == 'CP' %}active{% endif %}">CP — จ่ายเงิน</a>
+  <!-- ปุ่มปรับแต่งเมนู — fixed -->
+  <div style="padding:4px 10px 6px;order:-98;flex-shrink:0">
+    <button @click="editMode=!editMode" type="button"
+            style="width:100%;padding:5px 8px;border-radius:5px;border:none;
+                   cursor:pointer;font-size:11px;display:flex;align-items:center;gap:5px;
+                   transition:background .15s"
+            :style="editMode
+              ? 'background:var(--accent-l);color:var(--accent)'
+              : 'background:transparent;color:var(--sidebar-t)'">
+      <i class="ti" :class="editMode ? 'ti-check' : 'ti-layout-sidebar'" style="font-size:13px"></i>
+      <span x-text="editMode ? 'เสร็จแล้ว' : 'ปรับแต่งเมนู'"></span>
+    </button>
   </div>
 
-  <div class="sb-section">งานขาย</div>
-
-  <!-- AR group -->
-  <div class="sb-group-head {% if '/ar/' in request.url.path %}open{% endif %}" onclick="toggleGroup(this)">
-    <span class="sb-item-icon"><i class="ti ti-file-invoice"></i></span>
-    งานขาย (AR)
-    <span id="ar-overdue-badge"
-      hx-get="/api/v1/contacts/aging/ar?overdue_only=true"
-      hx-trigger="load"
-      hx-swap="innerHTML"
-      style="margin-left:auto;font-size:10px;background:var(--red);color:#fff;padding:1px 6px;border-radius:10px;display:none;">
-    </span>
-    <span class="sb-group-chev {% if '/ar/' in request.url.path %}open{% endif %}">▶</span>
-  </div>
-  <div class="sb-sub {% if '/ar/' in request.url.path %}open{% endif %}">
-    <a href="/ar/quotations" class="sb-item {% if '/ar/quotation' in request.url.path %}active{% endif %}">ใบเสนอราคา</a>
-    <a href="/ar/invoices" class="sb-item {% if '/ar/invoice' in request.url.path %}active{% endif %}">ใบแจ้งหนี้ (สด/เชื่อ)</a>
-    <a href="/ar/billing-notes" class="sb-item {% if '/ar/billing-note' in request.url.path %}active{% endif %}">ใบวางบิล</a>
-    <a href="/ar/receipts/new" class="sb-item {% if '/ar/receipt' in request.url.path %}active{% endif %}">รับชำระ</a>
+  <!-- Edit mode hint — fixed -->
+  <div x-show="editMode" x-cloak
+       style="padding:0 12px 6px;font-size:10px;color:var(--sidebar-t);order:-97;flex-shrink:0">
+    ลากเพื่อเรียงลำดับ · กด <i class="ti ti-eye-off" style="font-size:10px"></i> เพื่อซ่อน
   </div>
 
-  <div class="sb-section">งานซื้อ</div>
+  <!-- ══════════════════════════════════════════
+       MENU GROUPS — each is a draggable unit
+  ══════════════════════════════════════════ -->
 
-  <!-- AP group -->
-  <div class="sb-group-head {% if '/ap/' in request.url.path %}open{% endif %}" onclick="toggleGroup(this)">
-    <span class="sb-item-icon"><i class="ti ti-shopping-cart"></i></span>
-    งานซื้อ (AP)
-    <span class="sb-group-chev {% if '/ap/' in request.url.path %}open{% endif %}">▶</span>
-  </div>
-  <div class="sb-sub {% if '/ap/' in request.url.path %}open{% endif %}">
-    <a href="/ap/po" class="sb-item {% if '/ap/po' in request.url.path %}active{% endif %}">ใบสั่งซื้อ (PO)</a>
-    <a href="/ap/purchases/new" class="sb-item {% if '/ap/purchases/new' in request.url.path %}active{% endif %}">บันทึกซื้อ</a>
-    <a href="/ap/purchases" class="sb-item {% if '/ap/purchase' in request.url.path and 'new' not in request.url.path %}active{% endif %}">ใบแจ้งหนี้ซื้อ (สด/เชื่อ)</a>
-    <a href="/ap/payments/new" class="sb-item {% if '/ap/payment' in request.url.path %}active{% endif %}">จ่ายชำระ</a>
-  </div>
-
-  <div class="sb-section">สินค้า/คลัง</div>
-
-  <!-- INV group -->
-  <div class="sb-group-head {% if '/inventory' in request.url.path %}open{% endif %}" onclick="toggleGroup(this)">
-    <span class="sb-item-icon"><i class="ti ti-box"></i></span>
-    สินค้า/คลัง
-    <span class="sb-group-chev {% if '/inventory' in request.url.path %}open{% endif %}">▶</span>
-  </div>
-  <div class="sb-sub {% if '/inventory' in request.url.path %}open{% endif %}">
-    <a href="/inventory/products" class="sb-item {% if '/inventory/products' in request.url.path %}active{% endif %}">รายการสินค้า</a>
-    <a href="/inventory/movements" class="sb-item {% if '/inventory/movements' in request.url.path %}active{% endif %}">ความเคลื่อนไหว</a>
-  </div>
-
-  <div class="sb-section">ธนาคาร</div>
-  <div class="sb-group-head {% if '/bank/' in request.url.path %}open{% endif %}" onclick="toggleGroup(this)">
-    <span class="sb-item-icon"><i class="ti ti-building-bank"></i></span>
-    ธนาคาร
-    <span class="sb-group-chev {% if '/bank/' in request.url.path %}open{% endif %}">▶</span>
-  </div>
-  <div class="sb-sub {% if '/bank/' in request.url.path %}open{% endif %}">
-    <a href="/bank/accounts" class="sb-item {% if '/bank/accounts' in request.url.path %}active{% endif %}">บัญชีธนาคาร</a>
-    <a href="/bank/transfers" class="sb-item {% if '/bank/transfers' in request.url.path %}active{% endif %}">โอนเงิน</a>
-    <a href="/bank/quick-entry" class="sb-item {% if '/bank/quick-entry' in request.url.path %}active{% endif %}">ฝาก/ถอนเร็ว</a>
-    <a href="/bank/reconciliation" class="sb-item {% if request.url.path == '/bank/reconciliation' %}active{% endif %}">กระทบยอดธนาคาร</a>
-  </div>
-
-  <div class="sb-section">เงินเดือน</div>
-  <div class="sb-group-head {% if '/payroll/' in request.url.path %}open{% endif %}" onclick="toggleGroup(this)">
-    <span class="sb-item-icon"><i class="ti ti-users"></i></span>
-    เงินเดือน
-    <span class="sb-group-chev {% if '/payroll/' in request.url.path %}open{% endif %}">▶</span>
-  </div>
-  <div class="sb-sub {% if '/payroll/' in request.url.path %}open{% endif %}">
-    <a href="/payroll/employees"
-       class="sb-item {% if '/payroll/employees' in request.url.path %}active{% endif %}">
-      ทะเบียนพนักงาน
-    </a>
-    <a href="/payroll/run"
-       class="sb-item {% if '/payroll/run' in request.url.path %}active{% endif %}">
-      คำนวณเงินเดือน
-    </a>
-    <a href="/payroll/m40"
-       class="sb-item {% if '/payroll/m40' in request.url.path %}active{% endif %}">
-      ภ.ง.ด.1ก / สปส.1-10
+  <!-- DASHBOARD (required — ซ่อนไม่ได้) -->
+  <div class="sb-group-wrap"
+       :style="`order:${getOrder('dashboard')}`"
+       :class="dragging==='dashboard' ? 'sb-dragging' : ''"
+       :draggable="editMode ? 'true' : 'false'"
+       @dragstart="editMode && onDragStart($event, 'dashboard')"
+       @dragover.prevent="editMode && onDragOver($event, 'dashboard')"
+       @drop.prevent="editMode && onDrop($event, 'dashboard')"
+       @dragend="onDragEnd()">
+    <a href="/" class="sb-item {% if request.url.path == '/' %}active{% endif %}" style="margin-top:4px">
+      <span x-show="editMode" style="color:var(--sidebar-t);font-size:13px;cursor:grab;flex-shrink:0">
+        <i class="ti ti-grip-vertical"></i></span>
+      <span class="sb-item-icon"><i class="ti ti-layout-dashboard"></i></span>
+      หน้าหลัก
     </a>
   </div>
 
-  <div class="sb-section">อัตโนมัติ</div>
-  <div class="sb-group-head {% if '/automation/' in request.url.path %}open{% endif %}" onclick="toggleGroup(this)">
-    <span class="sb-item-icon"><i class="ti ti-refresh"></i></span>
-    อัตโนมัติ
-    <span class="sb-group-chev {% if '/automation/' in request.url.path %}open{% endif %}">▶</span>
-  </div>
-  <div class="sb-sub {% if '/automation/' in request.url.path %}open{% endif %}">
-    <a href="/automation/recurring" class="sb-item {% if '/automation/recurring' in request.url.path %}active{% endif %}">รายการบัญชีประจำ</a>
-    <a href="/automation/adjusting" class="sb-item {% if '/automation/adjusting' in request.url.path %}active{% endif %}">ปรับปรุงสิ้นงวด</a>
-    <a href="/automation/period-close" class="sb-item {% if '/automation/period-close' in request.url.path %}active{% endif %}">ปิดงวดบัญชี</a>
-  </div>
-
-  <div class="sb-section">สินทรัพย์</div>
-  <div class="sb-group-head {% if '/assets' in request.url.path %}open{% endif %}" onclick="toggleGroup(this)">
-    <span class="sb-item-icon"><i class="ti ti-building"></i></span>
-    สินทรัพย์ถาวร
-    <span class="sb-group-chev {% if '/assets' in request.url.path %}open{% endif %}">▶</span>
-  </div>
-  <div class="sb-sub {% if '/assets' in request.url.path %}open{% endif %}">
-    <a href="/assets" class="sb-item {% if '/assets' in request.url.path %}active{% endif %}">ทะเบียนสินทรัพย์</a>
-  </div>
-
-  <div class="sb-section">เครื่องมือ</div>
-  <a href="/ocr" class="sb-item {% if '/ocr' in request.url.path %}active{% endif %}">
-    <span class="sb-item-icon"><i class="ti ti-scan"></i></span>OCR สแกนเอกสาร
-  </a>
-
-  <div class="sb-section">รายงาน</div>
-
-  <!-- Reports group -->
-  <div class="sb-group-head {% if '/reports' in request.url.path or request.url.path == '/ledger' %}open{% endif %}" onclick="toggleGroup(this)">
-    <span class="sb-item-icon"><i class="ti ti-chart-bar"></i></span>
-    รายงาน
-    <span class="sb-group-chev {% if '/reports' in request.url.path %}open{% endif %}">▶</span>
-  </div>
-  <div class="sb-sub {% if '/reports' in request.url.path or request.url.path == '/ledger' %}open{% endif %}">
-    <a href="/ledger" class="sb-item {% if request.url.path == '/ledger' %}active{% endif %}">บัญชีแยกประเภท</a>
-    <a href="/reports/trial-balance" class="sb-item {% if '/reports/trial-balance' in request.url.path %}active{% endif %}">งบทดลอง</a>
-    <a href="/reports/balance-sheet" class="sb-item {% if '/reports/balance-sheet' in request.url.path %}active{% endif %}">งบดุล</a>
-    <a href="/reports/income" class="sb-item {% if '/reports/income' in request.url.path %}active{% endif %}">งบกำไรขาดทุน</a>
-    <a href="/reports/cashflow" class="sb-item {% if '/reports/cashflow' in request.url.path %}active{% endif %}">งบกระแสเงินสด</a>
-    <a href="/reports/aging/ar" class="sb-item {% if '/reports/aging/ar' in request.url.path %}active{% endif %}">อายุหนี้ AR</a>
-    <a href="/reports/aging/ap" class="sb-item {% if '/reports/aging/ap' in request.url.path %}active{% endif %}">อายุหนี้ AP</a>
-    <a href="/reports/budget" class="sb-item {% if '/reports/budget' in request.url.path %}active{% endif %}">งบประมาณ vs จริง</a>
-    <a href="/reports/cost-center" class="sb-item {% if '/reports/cost-center' in request.url.path %}active{% endif %}">ศูนย์ต้นทุน</a>
-    <div class="sb-section" style="padding:4px 12px;font-size:10px;color:var(--sidebar-t);opacity:.6;text-transform:uppercase;letter-spacing:.05em;margin-top:4px;">งบการเงินชุด</div>
-    <a href="/reports/equity" class="sb-item {% if '/reports/equity' in request.url.path %}active{% endif %}">งบเปลี่ยนแปลงส่วนของเจ้าของ</a>
-    <a href="/reports/notes" class="sb-item {% if '/reports/notes' in request.url.path %}active{% endif %}">หมายเหตุประกอบงบ</a>
-    <a href="/reports/working-paper" class="sb-item {% if '/reports/working-paper' in request.url.path %}active{% endif %}">กระดาษทำการ</a>
+  <!-- JOURNALS -->
+  <div class="sb-group-wrap"
+       x-show="!isHidden('journals') || editMode"
+       :style="`order:${getOrder('journals')};${isHidden('journals') ? 'opacity:.35' : ''}`"
+       :class="dragging==='journals' ? 'sb-dragging' : ''"
+       :draggable="editMode ? 'true' : 'false'"
+       @dragstart="editMode && onDragStart($event, 'journals')"
+       @dragover.prevent="editMode && onDragOver($event, 'journals')"
+       @drop.prevent="editMode && onDrop($event, 'journals')"
+       @dragend="onDragEnd()">
+    <div class="sb-section sb-section-draggable">
+      บัญชี
+      <span x-show="editMode" class="sb-edit-controls">
+        <i class="ti ti-grip-vertical sb-drag-handle"></i>
+        <button @click.stop="toggleHide('journals')" type="button" class="sb-eye-btn"
+                :title="isHidden('journals') ? 'แสดง' : 'ซ่อน'">
+          <i class="ti" :class="isHidden('journals') ? 'ti-eye' : 'ti-eye-off'"></i>
+        </button>
+      </span>
+    </div>
+    <div class="sb-group-head {% if '/journals' in request.url.path %}open{% endif %}" onclick="toggleGroup(this)">
+      <span class="sb-item-icon"><i class="ti ti-book-2"></i></span>
+      <a href="/journals" style="color:inherit;text-decoration:none;flex:1;" onclick="event.stopPropagation();">สมุดรายวัน</a>
+      <span class="sb-group-chev {% if '/journals' in request.url.path %}open{% endif %}">▶</span>
+    </div>
+    <div class="sb-sub {% if '/journals' in request.url.path %}open{% endif %}">
+      <a href="/journals" class="sb-item {% if request.url.path == '/journals' and not request.query_params.get('jtype') %}active{% endif %}">ทั้งหมด</a>
+      <a href="/journals?jtype=GJ" class="sb-item {% if request.query_params.get('jtype') == 'GJ' %}active{% endif %}">GJ — รายวันทั่วไป</a>
+      <a href="/journals?jtype=SJ" class="sb-item {% if request.query_params.get('jtype') == 'SJ' %}active{% endif %}">SJ — สมุดขาย</a>
+      <a href="/journals?jtype=PJ" class="sb-item {% if request.query_params.get('jtype') == 'PJ' %}active{% endif %}">PJ — สมุดซื้อ</a>
+      <a href="/journals?jtype=CR" class="sb-item {% if request.query_params.get('jtype') == 'CR' %}active{% endif %}">CR — รับเงิน</a>
+      <a href="/journals?jtype=CP" class="sb-item {% if request.query_params.get('jtype') == 'CP' %}active{% endif %}">CP — จ่ายเงิน</a>
+    </div>
   </div>
 
-  <div class="sb-section">ตั้งค่า</div>
-  <a href="/master/coa"
-     class="sb-item {% if '/master/coa' in request.url.path %}active{% endif %}">
-    <span class="sb-item-icon"><i class="ti ti-list"></i></span>ผังบัญชี
-  </a>
-  <a href="/master/contacts"
-     class="sb-item {% if '/master/contacts' in request.url.path %}active{% endif %}">
-    <span class="sb-item-icon"><i class="ti ti-users"></i></span>ทะเบียนลูกหนี้/เจ้าหนี้
-  </a>
-  <a href="/settings/exchange-rates"
-     class="sb-item {% if '/settings/exchange-rates' in request.url.path %}active{% endif %}">
-    <span class="sb-item-icon"><i class="ti ti-currency-exchange"></i></span>อัตราแลกเปลี่ยน
-  </a>
+  <!-- AR -->
+  <div class="sb-group-wrap"
+       x-show="!isHidden('ar') || editMode"
+       :style="`order:${getOrder('ar')};${isHidden('ar') ? 'opacity:.35' : ''}`"
+       :class="dragging==='ar' ? 'sb-dragging' : ''"
+       :draggable="editMode ? 'true' : 'false'"
+       @dragstart="editMode && onDragStart($event, 'ar')"
+       @dragover.prevent="editMode && onDragOver($event, 'ar')"
+       @drop.prevent="editMode && onDrop($event, 'ar')"
+       @dragend="onDragEnd()">
+    <div class="sb-section sb-section-draggable">
+      งานขาย
+      <span x-show="editMode" class="sb-edit-controls">
+        <i class="ti ti-grip-vertical sb-drag-handle"></i>
+        <button @click.stop="toggleHide('ar')" type="button" class="sb-eye-btn">
+          <i class="ti" :class="isHidden('ar') ? 'ti-eye' : 'ti-eye-off'"></i>
+        </button>
+      </span>
+    </div>
+    <div class="sb-group-head {% if '/ar/' in request.url.path %}open{% endif %}" onclick="toggleGroup(this)">
+      <span class="sb-item-icon"><i class="ti ti-file-invoice"></i></span>
+      งานขาย (AR)
+      <span id="ar-overdue-badge"
+        hx-get="/api/v1/contacts/aging/ar?overdue_only=true"
+        hx-trigger="load"
+        hx-swap="innerHTML"
+        style="margin-left:auto;font-size:10px;background:var(--red);color:#fff;padding:1px 6px;border-radius:10px;display:none;"></span>
+      <span class="sb-group-chev {% if '/ar/' in request.url.path %}open{% endif %}">▶</span>
+    </div>
+    <div class="sb-sub {% if '/ar/' in request.url.path %}open{% endif %}">
+      <a href="/ar/quotations" class="sb-item {% if '/ar/quotation' in request.url.path %}active{% endif %}">ใบเสนอราคา</a>
+      <a href="/ar/invoices" class="sb-item {% if '/ar/invoice' in request.url.path %}active{% endif %}">ใบแจ้งหนี้ (สด/เชื่อ)</a>
+      <a href="/ar/billing-notes" class="sb-item {% if '/ar/billing-note' in request.url.path %}active{% endif %}">ใบวางบิล</a>
+      <a href="/ar/receipts/new" class="sb-item {% if '/ar/receipt' in request.url.path %}active{% endif %}">รับชำระ</a>
+    </div>
+  </div>
 
-  {% if ctx and ctx.user_role.value in ('FIRM_ADMIN', 'ACCOUNTANT') %}
-  <a href="/firm" class="sb-item {% if request.url.path == '/firm' %}active{% endif %}">
-    <span class="sb-item-icon"><i class="ti ti-building"></i></span>จัดการสำนักงาน
-  </a>
-  {% endif %}
+  <!-- AP -->
+  <div class="sb-group-wrap"
+       x-show="!isHidden('ap') || editMode"
+       :style="`order:${getOrder('ap')};${isHidden('ap') ? 'opacity:.35' : ''}`"
+       :class="dragging==='ap' ? 'sb-dragging' : ''"
+       :draggable="editMode ? 'true' : 'false'"
+       @dragstart="editMode && onDragStart($event, 'ap')"
+       @dragover.prevent="editMode && onDragOver($event, 'ap')"
+       @drop.prevent="editMode && onDrop($event, 'ap')"
+       @dragend="onDragEnd()">
+    <div class="sb-section sb-section-draggable">
+      งานซื้อ
+      <span x-show="editMode" class="sb-edit-controls">
+        <i class="ti ti-grip-vertical sb-drag-handle"></i>
+        <button @click.stop="toggleHide('ap')" type="button" class="sb-eye-btn">
+          <i class="ti" :class="isHidden('ap') ? 'ti-eye' : 'ti-eye-off'"></i>
+        </button>
+      </span>
+    </div>
+    <div class="sb-group-head {% if '/ap/' in request.url.path %}open{% endif %}" onclick="toggleGroup(this)">
+      <span class="sb-item-icon"><i class="ti ti-shopping-cart"></i></span>
+      งานซื้อ (AP)
+      <span class="sb-group-chev {% if '/ap/' in request.url.path %}open{% endif %}">▶</span>
+    </div>
+    <div class="sb-sub {% if '/ap/' in request.url.path %}open{% endif %}">
+      <a href="/ap/po" class="sb-item {% if '/ap/po' in request.url.path %}active{% endif %}">ใบสั่งซื้อ (PO)</a>
+      <a href="/ap/purchases/new" class="sb-item {% if '/ap/purchases/new' in request.url.path %}active{% endif %}">บันทึกซื้อ</a>
+      <a href="/ap/purchases" class="sb-item {% if '/ap/purchase' in request.url.path and 'new' not in request.url.path %}active{% endif %}">ใบแจ้งหนี้ซื้อ (สด/เชื่อ)</a>
+      <a href="/ap/payments/new" class="sb-item {% if '/ap/payment' in request.url.path %}active{% endif %}">จ่ายชำระ</a>
+    </div>
+  </div>
 
-  {% if ctx and ctx.user_role.value == 'FIRM_ADMIN' %}
-  <div class="sb-section">Admin</div>
-  <a href="/platform/companies" class="sb-item {% if '/platform/companies' in request.url.path %}active{% endif %}">
-    <span class="sb-item-icon"><i class="ti ti-building-skyscraper"></i></span>บริษัท
-  </a>
-  <a href="/platform/users" class="sb-item {% if '/platform/users' in request.url.path %}active{% endif %}">
-    <span class="sb-item-icon"><i class="ti ti-users"></i></span>ผู้ใช้งาน
-  </a>
-  {% endif %}
+  <!-- BANK -->
+  <div class="sb-group-wrap"
+       x-show="!isHidden('bank') || editMode"
+       :style="`order:${getOrder('bank')};${isHidden('bank') ? 'opacity:.35' : ''}`"
+       :class="dragging==='bank' ? 'sb-dragging' : ''"
+       :draggable="editMode ? 'true' : 'false'"
+       @dragstart="editMode && onDragStart($event, 'bank')"
+       @dragover.prevent="editMode && onDragOver($event, 'bank')"
+       @drop.prevent="editMode && onDrop($event, 'bank')"
+       @dragend="onDragEnd()">
+    <div class="sb-section sb-section-draggable">
+      ธนาคาร
+      <span x-show="editMode" class="sb-edit-controls">
+        <i class="ti ti-grip-vertical sb-drag-handle"></i>
+        <button @click.stop="toggleHide('bank')" type="button" class="sb-eye-btn">
+          <i class="ti" :class="isHidden('bank') ? 'ti-eye' : 'ti-eye-off'"></i>
+        </button>
+      </span>
+    </div>
+    <div class="sb-group-head {% if '/bank/' in request.url.path %}open{% endif %}" onclick="toggleGroup(this)">
+      <span class="sb-item-icon"><i class="ti ti-building-bank"></i></span>
+      ธนาคาร
+      <span class="sb-group-chev {% if '/bank/' in request.url.path %}open{% endif %}">▶</span>
+    </div>
+    <div class="sb-sub {% if '/bank/' in request.url.path %}open{% endif %}">
+      <a href="/bank/accounts" class="sb-item {% if '/bank/accounts' in request.url.path %}active{% endif %}">บัญชีธนาคาร</a>
+      <a href="/bank/transfers" class="sb-item {% if '/bank/transfers' in request.url.path %}active{% endif %}">โอนเงิน</a>
+      <a href="/bank/quick-entry" class="sb-item {% if '/bank/quick-entry' in request.url.path %}active{% endif %}">ฝาก/ถอนเร็ว</a>
+      <a href="/bank/reconciliation" class="sb-item {% if request.url.path == '/bank/reconciliation' %}active{% endif %}">กระทบยอดธนาคาร</a>
+    </div>
+  </div>
 
-  <div class="sb-spacer"></div>
+  <!-- INVENTORY -->
+  <div class="sb-group-wrap"
+       x-show="!isHidden('inventory') || editMode"
+       :style="`order:${getOrder('inventory')};${isHidden('inventory') ? 'opacity:.35' : ''}`"
+       :class="dragging==='inventory' ? 'sb-dragging' : ''"
+       :draggable="editMode ? 'true' : 'false'"
+       @dragstart="editMode && onDragStart($event, 'inventory')"
+       @dragover.prevent="editMode && onDragOver($event, 'inventory')"
+       @drop.prevent="editMode && onDrop($event, 'inventory')"
+       @dragend="onDragEnd()">
+    <div class="sb-section sb-section-draggable">
+      สินค้า/คลัง
+      <span x-show="editMode" class="sb-edit-controls">
+        <i class="ti ti-grip-vertical sb-drag-handle"></i>
+        <button @click.stop="toggleHide('inventory')" type="button" class="sb-eye-btn">
+          <i class="ti" :class="isHidden('inventory') ? 'ti-eye' : 'ti-eye-off'"></i>
+        </button>
+      </span>
+    </div>
+    <div class="sb-group-head {% if '/inventory' in request.url.path %}open{% endif %}" onclick="toggleGroup(this)">
+      <span class="sb-item-icon"><i class="ti ti-box"></i></span>
+      สินค้า/คลัง
+      <span class="sb-group-chev {% if '/inventory' in request.url.path %}open{% endif %}">▶</span>
+    </div>
+    <div class="sb-sub {% if '/inventory' in request.url.path %}open{% endif %}">
+      <a href="/inventory/products" class="sb-item {% if '/inventory/products' in request.url.path %}active{% endif %}">รายการสินค้า</a>
+      <a href="/inventory/movements" class="sb-item {% if '/inventory/movements' in request.url.path %}active{% endif %}">ความเคลื่อนไหว</a>
+    </div>
+  </div>
 
-  <div class="sb-user">
+  <!-- ASSETS -->
+  <div class="sb-group-wrap"
+       x-show="!isHidden('assets') || editMode"
+       :style="`order:${getOrder('assets')};${isHidden('assets') ? 'opacity:.35' : ''}`"
+       :class="dragging==='assets' ? 'sb-dragging' : ''"
+       :draggable="editMode ? 'true' : 'false'"
+       @dragstart="editMode && onDragStart($event, 'assets')"
+       @dragover.prevent="editMode && onDragOver($event, 'assets')"
+       @drop.prevent="editMode && onDrop($event, 'assets')"
+       @dragend="onDragEnd()">
+    <div class="sb-section sb-section-draggable">
+      สินทรัพย์
+      <span x-show="editMode" class="sb-edit-controls">
+        <i class="ti ti-grip-vertical sb-drag-handle"></i>
+        <button @click.stop="toggleHide('assets')" type="button" class="sb-eye-btn">
+          <i class="ti" :class="isHidden('assets') ? 'ti-eye' : 'ti-eye-off'"></i>
+        </button>
+      </span>
+    </div>
+    <div class="sb-group-head {% if '/assets' in request.url.path %}open{% endif %}" onclick="toggleGroup(this)">
+      <span class="sb-item-icon"><i class="ti ti-building"></i></span>
+      สินทรัพย์ถาวร
+      <span class="sb-group-chev {% if '/assets' in request.url.path %}open{% endif %}">▶</span>
+    </div>
+    <div class="sb-sub {% if '/assets' in request.url.path %}open{% endif %}">
+      <a href="/assets" class="sb-item {% if '/assets' in request.url.path %}active{% endif %}">ทะเบียนสินทรัพย์</a>
+    </div>
+  </div>
+
+  <!-- PAYROLL -->
+  <div class="sb-group-wrap"
+       x-show="!isHidden('payroll') || editMode"
+       :style="`order:${getOrder('payroll')};${isHidden('payroll') ? 'opacity:.35' : ''}`"
+       :class="dragging==='payroll' ? 'sb-dragging' : ''"
+       :draggable="editMode ? 'true' : 'false'"
+       @dragstart="editMode && onDragStart($event, 'payroll')"
+       @dragover.prevent="editMode && onDragOver($event, 'payroll')"
+       @drop.prevent="editMode && onDrop($event, 'payroll')"
+       @dragend="onDragEnd()">
+    <div class="sb-section sb-section-draggable">
+      เงินเดือน
+      <span x-show="editMode" class="sb-edit-controls">
+        <i class="ti ti-grip-vertical sb-drag-handle"></i>
+        <button @click.stop="toggleHide('payroll')" type="button" class="sb-eye-btn">
+          <i class="ti" :class="isHidden('payroll') ? 'ti-eye' : 'ti-eye-off'"></i>
+        </button>
+      </span>
+    </div>
+    <div class="sb-group-head {% if '/payroll/' in request.url.path %}open{% endif %}" onclick="toggleGroup(this)">
+      <span class="sb-item-icon"><i class="ti ti-users"></i></span>
+      เงินเดือน
+      <span class="sb-group-chev {% if '/payroll/' in request.url.path %}open{% endif %}">▶</span>
+    </div>
+    <div class="sb-sub {% if '/payroll/' in request.url.path %}open{% endif %}">
+      <a href="/payroll/employees" class="sb-item {% if '/payroll/employees' in request.url.path %}active{% endif %}">ทะเบียนพนักงาน</a>
+      <a href="/payroll/run" class="sb-item {% if '/payroll/run' in request.url.path %}active{% endif %}">คำนวณเงินเดือน</a>
+      <a href="/payroll/m40" class="sb-item {% if '/payroll/m40' in request.url.path %}active{% endif %}">ภ.ง.ด.1ก / สปส.1-10</a>
+    </div>
+  </div>
+
+  <!-- AUTOMATION -->
+  <div class="sb-group-wrap"
+       x-show="!isHidden('automation') || editMode"
+       :style="`order:${getOrder('automation')};${isHidden('automation') ? 'opacity:.35' : ''}`"
+       :class="dragging==='automation' ? 'sb-dragging' : ''"
+       :draggable="editMode ? 'true' : 'false'"
+       @dragstart="editMode && onDragStart($event, 'automation')"
+       @dragover.prevent="editMode && onDragOver($event, 'automation')"
+       @drop.prevent="editMode && onDrop($event, 'automation')"
+       @dragend="onDragEnd()">
+    <div class="sb-section sb-section-draggable">
+      อัตโนมัติ
+      <span x-show="editMode" class="sb-edit-controls">
+        <i class="ti ti-grip-vertical sb-drag-handle"></i>
+        <button @click.stop="toggleHide('automation')" type="button" class="sb-eye-btn">
+          <i class="ti" :class="isHidden('automation') ? 'ti-eye' : 'ti-eye-off'"></i>
+        </button>
+      </span>
+    </div>
+    <div class="sb-group-head {% if '/automation/' in request.url.path %}open{% endif %}" onclick="toggleGroup(this)">
+      <span class="sb-item-icon"><i class="ti ti-refresh"></i></span>
+      อัตโนมัติ
+      <span class="sb-group-chev {% if '/automation/' in request.url.path %}open{% endif %}">▶</span>
+    </div>
+    <div class="sb-sub {% if '/automation/' in request.url.path %}open{% endif %}">
+      <a href="/automation/recurring" class="sb-item {% if '/automation/recurring' in request.url.path %}active{% endif %}">รายการบัญชีประจำ</a>
+      <a href="/automation/adjusting" class="sb-item {% if '/automation/adjusting' in request.url.path %}active{% endif %}">ปรับปรุงสิ้นงวด</a>
+      <a href="/automation/period-close" class="sb-item {% if '/automation/period-close' in request.url.path %}active{% endif %}">ปิดงวดบัญชี</a>
+    </div>
+  </div>
+
+  <!-- REPORTS -->
+  <div class="sb-group-wrap"
+       x-show="!isHidden('reports') || editMode"
+       :style="`order:${getOrder('reports')};${isHidden('reports') ? 'opacity:.35' : ''}`"
+       :class="dragging==='reports' ? 'sb-dragging' : ''"
+       :draggable="editMode ? 'true' : 'false'"
+       @dragstart="editMode && onDragStart($event, 'reports')"
+       @dragover.prevent="editMode && onDragOver($event, 'reports')"
+       @drop.prevent="editMode && onDrop($event, 'reports')"
+       @dragend="onDragEnd()">
+    <div class="sb-section sb-section-draggable">
+      รายงาน
+      <span x-show="editMode" class="sb-edit-controls">
+        <i class="ti ti-grip-vertical sb-drag-handle"></i>
+        <button @click.stop="toggleHide('reports')" type="button" class="sb-eye-btn">
+          <i class="ti" :class="isHidden('reports') ? 'ti-eye' : 'ti-eye-off'"></i>
+        </button>
+      </span>
+    </div>
+    <div class="sb-group-head {% if '/reports' in request.url.path or request.url.path == '/ledger' %}open{% endif %}" onclick="toggleGroup(this)">
+      <span class="sb-item-icon"><i class="ti ti-chart-bar"></i></span>
+      รายงาน
+      <span class="sb-group-chev {% if '/reports' in request.url.path %}open{% endif %}">▶</span>
+    </div>
+    <div class="sb-sub {% if '/reports' in request.url.path or request.url.path == '/ledger' %}open{% endif %}">
+      <a href="/ledger" class="sb-item {% if request.url.path == '/ledger' %}active{% endif %}">บัญชีแยกประเภท</a>
+      <a href="/reports/trial-balance" class="sb-item {% if '/reports/trial-balance' in request.url.path %}active{% endif %}">งบทดลอง</a>
+      <a href="/reports/balance-sheet" class="sb-item {% if '/reports/balance-sheet' in request.url.path %}active{% endif %}">งบดุล</a>
+      <a href="/reports/income" class="sb-item {% if '/reports/income' in request.url.path %}active{% endif %}">งบกำไรขาดทุน</a>
+      <a href="/reports/cashflow" class="sb-item {% if '/reports/cashflow' in request.url.path %}active{% endif %}">งบกระแสเงินสด</a>
+      <a href="/reports/aging/ar" class="sb-item {% if '/reports/aging/ar' in request.url.path %}active{% endif %}">อายุหนี้ AR</a>
+      <a href="/reports/aging/ap" class="sb-item {% if '/reports/aging/ap' in request.url.path %}active{% endif %}">อายุหนี้ AP</a>
+      <a href="/reports/budget" class="sb-item {% if '/reports/budget' in request.url.path %}active{% endif %}">งบประมาณ vs จริง</a>
+      <a href="/reports/cost-center" class="sb-item {% if '/reports/cost-center' in request.url.path %}active{% endif %}">ศูนย์ต้นทุน</a>
+      <div style="padding:4px 12px;font-size:10px;color:var(--sidebar-t);opacity:.6;text-transform:uppercase;letter-spacing:.05em;margin-top:4px;">งบการเงินชุด</div>
+      <a href="/reports/equity" class="sb-item {% if '/reports/equity' in request.url.path %}active{% endif %}">งบเปลี่ยนแปลงส่วนของเจ้าของ</a>
+      <a href="/reports/notes" class="sb-item {% if '/reports/notes' in request.url.path %}active{% endif %}">หมายเหตุประกอบงบ</a>
+      <a href="/reports/working-paper" class="sb-item {% if '/reports/working-paper' in request.url.path %}active{% endif %}">กระดาษทำการ</a>
+    </div>
+  </div>
+
+  <!-- OCR -->
+  <div class="sb-group-wrap"
+       x-show="!isHidden('ocr') || editMode"
+       :style="`order:${getOrder('ocr')};${isHidden('ocr') ? 'opacity:.35' : ''}`"
+       :class="dragging==='ocr' ? 'sb-dragging' : ''"
+       :draggable="editMode ? 'true' : 'false'"
+       @dragstart="editMode && onDragStart($event, 'ocr')"
+       @dragover.prevent="editMode && onDragOver($event, 'ocr')"
+       @drop.prevent="editMode && onDrop($event, 'ocr')"
+       @dragend="onDragEnd()">
+    <div class="sb-section sb-section-draggable">
+      เครื่องมือ
+      <span x-show="editMode" class="sb-edit-controls">
+        <i class="ti ti-grip-vertical sb-drag-handle"></i>
+        <button @click.stop="toggleHide('ocr')" type="button" class="sb-eye-btn">
+          <i class="ti" :class="isHidden('ocr') ? 'ti-eye' : 'ti-eye-off'"></i>
+        </button>
+      </span>
+    </div>
+    <a href="/ocr" class="sb-item {% if '/ocr' in request.url.path %}active{% endif %}">
+      <span class="sb-item-icon"><i class="ti ti-scan"></i></span>OCR สแกนเอกสาร
+    </a>
+  </div>
+
+  <!-- COA + CONTACTS + SETTINGS (grouped under ตั้งค่า) -->
+  <div class="sb-group-wrap"
+       x-show="!isHidden('settings') || editMode"
+       :style="`order:${getOrder('settings')};${isHidden('settings') ? 'opacity:.35' : ''}`"
+       :class="dragging==='settings' ? 'sb-dragging' : ''"
+       :draggable="editMode ? 'true' : 'false'"
+       @dragstart="editMode && onDragStart($event, 'settings')"
+       @dragover.prevent="editMode && onDragOver($event, 'settings')"
+       @drop.prevent="editMode && onDrop($event, 'settings')"
+       @dragend="onDragEnd()">
+    <div class="sb-section sb-section-draggable">
+      ตั้งค่า
+      <span x-show="editMode" class="sb-edit-controls">
+        <i class="ti ti-grip-vertical sb-drag-handle"></i>
+        <button @click.stop="toggleHide('settings')" type="button" class="sb-eye-btn">
+          <i class="ti" :class="isHidden('settings') ? 'ti-eye' : 'ti-eye-off'"></i>
+        </button>
+      </span>
+    </div>
+    <a href="/master/coa" class="sb-item {% if '/master/coa' in request.url.path %}active{% endif %}">
+      <span class="sb-item-icon"><i class="ti ti-list"></i></span>ผังบัญชี
+    </a>
+    <a href="/master/contacts" class="sb-item {% if '/master/contacts' in request.url.path %}active{% endif %}">
+      <span class="sb-item-icon"><i class="ti ti-address-book"></i></span>ทะเบียนลูกหนี้/เจ้าหนี้
+    </a>
+    <a href="/settings/exchange-rates" class="sb-item {% if '/settings/exchange-rates' in request.url.path %}active{% endif %}">
+      <span class="sb-item-icon"><i class="ti ti-currency-exchange"></i></span>อัตราแลกเปลี่ยน
+    </a>
+
+    {% if ctx and ctx.user_role.value in ('FIRM_ADMIN', 'ACCOUNTANT') %}
+    <a href="/firm" class="sb-item {% if request.url.path == '/firm' %}active{% endif %}">
+      <span class="sb-item-icon"><i class="ti ti-building"></i></span>จัดการสำนักงาน
+    </a>
+    {% endif %}
+
+    {% if ctx and ctx.user_role.value == 'FIRM_ADMIN' %}
+    <div style="padding:4px 12px;font-size:10px;color:var(--sidebar-t);opacity:.6;text-transform:uppercase;letter-spacing:.05em;margin-top:4px;">Admin</div>
+    <a href="/platform/companies" class="sb-item {% if '/platform/companies' in request.url.path %}active{% endif %}">
+      <span class="sb-item-icon"><i class="ti ti-building-skyscraper"></i></span>บริษัท
+    </a>
+    <a href="/platform/users" class="sb-item {% if '/platform/users' in request.url.path %}active{% endif %}">
+      <span class="sb-item-icon"><i class="ti ti-users"></i></span>ผู้ใช้งาน
+    </a>
+    {% endif %}
+  </div>
+
+  <!-- Spacer -->
+  <div class="sb-spacer" style="order:900"></div>
+
+  <!-- Reset button (edit mode) -->
+  <div x-show="editMode" x-cloak
+       style="order:901;padding:6px 10px;border-top:0.5px solid rgba(255,255,255,.08);flex-shrink:0">
+    <button @click="reset()" type="button"
+            style="width:100%;padding:5px 8px;border-radius:5px;border:none;
+                   cursor:pointer;font-size:11px;color:var(--sidebar-t);
+                   background:transparent;display:flex;align-items:center;gap:5px">
+      <i class="ti ti-restore" style="font-size:13px"></i>
+      คืนค่าเริ่มต้น
+    </button>
+  </div>
+
+  <!-- User footer -->
+  <div class="sb-user" style="order:902;flex-shrink:0">
     <div class="sb-avatar">{% if ctx %}{{ ctx.user_id }}{% else %}?{% endif %}</div>
     <div>
       <div class="sb-uname">{% if ctx %}User {{ ctx.user_id }}{% else %}Guest{% endif %}</div>
@@ -244,7 +488,9 @@
     </div>
     <a href="/logout" style="margin-left:auto;color:var(--sidebar-t);font-size:16px;text-decoration:none;" title="ออกจากระบบ">⏻</a>
   </div>
+
 </div>
+<!-- /SIDEBAR -->
 
 <!-- MAIN -->
 <div id="main">
@@ -272,11 +518,8 @@
 </div>
 
 <script>
-// redirect to login on 401 from any HTMX request
 document.body.addEventListener('htmx:responseError', function(evt) {
-  if (evt.detail.xhr.status === 401) {
-    window.location.href = '/login';
-  }
+  if (evt.detail.xhr.status === 401) window.location.href = '/login';
 });
 </script>
 
@@ -286,14 +529,91 @@ function toggleGroup(head) {
   const sub = head.nextElementSibling;
   const isOpen = sub.classList.contains('open');
   if (isOpen) {
-    sub.classList.remove('open');
-    head.classList.remove('open');
+    sub.classList.remove('open'); head.classList.remove('open');
     if (chev) chev.classList.remove('open');
   } else {
-    sub.classList.add('open');
-    head.classList.add('open');
+    sub.classList.add('open'); head.classList.add('open');
     if (chev) chev.classList.add('open');
   }
+}
+</script>
+
+<script>
+const MENU_IDS = ['dashboard','journals','ar','ap','bank','inventory','assets','payroll','automation','reports','ocr','settings'];
+
+function sidebarManager() {
+  return {
+    order: [],
+    hidden: [],
+    editMode: false,
+    dragging: null,
+    dragOver: null,
+
+    init() {
+      const savedOrder  = localStorage.getItem('sidebar_order');
+      const savedHidden = localStorage.getItem('sidebar_hidden');
+      if (savedOrder) {
+        this.order = JSON.parse(savedOrder);
+        // เพิ่ม id ใหม่ที่ยังไม่อยู่ใน saved order
+        MENU_IDS.forEach(id => { if (!this.order.includes(id)) this.order.push(id); });
+      } else {
+        this.order = [...MENU_IDS];
+      }
+      this.hidden = savedHidden ? JSON.parse(savedHidden) : [];
+    },
+
+    save() {
+      localStorage.setItem('sidebar_order',  JSON.stringify(this.order));
+      localStorage.setItem('sidebar_hidden', JSON.stringify(this.hidden));
+    },
+
+    reset() {
+      this.order  = [...MENU_IDS];
+      this.hidden = [];
+      this.save();
+    },
+
+    getOrder(id) {
+      const idx = this.order.indexOf(id);
+      return idx === -1 ? 50 : idx;
+    },
+
+    isHidden(id) { return this.hidden.includes(id); },
+
+    toggleHide(id) {
+      if (id === 'dashboard') return;
+      if (this.hidden.includes(id)) {
+        this.hidden = this.hidden.filter(h => h !== id);
+      } else {
+        this.hidden.push(id);
+      }
+      this.save();
+    },
+
+    onDragStart(e, id) {
+      this.dragging = id;
+      e.dataTransfer.effectAllowed = 'move';
+      e.dataTransfer.setData('text/plain', id);
+    },
+    onDragOver(e, id) {
+      e.preventDefault();
+      this.dragOver = id;
+      e.dataTransfer.dropEffect = 'move';
+    },
+    onDrop(e, targetId) {
+      e.preventDefault();
+      this.dragOver = null;
+      if (!this.dragging || this.dragging === targetId) { this.dragging = null; return; }
+      const from = this.order.indexOf(this.dragging);
+      const to   = this.order.indexOf(targetId);
+      if (from === -1 || to === -1) { this.dragging = null; return; }
+      this.order.splice(from, 1);
+      this.order.splice(to, 0, this.dragging);
+      this.dragging = null;
+      this.save();
+    },
+    onDragEnd() { this.dragging = null; this.dragOver = null; },
+  };
 }
 </script>
 
@@ -338,8 +658,14 @@ async function api(method, url, body) {
   };
   if (body) opts.body = JSON.stringify(body);
   const res = await fetch(url, opts);
-  const data = await res.json();
-  return { ok: res.ok, data, status: res.status };
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    const msg = data?.detail || data?.message || 'เกิดข้อผิดพลาด';
+    const err = new Error(msg);
+    err.status = res.status;
+    throw err;
+  }
+  return data;
 }
 </script>
 </body>
