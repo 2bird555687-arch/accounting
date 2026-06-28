@@ -38,9 +38,8 @@ class Settings(BaseSettings):
     DB_ECHO: bool = False  # log SQL statements
 
     # ── Data directory ────────────────────────────────────────────────────────
-    # Railway: /app/data (mount volume ที่นี่)
-    # Local dev: ตั้ง DATA_DIR=data ใน .env หรือปล่อยให้ใช้ /app/data
-    DATA_DIR: Path = Path("/app/data")
+    # Local dev: data/  |  Railway: ตั้ง env var DATA_DIR=/app/data
+    DATA_DIR: Path = Path("data")
 
     # ── Anthropic / OCR ───────────────────────────────────────────────────────
     ANTHROPIC_API_KEY: str = ""
