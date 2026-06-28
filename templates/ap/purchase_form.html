@@ -7,39 +7,33 @@
 
   <div class="mb-4">
     <a href="/ap/purchases" class="text-sm text-gray-500 hover:text-gray-700 flex items-center gap-1">
-      <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
-      </svg>
-      กลับรายการซื้อ
+      <i class="ti ti-arrow-left text-sm"></i> กลับรายการซื้อ
     </a>
   </div>
 
   <!-- Payment Mode Toggle -->
   <div class="flex mb-4 rounded-lg overflow-hidden border border-gray-200 w-fit">
     <div @click="mode='credit'" :class="mode==='credit' ? 'bg-blue-700 text-white' : 'bg-white text-gray-500 hover:bg-gray-50'"
-      class="px-5 py-2 text-sm font-medium cursor-pointer transition-colors">
-      ซื้อเชื่อ (ตั้งเจ้าหนี้)
-    </div>
+      class="px-5 py-2 text-sm font-medium cursor-pointer transition-colors">ซื้อเชื่อ (ตั้งเจ้าหนี้)</div>
     <div @click="mode='cash'" :class="mode==='cash' ? 'bg-teal-600 text-white' : 'bg-white text-gray-500 hover:bg-gray-50'"
-      class="px-5 py-2 text-sm font-medium cursor-pointer transition-colors">
-      ซื้อสด (จ่ายทันที)
-    </div>
+      class="px-5 py-2 text-sm font-medium cursor-pointer transition-colors">ซื้อสด (จ่ายทันที)</div>
   </div>
   <div x-show="mode==='credit'" class="mb-4 px-3 py-2 bg-blue-50 rounded-lg text-xs text-blue-700">
     Dr สินค้า/ค่าใช้จ่าย + VAT | Cr เจ้าหนี้การค้า — ตั้งยอดค้างจ่าย
   </div>
   <div x-show="mode==='cash'" class="mb-4 px-3 py-2 bg-teal-50 rounded-lg text-xs text-teal-700">
-    Dr สินค้า/ค่าใช้จ่าย + VAT | Cr เงินสด/ธนาคาร — จ่ายครบทันที ไม่มีเจ้าหนี้
+    Dr สินค้า/ค่าใช้จ่าย + VAT | Cr เงินสด/ธนาคาร — จ่ายครบทันที
   </div>
 
   <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
     <div class="lg:col-span-2 space-y-4">
+
       <!-- Header -->
       <div class="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
         <h2 class="font-semibold text-gray-800 mb-4">ข้อมูลการซื้อ</h2>
         <div class="grid grid-cols-2 gap-4">
 
-          <!-- ช่องทางจ่ายเงิน (เฉพาะสด) -->
+          <!-- ช่องทางจ่ายเงิน (สด) -->
           <div x-show="mode==='cash'" class="col-span-2">
             <label class="block text-sm font-medium text-gray-700 mb-1">ช่องทางจ่ายเงิน <span class="text-red-500">*</span></label>
             <select x-model="form.payment_account_code" class="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500">
@@ -57,20 +51,20 @@
             </select>
           </div>
 
-          <div>
+          <!-- ผู้ขาย -->
+          <div class="relative">
             <label class="block text-sm font-medium text-gray-700 mb-1" x-text="mode==='credit' ? 'ผู้ขาย / เจ้าหนี้ *' : 'ผู้ขาย (ไม่บังคับ)'"></label>
             <input type="text" x-model="contactSearch" @input.debounce.300ms="searchContacts()"
+              @blur="setTimeout(()=>{contacts=[]},200)"
               placeholder="พิมพ์ชื่อผู้ขาย..."
               class="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"/>
-            <div x-show="contacts.length > 0" class="relative">
-              <div class="absolute z-10 bg-white border border-gray-200 rounded-lg shadow-lg mt-1 w-full max-h-48 overflow-auto">
-                <template x-for="c in contacts" :key="c.id">
-                  <div @click="selectContact(c)" class="px-3 py-2 hover:bg-gray-50 cursor-pointer text-sm">
-                    <div class="font-medium" x-text="c.name"></div>
-                    <div class="text-xs text-gray-400" x-text="c.tax_id || ''"></div>
-                  </div>
-                </template>
-              </div>
+            <div x-show="contacts.length > 0" class="absolute z-20 bg-white border border-gray-200 rounded-lg shadow-lg mt-1 w-full max-h-48 overflow-auto">
+              <template x-for="c in contacts" :key="c.id">
+                <div @mousedown.prevent="selectContact(c)" class="px-3 py-2 hover:bg-gray-50 cursor-pointer text-sm">
+                  <div class="font-medium" x-text="c.name"></div>
+                  <div class="text-xs text-gray-400" x-text="c.tax_id || ''"></div>
+                </div>
+              </template>
             </div>
             <p x-show="form.contact_id" class="text-xs text-green-600 mt-1" x-text="'✓ ' + selectedContactName"></p>
           </div>
@@ -89,7 +83,7 @@
 
           <div>
             <label class="block text-sm font-medium text-gray-700 mb-1">เลขที่ใบกำกับ (ผู้ขาย)</label>
-            <input type="text" x-model="form.reference" placeholder="INV-XXXX"
+            <input type="text" x-model="form.supplier_invoice_no" placeholder="INV-XXXX"
               class="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"/>
           </div>
         </div>
@@ -100,54 +94,121 @@
         <div class="flex items-center justify-between mb-4">
           <h2 class="font-semibold text-gray-800">รายการสินค้า/บริการ</h2>
           <button @click="addLine()" class="text-sm text-blue-600 hover:underline flex items-center gap-1">
-            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
-            </svg>
-            เพิ่มรายการ
+            <i class="ti ti-plus text-sm"></i> เพิ่มรายการ
           </button>
         </div>
-        <table class="w-full text-sm">
-          <thead class="border-b border-gray-100">
-            <tr>
-              <th class="text-left py-2 font-medium text-gray-600 w-28">รหัสบัญชี</th>
-              <th class="text-left py-2 font-medium text-gray-600">คำอธิบาย</th>
-              <th class="text-right py-2 font-medium text-gray-600 w-20">จำนวน</th>
-              <th class="text-right py-2 font-medium text-gray-600 w-28">ราคา/หน่วย</th>
-              <th class="text-right py-2 font-medium text-gray-600 w-28">รวม</th>
-              <th class="w-8"></th>
-            </tr>
-          </thead>
-          <tbody>
-            <template x-for="(line, i) in form.lines" :key="i">
-              <tr class="border-b border-gray-50">
-                <td class="py-2 pr-2">
-                  <input type="text" x-model="line.account_code" placeholder="5101"
-                    class="w-full px-2 py-1.5 rounded border border-gray-200 text-sm font-mono focus:outline-none focus:ring-1 focus:ring-blue-400"/>
-                </td>
-                <td class="py-2 pr-2">
-                  <input type="text" x-model="line.description" placeholder="รายการ..."
-                    class="w-full px-2 py-1.5 rounded border border-gray-200 text-sm focus:outline-none focus:ring-1 focus:ring-blue-400"/>
-                </td>
-                <td class="py-2 px-2">
-                  <input type="number" x-model.number="line.quantity" @input="calcLine(i)" min="0" step="0.01"
-                    class="w-full px-2 py-1.5 rounded border border-gray-200 text-sm text-right focus:outline-none focus:ring-1 focus:ring-blue-400"/>
-                </td>
-                <td class="py-2 px-2">
-                  <input type="number" x-model.number="line.unit_price" @input="calcLine(i)" min="0" step="0.01"
-                    class="w-full px-2 py-1.5 rounded border border-gray-200 text-sm text-right focus:outline-none focus:ring-1 focus:ring-blue-400"/>
-                </td>
-                <td class="py-2 pl-2 text-right font-mono text-gray-700" x-text="fmt(line.amount)"></td>
-                <td class="py-2 pl-2">
-                  <button @click="removeLine(i)" class="text-gray-300 hover:text-red-500">
-                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
-                    </svg>
-                  </button>
-                </td>
+        <div class="overflow-x-auto">
+          <table class="w-full text-sm" style="min-width:700px">
+            <thead class="border-b border-gray-100">
+              <tr>
+                <th class="text-left py-2 font-medium text-gray-500" style="width:220px">สินค้า / รายการ</th>
+                <th class="text-left py-2 font-medium text-gray-500" style="width:110px">รหัสบัญชี</th>
+                <th class="text-right py-2 font-medium text-gray-500" style="width:80px">จำนวน</th>
+                <th class="text-right py-2 font-medium text-gray-500" style="width:110px">ราคา/หน่วย</th>
+                <th class="text-right py-2 font-medium text-gray-500" style="width:110px">รวม</th>
+                <th style="width:28px"></th>
               </tr>
-            </template>
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              <template x-for="(line, i) in form.lines" :key="i">
+                <tr class="border-b border-gray-50 align-top">
+
+                  <!-- สินค้า/รายการ + product search dropdown -->
+                  <td class="py-2 pr-2" style="position:relative;overflow:visible;">
+                    <input type="text"
+                      :value="line.description"
+                      @focus="openProd(i)"
+                      @input="line.description=$event.target.value; onProdInput(i,$event.target.value)"
+                      @blur="closeProdDelayed(i)"
+                      @keydown.escape.prevent="closeProd(i)"
+                      @keydown.down.prevent="moveProd(i,1)"
+                      @keydown.up.prevent="moveProd(i,-1)"
+                      @keydown.enter.prevent="selectProdByKey(i)"
+                      placeholder="ชื่อรายการหรือค้นสินค้า..."
+                      class="w-full px-2 py-1.5 rounded border border-gray-200 text-sm focus:outline-none focus:ring-1 focus:ring-blue-400"/>
+
+                    <!-- Product dropdown -->
+                    <div x-show="prod[i]?.show && prod[i]?.results?.length > 0"
+                         x-cloak
+                         style="position:absolute;top:100%;left:0;z-index:200;
+                                background:white;border:1px solid var(--border,#e5e7eb);
+                                border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,.12);
+                                min-width:280px;max-height:200px;overflow-y:auto;">
+                      <template x-for="(p, j) in (prod[i]?.results||[])" :key="p.id">
+                        <div @mousedown.prevent="selectProd(i, p)"
+                             @mouseover="prod[i].cursor=j"
+                             class="flex items-center gap-2 px-3 py-2 cursor-pointer border-b border-gray-50"
+                             :style="prod[i]?.cursor===j ? 'background:#eff6ff' : 'background:white'">
+                          <div class="flex-1 min-w-0">
+                            <div class="text-sm font-medium text-gray-800 truncate" x-text="p.name"></div>
+                            <div class="text-xs text-gray-400" x-text="'SKU: '+p.sku+' | '+p.unit+' | คงเหลือ '+p.quantity_on_hand"></div>
+                          </div>
+                          <div class="text-xs text-blue-600 font-mono shrink-0" x-text="p.inventory_account"></div>
+                        </div>
+                      </template>
+                    </div>
+                  </td>
+
+                  <!-- รหัสบัญชี -->
+                  <td class="py-2 pr-2" style="position:relative;overflow:visible;">
+                    <input type="text"
+                      :value="line.account_code"
+                      @focus="openCOA(i)"
+                      @input="line.account_code=$event.target.value; onCOAInput(i,$event.target.value)"
+                      @blur="closeCOADelayed(i)"
+                      @keydown.escape.prevent="closeCOA(i)"
+                      @keydown.down.prevent="moveCOA(i,1)"
+                      @keydown.up.prevent="moveCOA(i,-1)"
+                      @keydown.enter.prevent="selectCOAByKey(i)"
+                      placeholder="5101"
+                      class="w-full px-2 py-1.5 rounded border border-gray-200 text-sm font-mono focus:outline-none focus:ring-1 focus:ring-blue-400"/>
+
+                    <!-- COA dropdown -->
+                    <div x-show="coa[i]?.show && coa[i]?.results?.length > 0"
+                         x-cloak
+                         style="position:absolute;top:100%;left:0;z-index:200;
+                                background:white;border:1px solid var(--border,#e5e7eb);
+                                border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,.12);
+                                min-width:260px;max-height:200px;overflow-y:auto;">
+                      <template x-for="(opt, j) in (coa[i]?.results||[])" :key="opt.code">
+                        <div @mousedown.prevent="selectCOA(i, opt)"
+                             @mouseover="coa[i].cursor=j"
+                             class="flex items-center gap-2 px-3 py-2 cursor-pointer border-b border-gray-50"
+                             :style="coa[i]?.cursor===j ? 'background:#eff6ff' : 'background:white'">
+                          <span class="font-mono text-xs text-blue-600 font-semibold shrink-0 w-10" x-text="opt.code"></span>
+                          <span class="text-sm text-gray-800 flex-1 truncate" x-text="opt.name"></span>
+                        </div>
+                      </template>
+                    </div>
+                  </td>
+
+                  <!-- จำนวน -->
+                  <td class="py-2 px-1">
+                    <input type="number" x-model.number="line.quantity" @input="calcLine(i)" min="0" step="0.01"
+                      class="w-full px-2 py-1.5 rounded border border-gray-200 text-sm text-right focus:outline-none focus:ring-1 focus:ring-blue-400"/>
+                  </td>
+
+                  <!-- ราคา/หน่วย -->
+                  <td class="py-2 px-1">
+                    <input type="number" x-model.number="line.unit_price" @input="calcLine(i)" min="0" step="0.01"
+                      class="w-full px-2 py-1.5 rounded border border-gray-200 text-sm text-right focus:outline-none focus:ring-1 focus:ring-blue-400"/>
+                  </td>
+
+                  <!-- รวม -->
+                  <td class="py-2 pl-2 text-right font-mono text-gray-700 text-sm" x-text="fmt(line.amount)"></td>
+
+                  <!-- ลบ -->
+                  <td class="py-2 pl-1">
+                    <button @click="removeLine(i)" x-show="form.lines.length > 1"
+                      class="text-gray-300 hover:text-red-500 p-0.5">
+                      <i class="ti ti-x text-sm"></i>
+                    </button>
+                  </td>
+                </tr>
+              </template>
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
 
@@ -179,19 +240,20 @@
 
         <div class="mt-4">
           <label class="block text-sm font-medium text-gray-700 mb-1">หมายเหตุ</label>
-          <textarea x-model="form.notes" rows="3"
+          <textarea x-model="form.description" rows="3"
             class="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"></textarea>
         </div>
 
-        <div class="mt-4 space-y-2">
+        <div class="mt-4">
           <button @click="save()" :disabled="saving || (mode==='credit' && !form.contact_id) || (mode==='cash' && !form.payment_account_code)"
-            class="w-full py-2 rounded-lg bg-blue-700 text-white text-sm font-medium hover:bg-blue-800 disabled:opacity-50">
+            class="w-full py-2.5 rounded-lg bg-blue-700 text-white text-sm font-semibold hover:bg-blue-800 disabled:opacity-50 transition-colors">
+            <i x-show="saving" class="ti ti-loader animate-spin mr-1"></i>
             <span x-text="saving ? 'กำลังบันทึก...' : 'บันทึกซื้อ'"></span>
           </button>
         </div>
 
-        <div x-show="error" class="mt-3 p-2 bg-red-50 rounded text-red-600 text-xs" x-text="error"></div>
-        <div x-show="success" class="mt-3 p-2 bg-green-50 rounded text-green-600 text-xs">บันทึกสำเร็จ!</div>
+        <div x-show="error" x-cloak class="mt-3 p-2 bg-red-50 rounded text-red-600 text-xs" x-text="error"></div>
+        <div x-show="success" x-cloak class="mt-3 p-2 bg-green-50 rounded text-green-600 text-xs">✓ บันทึกสำเร็จ! กำลังพาไปหน้ารายการ...</div>
       </div>
     </div>
   </div>
@@ -202,75 +264,179 @@
 <script>
 function purchaseForm() {
   const today = new Date().toISOString().slice(0, 10);
-  const due = new Date(Date.now() + 30 * 86400000).toISOString().slice(0, 10);
+  const due   = new Date(Date.now() + 30 * 86400000).toISOString().slice(0, 10);
+
   return {
     mode: new URLSearchParams(location.search).get('mode') === 'cash' ? 'cash' : 'credit',
     form: {
       contact_id: null, purchase_date: today, due_date: due,
-      reference: '', vat_rate: 7, notes: '',
+      supplier_invoice_no: '', vat_rate: 7, description: '',
       payment_account_code: '1101',
-      lines: [{ account_code: '', description: '', quantity: 1, unit_price: 0, amount: 0 }],
+      lines: [{ account_code: '', description: '', quantity: 1, unit_price: 0, amount: 0, unit: '' }],
     },
     contactSearch: '', contacts: [], selectedContactName: '',
     bankAccounts: [],
+    prod: {},   // per-line product search state
+    coa: {},    // per-line COA autocomplete state
+    _prodTimer: null,
+    _coaTimer: null,
     totals: { subtotal: 0, vat: 0, total: 0 },
     saving: false, error: '', success: false,
 
+    /* ── init ── */
     async init() {
-      const token = document.cookie.match(/access_token=([^;]+)/)?.[1] || '';
       try {
-        const r = await fetch('/api/v1/bank/accounts', { headers: { Authorization: 'Bearer ' + token } });
-        const d = await r.json();
+        const d = await api('GET', '/api/v1/bank/accounts');
         this.bankAccounts = d.data || d.items || d || [];
         if (this.bankAccounts.length) this.form.payment_account_code = this.bankAccounts[0].coa_account_code;
       } catch { this.bankAccounts = []; }
     },
 
+    /* ── contact search ── */
     async searchContacts() {
       if (this.contactSearch.length < 2) { this.contacts = []; return; }
-      const token = document.cookie.match(/access_token=([^;]+)/)?.[1] || '';
-      const r = await fetch('/api/v1/contacts?q=' + encodeURIComponent(this.contactSearch) + '&contact_type=supplier', {
-        headers: { Authorization: 'Bearer ' + token }
-      });
-      const d = await r.json();
-      this.contacts = d.items || d.data || d || [];
+      try {
+        const d = await api('GET', '/api/v1/contacts?q=' + encodeURIComponent(this.contactSearch) + '&contact_type=supplier');
+        this.contacts = d.items || d.data || [];
+      } catch { this.contacts = []; }
+    },
+    selectContact(c) {
+      this.form.contact_id = c.id; this.selectedContactName = c.name;
+      this.contactSearch = c.name; this.contacts = [];
     },
 
-    selectContact(c) { this.form.contact_id = c.id; this.selectedContactName = c.name; this.contactSearch = c.name; this.contacts = []; },
+    /* ── product search (per-line) ── */
+    initProd(i) { if (!this.prod[i]) this.prod[i] = { results:[], show:false, loading:false, cursor:0 }; },
+    openProd(i) {
+      this.initProd(i);
+      if (this.form.lines[i].description.length >= 1) this.onProdInput(i, this.form.lines[i].description);
+      else this.prod[i].show = false;
+    },
+    async onProdInput(i, val) {
+      this.initProd(i);
+      clearTimeout(this._prodTimer);
+      if (val.length < 1) { this.prod[i].show = false; return; }
+      this._prodTimer = setTimeout(async () => {
+        this.prod[i].loading = true;
+        try {
+          const d = await api('GET', '/api/v1/inv/products?search=' + encodeURIComponent(val) + '&active_only=true&limit=10');
+          this.prod[i].results = d.data || d || [];
+          this.prod[i].show = this.prod[i].results.length > 0;
+          this.prod[i].cursor = 0;
+        } catch { this.prod[i].results = []; this.prod[i].show = false; }
+        this.prod[i].loading = false;
+      }, 250);
+    },
+    selectProd(i, p) {
+      const l = this.form.lines[i];
+      l.description  = p.name;
+      l.account_code = p.inventory_account || '5101';
+      l.unit         = p.unit || '';
+      if (!l.unit_price && p.current_cost > 0) l.unit_price = Number(p.current_cost);
+      this.calcLine(i);
+      this.prod[i].show = false;
+    },
+    moveProd(i, dir) {
+      if (!this.prod[i]) return;
+      const len = this.prod[i].results.length;
+      if (!len) return;
+      this.prod[i].cursor = (this.prod[i].cursor + dir + len) % len;
+    },
+    selectProdByKey(i) {
+      if (!this.prod[i]?.results?.length) return;
+      this.selectProd(i, this.prod[i].results[this.prod[i].cursor || 0]);
+    },
+    closeProd(i) { if (this.prod[i]) this.prod[i].show = false; },
+    closeProdDelayed(i) { setTimeout(() => this.closeProd(i), 200); },
 
-    addLine() { this.form.lines.push({ account_code: '', description: '', quantity: 1, unit_price: 0, amount: 0 }); },
+    /* ── COA autocomplete (per-line) ── */
+    initCOA(i) { if (!this.coa[i]) this.coa[i] = { results:[], show:false, cursor:0 }; },
+    openCOA(i) {
+      this.initCOA(i);
+      const q = this.form.lines[i].account_code;
+      if (q) this.onCOAInput(i, q);
+    },
+    async onCOAInput(i, val) {
+      this.initCOA(i);
+      clearTimeout(this._coaTimer);
+      if (val.length < 1) { this.coa[i].show = false; return; }
+      this._coaTimer = setTimeout(async () => {
+        try {
+          const d = await api('GET', '/api/v1/coa?search=' + encodeURIComponent(val) + '&active_only=true&include_headers=false');
+          this.coa[i].results = d.data || [];
+          this.coa[i].show = this.coa[i].results.length > 0;
+          this.coa[i].cursor = 0;
+        } catch { this.coa[i].results = []; this.coa[i].show = false; }
+      }, 200);
+    },
+    selectCOA(i, opt) {
+      this.form.lines[i].account_code = opt.code;
+      this.coa[i].show = false;
+    },
+    moveCOA(i, dir) {
+      if (!this.coa[i]) return;
+      const len = this.coa[i].results.length;
+      if (!len) return;
+      this.coa[i].cursor = (this.coa[i].cursor + dir + len) % len;
+    },
+    selectCOAByKey(i) {
+      if (!this.coa[i]?.results?.length) return;
+      this.selectCOA(i, this.coa[i].results[this.coa[i].cursor || 0]);
+    },
+    closeCOA(i) { if (this.coa[i]) this.coa[i].show = false; },
+    closeCOADelayed(i) { setTimeout(() => this.closeCOA(i), 200); },
+
+    /* ── line management ── */
+    addLine() {
+      this.form.lines.push({ account_code: '', description: '', quantity: 1, unit_price: 0, amount: 0, unit: '' });
+    },
     removeLine(i) { this.form.lines.splice(i, 1); this.calcTotals(); },
-    calcLine(i) { const l = this.form.lines[i]; l.amount = (l.quantity || 0) * (l.unit_price || 0); this.calcTotals(); },
+    calcLine(i) {
+      const l = this.form.lines[i];
+      l.amount = (l.quantity || 0) * (l.unit_price || 0);
+      this.calcTotals();
+    },
     calcTotals() {
       const sub = this.form.lines.reduce((s, l) => s + (l.amount || 0), 0);
       const vat = sub * (this.form.vat_rate || 0) / 100;
       this.totals = { subtotal: sub, vat, total: sub + vat };
     },
 
+    /* ── save ── */
     async save() {
-      this.saving = true; this.error = ''; this.success = false;
-      const token = document.cookie.match(/access_token=([^;]+)/)?.[1] || '';
+      this.error = '';
+      // validate lines
+      for (const l of this.form.lines) {
+        if (!l.account_code.trim()) { this.error = 'กรุณาระบุรหัสบัญชีทุกรายการ'; return; }
+        if (!l.description.trim())  { this.error = 'กรุณากรอกคำอธิบายทุกรายการ'; return; }
+      }
+      this.saving = true; this.success = false;
       try {
         const payload = {
-          ...this.form,
-          payment_mode: this.mode,
+          contact_id:           this.form.contact_id,
+          purchase_date:        this.form.purchase_date,
+          due_date:             this.mode === 'cash' ? this.form.purchase_date : this.form.due_date,
+          supplier_invoice_no:  this.form.supplier_invoice_no || null,
+          description:          this.form.description || null,
+          purchase_type:        'goods',
+          payment_mode:         this.mode,
           payment_account_code: this.mode === 'cash' ? this.form.payment_account_code : null,
-          due_date: this.mode === 'cash' ? this.form.purchase_date : this.form.due_date,
-          vat_exempt: (this.form.vat_rate || 0) === 0,
+          vat_exempt:           (this.form.vat_rate || 0) === 0,
           lines: this.form.lines.map(l => ({
-            ...l,
-            vat_rate: this.form.vat_rate || 0,
+            description:  l.description,
+            account_code: l.account_code,
+            quantity:     l.quantity,
+            unit_price:   l.unit_price,
+            vat_rate:     this.form.vat_rate || 0,
+            unit:         l.unit || null,
           })),
         };
-        const r = await fetch('/api/v1/ap/purchases', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
-          body: JSON.stringify(payload),
-        });
-        if (!r.ok) { const e = await r.json(); this.error = e.detail || 'เกิดข้อผิดพลาด'; }
-        else { this.success = true; setTimeout(() => window.location = '/ap/purchases', 1500); }
-      } catch { this.error = 'ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์'; }
-      this.saving = false;
+        await api('POST', '/api/v1/ap/purchases', payload);
+        this.success = true;
+        setTimeout(() => window.location = '/ap/purchases', 1200);
+      } catch(e) {
+        this.error = e.message || 'เกิดข้อผิดพลาด';
+      } finally { this.saving = false; }
     },
 
     fmt(v) { return new Intl.NumberFormat('th-TH', { minimumFractionDigits: 2 }).format(v || 0); },

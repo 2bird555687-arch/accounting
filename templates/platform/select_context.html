@@ -461,9 +461,16 @@ function selectCtxPage() {
       if (!this.addCoForm.name.trim()) { this.addCoError = 'กรุณากรอกชื่อบริษัท'; return; }
       this.addCoSaving = true; this.addCoError = '';
       try {
+        // auto-generate code from name if empty
+        const name = this.addCoForm.name.trim();
+        let code = this.addCoForm.code.trim().toUpperCase();
+        if (!code) {
+          code = name.split(/\s+/).map(w => w[0] || '').join('').toUpperCase().replace(/[^A-Z0-9]/g,'') || 'CO';
+          code = code.substring(0, 10);
+        }
         await api('POST', '/api/v1/companies', {
-          name: this.addCoForm.name.trim(),
-          code: this.addCoForm.code.trim().toUpperCase() || undefined,
+          name,
+          code,
           entity_type: this.addCoForm.entity_type,
           business_type: this.addCoForm.business_type || undefined,
         });

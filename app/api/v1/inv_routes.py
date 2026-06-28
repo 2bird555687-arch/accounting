@@ -37,8 +37,9 @@ async def list_products(
     active_only: bool = Query(True),
     skip: int = Query(0, ge=0),
     limit: int = Query(100, le=500),
+    search: str | None = Query(None),
 ):
-    return await ProductService.list_products(ctx, db, active_only=active_only, skip=skip, limit=limit)
+    return await ProductService.list_products(ctx, db, active_only=active_only, skip=skip, limit=limit, search=search)
 
 
 @router.post("/products", response_model=ProductOut, status_code=201)

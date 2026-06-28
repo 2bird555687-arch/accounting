@@ -42,10 +42,14 @@ class ProductService:
         active_only: bool = True,
         skip: int = 0,
         limit: int = 100,
+        search: str | None = None,
     ) -> list[ProductOut]:
         q = select(Product).where(Product.company_id == ctx.company_id)
         if active_only:
             q = q.where(Product.is_active.is_(True))
+        if search:
+            like = f"%{search}%"
+            q = q.where((Product.name.ilike(like)) | (Product.sku.ilike(like)))
         q = q.order_by(Product.sku).offset(skip).limit(limit)
         rows = await db.scalars(q)
         return [ProductOut.model_validate(r) for r in rows]
