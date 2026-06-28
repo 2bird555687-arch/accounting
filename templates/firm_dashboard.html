@@ -1,6 +1,6 @@
-﻿{% extends "base.html" %}
-{% block title %}เธเธฑเธ”เธเธฒเธฃเธชเธณเธเธฑเธเธเธฒเธ{% endblock %}
-{% block page_title %}Firm Dashboard โ€” เธเธฑเธ”เธเธฒเธฃเธชเธณเธเธฑเธเธเธฒเธเธเธฑเธเธเธต{% endblock %}
+{% extends "base.html" %}
+{% block title %}จัดการสำนักงาน{% endblock %}
+{% block page_title %}Firm Dashboard — จัดการสำนักงานบัญชี{% endblock %}
 
 {% block content %}
 <div x-data="firmDashboard()" x-init="init()">
@@ -8,20 +8,20 @@
   <!-- Summary KPIs -->
   <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
     <div class="bg-white rounded-xl p-5 shadow-sm border border-gray-100">
-      <p class="text-xs text-gray-500 uppercase tracking-wide">เธเธฃเธดเธฉเธฑเธ—เนเธเธฃเธฐเธเธ</p>
-      <p class="text-3xl font-bold text-gray-800 mt-1" x-text="stats.total_companies">โ€”</p>
+      <p class="text-xs text-gray-500 uppercase tracking-wide">บริษัทในระบบ</p>
+      <p class="text-3xl font-bold text-gray-800 mt-1" x-text="stats.total_companies">—</p>
     </div>
     <div class="bg-white rounded-xl p-5 shadow-sm border border-gray-100">
-      <p class="text-xs text-gray-500 uppercase tracking-wide">เธเธนเนเนเธเนเธเธฒเธ</p>
-      <p class="text-3xl font-bold text-gray-800 mt-1" x-text="stats.total_users">โ€”</p>
+      <p class="text-xs text-gray-500 uppercase tracking-wide">ผู้ใช้งาน</p>
+      <p class="text-3xl font-bold text-gray-800 mt-1" x-text="stats.total_users">—</p>
     </div>
     <div class="bg-white rounded-xl p-5 shadow-sm border border-gray-100">
-      <p class="text-xs text-gray-500 uppercase tracking-wide">เธเธณเธซเธเธ”เธชเนเธเธ เธฒเธฉเธตเน€เธ”เธทเธญเธเธเธตเน</p>
-      <p class="text-3xl font-bold text-amber-600 mt-1" x-text="stats.deadlines_this_month">โ€”</p>
+      <p class="text-xs text-gray-500 uppercase tracking-wide">กำหนดส่งภาษีเดือนนี้</p>
+      <p class="text-3xl font-bold text-amber-600 mt-1" x-text="stats.deadlines_this_month">—</p>
     </div>
     <div class="bg-white rounded-xl p-5 shadow-sm border border-gray-100">
-      <p class="text-xs text-gray-500 uppercase tracking-wide">เน€เธเธดเธเธเธณเธซเธเธ”!</p>
-      <p class="text-3xl font-bold text-red-600 mt-1" x-text="stats.overdue_count">โ€”</p>
+      <p class="text-xs text-gray-500 uppercase tracking-wide">เกินกำหนด!</p>
+      <p class="text-3xl font-bold text-red-600 mt-1" x-text="stats.overdue_count">—</p>
     </div>
   </div>
 
@@ -30,7 +30,7 @@
     <!-- Deadline calendar -->
     <div class="bg-white rounded-xl shadow-sm border border-gray-100">
       <div class="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
-        <h2 class="font-semibold text-gray-800">เธเธณเธซเธเธ”เธเธฒเธฃเธ เธฒเธฉเธต</h2>
+        <h2 class="font-semibold text-gray-800">กำหนดการภาษี</h2>
         <span class="text-xs text-gray-400" x-text="currentMonthLabel"></span>
       </div>
       <div class="p-5">
@@ -54,10 +54,10 @@
     <!-- Companies list -->
     <div class="bg-white rounded-xl shadow-sm border border-gray-100">
       <div class="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
-        <h2 class="font-semibold text-gray-800">เธเธฃเธดเธฉเธฑเธ— / เธฅเธนเธเธเนเธฒ</h2>
+        <h2 class="font-semibold text-gray-800">บริษัท / ลูกค้า</h2>
         <button @click="newCompany()"
                 class="text-sm px-3 py-1.5 bg-blue-700 text-white rounded-lg hover:bg-blue-800 transition-colors flex items-center gap-1">
-          <i class="ti ti-plus text-sm"></i> เน€เธเธดเนเธกเธเธฃเธดเธฉเธฑเธ—
+          <i class="ti ti-plus text-sm"></i> เพิ่มบริษัท
         </button>
       </div>
       <div class="divide-y divide-gray-50">
@@ -68,28 +68,28 @@
             <div class="flex-1 min-w-0">
               <p class="font-medium text-gray-800 text-sm truncate" x-text="c.name"></p>
               <p class="text-xs text-gray-400"
-                 x-text="(c.tax_id || '') + (c.code ? ' ยท ' + c.code : '')"></p>
+                 x-text="(c.tax_id || '') + (c.code ? ' · ' + c.code : '')"></p>
             </div>
             <div class="flex items-center gap-1.5 shrink-0">
               <span x-show="!c.is_active"
-                    class="text-xs px-2 py-0.5 bg-gray-100 text-gray-500 rounded-full">เธเธดเธ”เนเธเน</span>
+                    class="text-xs px-2 py-0.5 bg-gray-100 text-gray-500 rounded-full">ปิดใช้</span>
               <button @click="editCompany(c)"
                       class="text-xs px-2.5 py-1.5 rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-100 transition-colors">
-                <i class="ti ti-edit text-xs"></i> เนเธเนเนเธ
+                <i class="ti ti-edit text-xs"></i> แก้ไข
               </button>
               <button @click="switchToCompany(c.id)"
                       class="text-xs px-2.5 py-1.5 rounded-lg bg-blue-700 text-white hover:bg-blue-800 transition-colors">
-                เน€เธเนเธฒเนเธเนเธเธฒเธ <i class="ti ti-arrow-right text-xs"></i>
+                เข้าใช้งาน <i class="ti ti-arrow-right text-xs"></i>
               </button>
             </div>
           </div>
         </template>
         <template x-if="companies.length === 0 && !loadingCompanies">
-          <div class="px-5 py-8 text-center text-gray-400 text-sm">เนเธกเนเธเธเธเนเธญเธกเธนเธฅเธเธฃเธดเธฉเธฑเธ—</div>
+          <div class="px-5 py-8 text-center text-gray-400 text-sm">ไม่พบข้อมูลบริษัท</div>
         </template>
         <template x-if="loadingCompanies">
           <div class="px-5 py-4 text-center text-gray-400 text-sm">
-            <i class="ti ti-loader animate-spin"></i> เธเธณเธฅเธฑเธเนเธซเธฅเธ”...
+            <i class="ti ti-loader animate-spin"></i> กำลังโหลด...
           </div>
         </template>
       </div>
@@ -99,8 +99,8 @@
   <!-- Recurring entries due -->
   <div class="bg-white rounded-xl shadow-sm border border-gray-100">
     <div class="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
-      <h2 class="font-semibold text-gray-800">เธฃเธฒเธขเธเธฒเธฃเธเธฃเธฐเธเธณเธ—เธตเนเธ–เธถเธเธเธณเธซเธเธ”</h2>
-      <a href="#" class="text-sm text-blue-600 hover:underline">เธเธฑเธ”เธเธฒเธฃเธ—เธฑเนเธเธซเธกเธ” โ’</a>
+      <h2 class="font-semibold text-gray-800">รายการประจำที่ถึงกำหนด</h2>
+      <a href="#" class="text-sm text-blue-600 hover:underline">จัดการทั้งหมด →</a>
     </div>
     <div class="p-5">
       <div
@@ -117,9 +117,9 @@
     </div>
   </div>
 
-  <!-- โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•
-       Modal เน€เธเธดเนเธก / เนเธเนเนเธเธเธฃเธดเธฉเธฑเธ—
-  โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ• -->
+  <!-- ══════════════════════════════════════════════════
+       Modal เพิ่ม / แก้ไขบริษัท
+  ══════════════════════════════════════════════════ -->
   <div x-show="showModal" x-cloak
        class="fixed inset-0 z-50 flex items-center justify-center p-4"
        style="background:rgba(0,0,0,.45)"
@@ -130,7 +130,7 @@
       <!-- Modal Header -->
       <div class="flex items-center justify-between px-6 py-4 border-b border-gray-100">
         <h2 class="text-base font-bold text-gray-900"
-            x-text="modalMode==='create' ? 'เน€เธเธดเนเธกเธเธฃเธดเธฉเธฑเธ—เนเธซเธกเน' : 'เนเธเนเนเธเธเธฃเธดเธฉเธฑเธ—'"></h2>
+            x-text="modalMode==='create' ? 'เพิ่มบริษัทใหม่' : 'แก้ไขบริษัท'"></h2>
         <button @click="showModal=false"
                 class="w-8 h-8 flex items-center justify-center rounded-lg text-gray-400 hover:bg-gray-100">
           <i class="ti ti-x text-base"></i>
@@ -147,33 +147,33 @@
           <span x-text="modalError"></span>
         </div>
 
-        <!-- โ”€โ”€ เธเนเธญเธกเธนเธฅเธเธดเธเธเธฒเธฃ โ”€โ”€ -->
+        <!-- ── ข้อมูลกิจการ ── -->
         <div>
-          <p class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">เธเนเธญเธกเธนเธฅเธเธดเธเธเธฒเธฃ</p>
+          <p class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">ข้อมูลกิจการ</p>
           <div class="grid grid-cols-2 gap-3">
             <div>
               <label class="block text-xs font-medium text-gray-700 mb-1">
-                เธฃเธซเธฑเธชเธเธดเธเธเธฒเธฃ <span class="text-red-500">*</span>
+                รหัสกิจการ <span class="text-red-500">*</span>
               </label>
               <input type="text" x-model="form.code"
                      :disabled="modalMode==='edit'"
                      @input="form.code = form.code.toUpperCase()"
-                     placeholder="เน€เธเนเธ ABC001"
+                     placeholder="เช่น ABC001"
                      class="w-full px-3 py-2 text-sm rounded-lg border border-gray-300
                             focus:outline-none focus:ring-2 focus:ring-blue-500
                             disabled:bg-gray-50 disabled:text-gray-400 disabled:cursor-not-allowed
                             font-mono uppercase" />
-              <p class="text-xs text-gray-400 mt-1">เธ•เธฑเธงเธญเธฑเธเธฉเธฃ/เธ•เธฑเธงเน€เธฅเธ เนเธกเนเน€เธเธดเธ 20 เธ•เธฑเธง</p>
+              <p class="text-xs text-gray-400 mt-1">ตัวอักษร/ตัวเลข ไม่เกิน 20 ตัว</p>
             </div>
             <div>
-              <label class="block text-xs font-medium text-gray-700 mb-1">เธเธฃเธฐเน€เธ เธ—เธเธดเธเธเธฒเธฃ</label>
+              <label class="block text-xs font-medium text-gray-700 mb-1">ประเภทกิจการ</label>
               <select x-model="form.business_type"
                       class="w-full px-3 py-2 text-sm rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500">
-                <option value="">โ€” เน€เธฅเธทเธญเธ โ€”</option>
-                <option value="trading">เธเธทเนเธญเธกเธฒ-เธเธฒเธขเนเธ</option>
-                <option value="service">เธเธฃเธดเธเธฒเธฃ</option>
-                <option value="manufacturing">เธเธฅเธดเธ•</option>
-                <option value="mixed">เธซเธฅเธฒเธขเธเธฃเธฐเน€เธ เธ—</option>
+                <option value="">— เลือก —</option>
+                <option value="trading">ซื้อมา-ขายไป</option>
+                <option value="service">บริการ</option>
+                <option value="manufacturing">ผลิต</option>
+                <option value="mixed">หลายประเภท</option>
               </select>
             </div>
           </div>
@@ -181,61 +181,61 @@
 
         <div>
           <label class="block text-xs font-medium text-gray-700 mb-1">
-            เธเธทเนเธญเธเธดเธเธเธฒเธฃ (เนเธ—เธข) <span class="text-red-500">*</span>
+            ชื่อกิจการ (ไทย) <span class="text-red-500">*</span>
           </label>
           <input type="text" x-model="form.name"
-                 placeholder="เน€เธเนเธ เธเธฃเธดเธฉเธฑเธ— เน€เธญเธเธตเธเธต เธเธณเธเธฑเธ”"
+                 placeholder="เช่น บริษัท เอบีซี จำกัด"
                  class="w-full px-3 py-2 text-sm rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500" />
         </div>
 
         <div class="grid grid-cols-2 gap-3">
           <div>
-            <label class="block text-xs font-medium text-gray-700 mb-1">เธเธทเนเธญเธเธดเธเธเธฒเธฃ (เธญเธฑเธเธเธคเธฉ)</label>
+            <label class="block text-xs font-medium text-gray-700 mb-1">ชื่อกิจการ (อังกฤษ)</label>
             <input type="text" x-model="form.name_en"
                    placeholder="ABC Co., Ltd."
                    class="w-full px-3 py-2 text-sm rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500" />
           </div>
           <div>
-            <label class="block text-xs font-medium text-gray-700 mb-1">เน€เธฅเธเธ—เธฐเน€เธเธตเธขเธเธเธดเธ•เธดเธเธธเธเธเธฅ</label>
+            <label class="block text-xs font-medium text-gray-700 mb-1">เลขทะเบียนนิติบุคคล</label>
             <input type="text" x-model="form.tax_id"
                    placeholder="0105xxxxxxxxx" maxlength="13"
                    class="w-full px-3 py-2 text-sm rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono" />
           </div>
         </div>
 
-        <!-- โ”€โ”€ เธ เธฒเธฉเธตเธกเธนเธฅเธเนเธฒเน€เธเธดเนเธก โ”€โ”€ -->
+        <!-- ── ภาษีมูลค่าเพิ่ม ── -->
         <div>
-          <p class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">เธ เธฒเธฉเธตเธกเธนเธฅเธเนเธฒเน€เธเธดเนเธก</p>
+          <p class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">ภาษีมูลค่าเพิ่ม</p>
           <label class="flex items-center gap-2 cursor-pointer mb-3">
             <input type="checkbox" x-model="form.vat_registered" class="h-4 w-4 rounded border-gray-300 text-blue-600" />
-            <span class="text-sm text-gray-700">เธเธ”เธ—เธฐเน€เธเธตเธขเธ VAT</span>
+            <span class="text-sm text-gray-700">จดทะเบียน VAT</span>
           </label>
           <div x-show="form.vat_registered">
-            <label class="block text-xs font-medium text-gray-700 mb-1">เน€เธฅเธเธ—เธฐเน€เธเธตเธขเธ VAT</label>
+            <label class="block text-xs font-medium text-gray-700 mb-1">เลขทะเบียน VAT</label>
             <input type="text" x-model="form.vat_id"
-                   placeholder="เน€เธฅเธเธ—เธฐเน€เธเธตเธขเธ VAT"
+                   placeholder="เลขทะเบียน VAT"
                    class="w-full px-3 py-2 text-sm rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono" />
           </div>
         </div>
 
-        <!-- โ”€โ”€ เธเนเธญเธกเธนเธฅเธ•เธดเธ”เธ•เนเธญ โ”€โ”€ -->
+        <!-- ── ข้อมูลติดต่อ ── -->
         <div>
-          <p class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">เธเนเธญเธกเธนเธฅเธ•เธดเธ”เธ•เนเธญ</p>
+          <p class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">ข้อมูลติดต่อ</p>
           <div class="mb-3">
-            <label class="block text-xs font-medium text-gray-700 mb-1">เธ—เธตเนเธญเธขเธนเน</label>
+            <label class="block text-xs font-medium text-gray-700 mb-1">ที่อยู่</label>
             <textarea x-model="form.address" rows="2"
-                      placeholder="เธ—เธตเนเธญเธขเธนเนเธเธดเธเธเธฒเธฃ"
+                      placeholder="ที่อยู่กิจการ"
                       class="w-full px-3 py-2 text-sm rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"></textarea>
           </div>
           <div class="grid grid-cols-2 gap-3">
             <div>
-              <label class="block text-xs font-medium text-gray-700 mb-1">เนเธ—เธฃเธจเธฑเธเธ—เน</label>
+              <label class="block text-xs font-medium text-gray-700 mb-1">โทรศัพท์</label>
               <input type="tel" x-model="form.phone"
                      placeholder="02-xxx-xxxx"
                      class="w-full px-3 py-2 text-sm rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500" />
             </div>
             <div>
-              <label class="block text-xs font-medium text-gray-700 mb-1">เธญเธตเน€เธกเธฅ</label>
+              <label class="block text-xs font-medium text-gray-700 mb-1">อีเมล</label>
               <input type="email" x-model="form.email"
                      placeholder="info@company.co.th"
                      class="w-full px-3 py-2 text-sm rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500" />
@@ -243,28 +243,28 @@
           </div>
         </div>
 
-        <!-- โ”€โ”€ เธเธฒเธฃเธ•เธฑเนเธเธเนเธฒ (create เน€เธ—เนเธฒเธเธฑเนเธ) โ”€โ”€ -->
+        <!-- ── การตั้งค่า (create เท่านั้น) ── -->
         <template x-if="modalMode==='create'">
           <div>
-            <p class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">เธเธฒเธฃเธ•เธฑเนเธเธเนเธฒ</p>
+            <p class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">การตั้งค่า</p>
             <div class="grid grid-cols-2 gap-3">
               <div>
-                <label class="block text-xs font-medium text-gray-700 mb-1">เน€เธ”เธทเธญเธเน€เธฃเธดเนเธกเธ•เนเธเธเธตเธเธ</label>
+                <label class="block text-xs font-medium text-gray-700 mb-1">เดือนเริ่มต้นปีงบ</label>
                 <select x-model.number="form.fiscal_year_start"
                         class="w-full px-3 py-2 text-sm rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500">
-                  <option value="1">เธกเธเธฃเธฒเธเธก</option>
-                  <option value="4">เน€เธกเธฉเธฒเธขเธ</option>
-                  <option value="7">เธเธฃเธเธเธฒเธเธก</option>
-                  <option value="10">เธ•เธธเธฅเธฒเธเธก</option>
+                  <option value="1">มกราคม</option>
+                  <option value="4">เมษายน</option>
+                  <option value="7">กรกฎาคม</option>
+                  <option value="10">ตุลาคม</option>
                 </select>
               </div>
               <div>
-                <label class="block text-xs font-medium text-gray-700 mb-1">Template เธเธฑเธเธเธฑเธเธเธต</label>
+                <label class="block text-xs font-medium text-gray-700 mb-1">Template ผังบัญชี</label>
                 <select x-model="form.coa_template"
                         class="w-full px-3 py-2 text-sm rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500">
-                  <option value="trading">เธเธทเนเธญเธกเธฒ-เธเธฒเธขเนเธ</option>
-                  <option value="service">เธเธฃเธดเธเธฒเธฃ</option>
-                  <option value="mixed">เธซเธฅเธฒเธขเธเธฃเธฐเน€เธ เธ—</option>
+                  <option value="trading">ซื้อมา-ขายไป</option>
+                  <option value="service">บริการ</option>
+                  <option value="mixed">หลายประเภท</option>
                 </select>
               </div>
             </div>
@@ -277,7 +277,7 @@
       <div class="flex items-center justify-end gap-2 px-6 py-4 border-t border-gray-100">
         <button @click="showModal=false"
                 class="px-4 py-2 text-sm font-medium text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
-          เธขเธเน€เธฅเธดเธ
+          ยกเลิก
         </button>
         <button @click="saveCompany()" :disabled="saving"
                 class="px-4 py-2 text-sm font-semibold text-white bg-blue-700 rounded-lg hover:bg-blue-800
@@ -285,7 +285,7 @@
           <i x-show="saving" class="ti ti-loader animate-spin text-sm"></i>
           <i x-show="!saving"
              :class="modalMode==='create' ? 'ti ti-plus text-sm' : 'ti ti-device-floppy text-sm'"></i>
-          <span x-text="saving ? 'เธเธณเธฅเธฑเธเธเธฑเธเธ—เธถเธ...' : (modalMode==='create' ? 'เธชเธฃเนเธฒเธเธเธฃเธดเธฉเธฑเธ—' : 'เธเธฑเธเธ—เธถเธ')"></span>
+          <span x-text="saving ? 'กำลังบันทึก...' : (modalMode==='create' ? 'สร้างบริษัท' : 'บันทึก')"></span>
         </button>
       </div>
 
@@ -319,7 +319,7 @@ function firmDashboard() {
     },
 
     get currentMonthLabel() {
-      const months = ['เธก.เธ.','เธ.เธ.','เธกเธต.เธ.','เน€เธก.เธข.','เธ.เธ.','เธกเธด.เธข.','เธ.เธ.','เธช.เธ.','เธ.เธข.','เธ•.เธ.','เธ.เธข.','เธ.เธ.'];
+      const months = ['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'];
       const d = new Date();
       return months[d.getMonth()] + ' ' + (d.getFullYear() + 543);
     },
@@ -347,7 +347,7 @@ function firmDashboard() {
       finally { this.loadingCompanies = false; }
     },
 
-    // โ”€โ”€ Modal helpers โ”€โ”€
+    // ── Modal helpers ──
 
     newCompany() {
       this.modalMode = 'create';
@@ -384,26 +384,26 @@ function firmDashboard() {
     },
 
     async saveCompany() {
-      if (!this.form.name.trim()) { this.modalError = 'เธเธฃเธธเธ“เธฒเธเธฃเธญเธเธเธทเนเธญเธเธดเธเธเธฒเธฃ'; return; }
+      if (!this.form.name.trim()) { this.modalError = 'กรุณากรอกชื่อกิจการ'; return; }
       if (this.modalMode === 'create' && !this.form.code.trim()) {
-        this.modalError = 'เธเธฃเธธเธ“เธฒเธเธฃเธญเธเธฃเธซเธฑเธชเธเธดเธเธเธฒเธฃ'; return;
+        this.modalError = 'กรุณากรอกรหัสกิจการ'; return;
       }
       this.saving = true; this.modalError = '';
       try {
         if (this.modalMode === 'create') {
           const payload = { ...this.form, code: this.form.code.toUpperCase() };
           await api('POST', '/api/v1/companies', payload);
-          notify('เธชเธฃเนเธฒเธเธเธฃเธดเธฉเธฑเธ— ' + this.form.name + ' เธชเธณเน€เธฃเนเธ', 'ok');
+          notify('สร้างบริษัท ' + this.form.name + ' สำเร็จ', 'ok');
         } else {
           const { code, coa_template, ...updateData } = this.form;
           await api('PUT', `/api/v1/companies/${this.editId}`, updateData);
-          notify('เนเธเนเนเธเธเนเธญเธกเธนเธฅเธชเธณเน€เธฃเนเธ', 'ok');
+          notify('แก้ไขข้อมูลสำเร็จ', 'ok');
         }
         this.showModal = false;
         await this.loadCompanies();
         await this.loadStats();
       } catch(e) {
-        this.modalError = e.message || 'เน€เธเธดเธ”เธเนเธญเธเธดเธ”เธเธฅเธฒเธ”';
+        this.modalError = e.message || 'เกิดข้อผิดพลาด';
       } finally {
         this.saving = false;
       }
@@ -418,7 +418,7 @@ function firmDashboard() {
         }
         window.location.href = '/';
       } catch(e) {
-        notify(e.message || 'เนเธกเนเธชเธฒเธกเธฒเธฃเธ–เน€เธเนเธฒเธเธฃเธดเธฉเธฑเธ—เธเธตเนเนเธ”เน', 'err');
+        notify(e.message || 'ไม่สามารถเข้าบริษัทนี้ได้', 'err');
       }
     },
   };

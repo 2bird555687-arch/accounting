@@ -1,48 +1,48 @@
-﻿{% extends "base.html" %}
-{% block title %}เธเธฑเธเธ—เธถเธเธชเธกเธธเธ”เธฃเธฒเธขเธงเธฑเธ{% endblock %}
-{% block page_title %}เธชเธกเธธเธ”เธฃเธฒเธขเธงเธฑเธ โ€” เธเธฑเธเธ—เธถเธเธฃเธฒเธขเธเธฒเธฃเนเธซเธกเน{% endblock %}
+{% extends "base.html" %}
+{% block title %}บันทึกสมุดรายวัน{% endblock %}
+{% block page_title %}สมุดรายวัน — บันทึกรายการใหม่{% endblock %}
 
 {% block content %}
 <div x-data="journalNew()" x-init="init()">
 
   <div style="margin-bottom:12px;">
-    <a href="/journals" class="btn btn-ghost btn-sm">โ เธเธฅเธฑเธเธชเธกเธธเธ”เธฃเธฒเธขเธงเธฑเธ</a>
+    <a href="/journals" class="btn btn-ghost btn-sm">← กลับสมุดรายวัน</a>
   </div>
 
   <div class="grid2">
 
-    <!-- โ•โ•โ•โ•โ•โ•โ•โ• Left: form โ•โ•โ•โ•โ•โ•โ•โ• -->
+    <!-- ════════ Left: form ════════ -->
     <div style="display:flex;flex-direction:column;gap:16px;">
 
       <!-- Header meta -->
       <div class="panel">
-        <div class="panel-head"><span class="panel-title">เธเนเธญเธกเธนเธฅเธซเธฑเธง</span></div>
+        <div class="panel-head"><span class="panel-title">ข้อมูลหัว</span></div>
         <div class="form-grid">
 
           <div class="form-group">
-            <label>เธเธฃเธฐเน€เธ เธ—เธชเธกเธธเธ” <span style="color:var(--red)">*</span></label>
+            <label>ประเภทสมุด <span style="color:var(--red)">*</span></label>
             <select x-model="form.journal_type">
-              <option value="GJ">GJ โ€” เธฃเธฒเธขเธงเธฑเธเธ—เธฑเนเธงเนเธ</option>
-              <option value="SJ">SJ โ€” เธชเธกเธธเธ”เธเธฒเธข</option>
-              <option value="PJ">PJ โ€” เธชเธกเธธเธ”เธเธทเนเธญ</option>
-              <option value="CR">CR โ€” เธฃเธฑเธเน€เธเธดเธ</option>
-              <option value="CP">CP โ€” เธเนเธฒเธขเน€เธเธดเธ</option>
+              <option value="GJ">GJ — รายวันทั่วไป</option>
+              <option value="SJ">SJ — สมุดขาย</option>
+              <option value="PJ">PJ — สมุดซื้อ</option>
+              <option value="CR">CR — รับเงิน</option>
+              <option value="CP">CP — จ่ายเงิน</option>
             </select>
           </div>
 
           <div class="form-group">
-            <label>เธงเธฑเธเธ—เธตเน <span style="color:var(--red)">*</span></label>
+            <label>วันที่ <span style="color:var(--red)">*</span></label>
             <input type="date" x-model="form.entry_date" />
           </div>
 
           <div class="form-group" style="grid-column:1/-1">
-            <label>เธเธณเธญเธเธดเธเธฒเธข <span style="color:var(--red)">*</span></label>
-            <input type="text" x-model="form.description" placeholder="เธฃเธฒเธขเธฅเธฐเน€เธญเธตเธขเธ”เธฃเธฒเธขเธเธฒเธฃ..." />
+            <label>คำอธิบาย <span style="color:var(--red)">*</span></label>
+            <input type="text" x-model="form.description" placeholder="รายละเอียดรายการ..." />
           </div>
 
           <div class="form-group">
-            <label>เน€เธฅเธเธ—เธตเนเธญเนเธฒเธเธญเธดเธ</label>
-            <input type="text" x-model="form.reference" placeholder="เน€เธฅเธเธ—เธตเนเน€เธญเธเธชเธฒเธฃเธญเนเธฒเธเธญเธดเธ..." />
+            <label>เลขที่อ้างอิง</label>
+            <input type="text" x-model="form.reference" placeholder="เลขที่เอกสารอ้างอิง..." />
           </div>
 
         </div>
@@ -51,19 +51,19 @@
       <!-- Line items -->
       <div class="panel">
         <div class="panel-head">
-          <span class="panel-title">เธฃเธฒเธขเธเธฒเธฃเธเธฑเธเธเธต</span>
-          <button @click="addLine()" class="btn btn-ghost btn-sm">+ เน€เธเธดเนเธกเธเธฃเธฃเธ—เธฑเธ”</button>
+          <span class="panel-title">รายการบัญชี</span>
+          <button @click="addLine()" class="btn btn-ghost btn-sm">+ เพิ่มบรรทัด</button>
         </div>
         <div class="panel-body" style="overflow-x:auto;">
           <table>
             <thead>
               <tr>
                 <th style="width:36px">#</th>
-                <th style="width:150px">เธฃเธซเธฑเธชเธเธฑเธเธเธต</th>
-                <th>เธเธทเนเธญเธเธฑเธเธเธต</th>
+                <th style="width:150px">รหัสบัญชี</th>
+                <th>ชื่อบัญชี</th>
                 <th style="width:90px;text-align:center">Dr/Cr</th>
-                <th class="num" style="width:130px">เธเธณเธเธงเธเน€เธเธดเธ</th>
-                <th style="width:160px">เธเธณเธญเธเธดเธเธฒเธข</th>
+                <th class="num" style="width:130px">จำนวนเงิน</th>
+                <th style="width:160px">คำอธิบาย</th>
                 <th style="width:28px"></th>
               </tr>
             </thead>
@@ -73,7 +73,7 @@
                   <!-- # -->
                   <td style="text-align:center;color:var(--text3);font-size:11px;" x-text="i+1"></td>
 
-                  <!-- เธฃเธซเธฑเธชเธเธฑเธเธเธต + autocomplete -->
+                  <!-- รหัสบัญชี + autocomplete -->
                   <td style="position:relative;overflow:visible;">
                     <input type="text"
                            :value="getCOAQuery(i)"
@@ -85,7 +85,7 @@
                            @keydown.enter.prevent="selectCOAByKey(i)"
                            @keydown.tab="onTabLine(i, $event)"
                            @blur="closeCOADelayed(i)"
-                           placeholder="เธฃเธซเธฑเธชเธซเธฃเธทเธญเธเธทเนเธญเธเธฑเธเธเธต..."
+                           placeholder="รหัสหรือชื่อบัญชี..."
                            style="width:140px;font-family:var(--mono);font-size:12px;" />
 
                     <!-- Dropdown -->
@@ -99,7 +99,7 @@
                       <!-- Loading -->
                       <div x-show="coa[i]?.loading"
                            style="padding:10px 12px;font-size:12px;color:var(--text3)">
-                        เธเธณเธฅเธฑเธเธเนเธเธซเธฒ...
+                        กำลังค้นหา...
                       </div>
 
                       <template x-for="(opt, j) in (coa[i]?.results || [])" :key="opt.code">
@@ -131,12 +131,12 @@
                     </div>
                   </td>
 
-                  <!-- เธเธทเนเธญเธเธฑเธเธเธต -->
+                  <!-- ชื่อบัญชี -->
                   <td style="font-size:12px;color:var(--text2);max-width:180px;
                               overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
                     <span x-show="line.account_name" x-text="line.account_name"></span>
                     <span x-show="!line.account_name && !line.account_code"
-                          style="color:var(--text4);font-style:italic;font-size:11px;">โ€”</span>
+                          style="color:var(--text4);font-style:italic;font-size:11px;">—</span>
                   </td>
 
                   <!-- DR/CR toggle -->
@@ -160,7 +160,7 @@
                     </div>
                   </td>
 
-                  <!-- เธเธณเธเธงเธเน€เธเธดเธ -->
+                  <!-- จำนวนเงิน -->
                   <td>
                     <input type="number" x-model.number="line.amount"
                            @input="calcBalance()"
@@ -168,21 +168,21 @@
                            style="text-align:right;" placeholder="0.00" />
                   </td>
 
-                  <!-- เธเธณเธญเธเธดเธเธฒเธข -->
+                  <!-- คำอธิบาย -->
                   <td>
                     <input type="text" x-model="line.description"
-                           placeholder="เธฃเธฒเธขเธฅเธฐเน€เธญเธตเธขเธ”..."
+                           placeholder="รายละเอียด..."
                            style="font-size:12px;" />
                   </td>
 
-                  <!-- เธฅเธ -->
+                  <!-- ลบ -->
                   <td>
                     <button @click="removeLine(i)" x-show="lines.length > 2"
                             type="button"
                             style="background:none;border:none;cursor:pointer;
                                    color:var(--text3);font-size:18px;line-height:1;"
                             @mouseover="$el.style.color='var(--red)'"
-                            @mouseout="$el.style.color='var(--text3)'">ร—</button>
+                            @mouseout="$el.style.color='var(--text3)'">×</button>
                   </td>
                 </tr>
               </template>
@@ -191,7 +191,7 @@
         </div>
 
         <div style="padding:12px 16px;border-top:1px solid var(--bg);">
-          <button @click="addLine()" class="btn btn-ghost btn-sm">+ เน€เธเธดเนเธกเธเธฃเธฃเธ—เธฑเธ”</button>
+          <button @click="addLine()" class="btn btn-ghost btn-sm">+ เพิ่มบรรทัด</button>
         </div>
       </div>
 
@@ -204,21 +204,21 @@
     </div>
     <!-- /left -->
 
-    <!-- โ•โ•โ•โ•โ•โ•โ•โ• Right: summary โ•โ•โ•โ•โ•โ•โ•โ• -->
+    <!-- ════════ Right: summary ════════ -->
     <div style="display:flex;flex-direction:column;gap:12px;">
 
       <!-- Summary panel -->
       <div class="panel">
-        <div class="panel-head"><span class="panel-title">เธชเธฃเธธเธเธขเธญเธ”</span></div>
+        <div class="panel-head"><span class="panel-title">สรุปยอด</span></div>
         <div style="padding:16px;display:flex;flex-direction:column;gap:12px;">
 
           <div style="display:flex;justify-content:space-between;align-items:center;">
-            <span style="font-size:13px;color:var(--text2)">เธฃเธงเธกเน€เธ”เธเธดเธ•</span>
+            <span style="font-size:13px;color:var(--text2)">รวมเดบิต</span>
             <span class="num" style="font-size:15px;color:var(--green);font-weight:700;"
                   x-text="fmt(totalDr)"></span>
           </div>
           <div style="display:flex;justify-content:space-between;align-items:center;">
-            <span style="font-size:13px;color:var(--text2)">เธฃเธงเธกเน€เธเธฃเธ”เธดเธ•</span>
+            <span style="font-size:13px;color:var(--text2)">รวมเครดิต</span>
             <span class="num" style="font-size:15px;color:var(--red);font-weight:700;"
                   x-text="fmt(totalCr)"></span>
           </div>
@@ -230,19 +230,19 @@
                  ? 'background:var(--green-l);color:var(--green)'
                  : 'background:var(--red-l);color:var(--red)'">
             <span x-text="isBalanced
-              ? 'โ“ Dr = Cr เธชเธกเธ”เธธเธฅ'
-              : 'โ— Dr โ  Cr  เธ•เนเธฒเธ ' + fmt(Math.abs(totalDr - totalCr))"></span>
+              ? '✓ Dr = Cr สมดุล'
+              : '✗ Dr ≠ Cr  ต่าง ' + fmt(Math.abs(totalDr - totalCr))"></span>
           </div>
 
           <div style="border-top:1px solid var(--border);padding-top:12px;">
             <button @click="save()" :disabled="!canSave || saving"
                     class="btn btn-primary"
                     style="width:100%;justify-content:center;">
-              <span x-text="saving ? 'เธเธณเธฅเธฑเธเธเธฑเธเธ—เธถเธ...' : 'เธเธฑเธเธ—เธถเธ JE'"></span>
+              <span x-text="saving ? 'กำลังบันทึก...' : 'บันทึก JE'"></span>
             </button>
             <p x-show="!isBalanced && totalDr > 0"
                style="font-size:11px;color:var(--text3);text-align:center;margin-top:6px;">
-              เธเธฃเธฑเธเธขเธญเธ” Dr / Cr เนเธซเนเน€เธ—เนเธฒเธเธฑเธเธเนเธญเธเธเธฑเธเธ—เธถเธ
+              ปรับยอด Dr / Cr ให้เท่ากันก่อนบันทึก
             </p>
           </div>
         </div>
@@ -251,8 +251,8 @@
       <!-- Common accounts (from API) -->
       <div class="panel">
         <div class="panel-head">
-          <span class="panel-title" style="font-size:12px;">เธเธฑเธเธเธตเธ—เธตเนเนเธเนเธเนเธญเธข</span>
-          <span style="font-size:10px;color:var(--text3)">เธเธฅเธดเธเน€เธเธทเนเธญเนเธชเนเนเธเธเธฃเธฃเธ—เธฑเธ”เธ—เธตเนเน€เธฅเธทเธญเธ</span>
+          <span class="panel-title" style="font-size:12px;">บัญชีที่ใช้บ่อย</span>
+          <span style="font-size:10px;color:var(--text3)">คลิกเพื่อใส่ในบรรทัดที่เลือก</span>
         </div>
         <div style="padding:8px 12px;display:flex;flex-direction:column;gap:2px;">
           <template x-for="c in commonAccounts" :key="c.code">
@@ -276,7 +276,7 @@
           </template>
           <div x-show="commonAccounts.length===0"
                style="font-size:11px;color:var(--text3);padding:8px 0;text-align:center;">
-            เธเธณเธฅเธฑเธเนเธซเธฅเธ”...
+            กำลังโหลด...
           </div>
         </div>
       </div>
@@ -305,7 +305,7 @@ function journalNew() {
     ],
     coa: {},          // { [i]: { query, results, show, loading, cursor } }
     _coaTimer: null,
-    _focusedLine: 0,  // เธเธฃเธฃเธ—เธฑเธ”เธ—เธตเน focus เธฅเนเธฒเธชเธธเธ” (เธชเธณเธซเธฃเธฑเธ fillFocusedLine)
+    _focusedLine: 0,  // บรรทัดที่ focus ล่าสุด (สำหรับ fillFocusedLine)
 
     totalDr: 0,
     totalCr: 0,
@@ -313,7 +313,7 @@ function journalNew() {
     error: '',
     commonAccounts: [],
 
-    // โ”€โ”€ computed โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€
+    // ── computed ──────────────────────────────────────────────────
     get isBalanced() {
       return this.totalDr > 0 && Math.abs(this.totalDr - this.totalCr) < 0.01;
     },
@@ -321,16 +321,16 @@ function journalNew() {
       return this.isBalanced && this.form.description.trim() && !this.saving;
     },
 
-    // โ”€โ”€ init โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€
+    // ── init ──────────────────────────────────────────────────────
     async init() {
       this.calcBalance();
       try {
         const r = await api('GET', '/api/v1/coa?active_only=true&include_headers=false');
         this.commonAccounts = r?.data || [];
-      } catch { /* เธ–เนเธฒ fail เนเธชเธ”เธ empty */ }
+      } catch { /* ถ้า fail แสดง empty */ }
     },
 
-    // โ”€โ”€ COA autocomplete โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€
+    // ── COA autocomplete ──────────────────────────────────────────
     initCOA(i) {
       if (!this.coa[i]) {
         this.coa[i] = { query: '', results: [], show: false, loading: false, cursor: 0 };
@@ -339,7 +339,7 @@ function journalNew() {
 
     getCOAQuery(i) {
       this.initCOA(i);
-      // เธ–เนเธฒเน€เธฅเธทเธญเธเนเธฅเนเธง เนเธชเธ”เธ code + name; เธ–เนเธฒเธขเธฑเธเธเธดเธกเธเนเธญเธขเธนเนเนเธชเธ”เธ query
+      // ถ้าเลือกแล้ว แสดง code + name; ถ้ายังพิมพ์อยู่แสดง query
       if (this.lines[i].account_code) {
         return this.lines[i].account_code + ' ' + this.lines[i].account_name;
       }
@@ -353,7 +353,7 @@ function journalNew() {
         this.coa[i].show = true;
         return;
       }
-      // เนเธซเธฅเธ”เธฃเธฒเธขเธเธฒเธฃเน€เธฃเธดเนเธกเธ•เนเธเธ–เนเธฒเธขเธฑเธเนเธกเนเธกเธต
+      // โหลดรายการเริ่มต้นถ้ายังไม่มี
       this.onCOAInput(i, this.coa[i].query || '');
     },
 
@@ -367,7 +367,7 @@ function journalNew() {
 
       clearTimeout(this._coaTimer);
       if (val.length === 0) {
-        // เนเธชเธ”เธ 15 เธฃเธฒเธขเธเธฒเธฃเนเธฃเธ
+        // แสดง 15 รายการแรก
         this.coa[i].loading = true;
         this.coa[i].show = true;
         this._coaTimer = setTimeout(async () => {
@@ -420,7 +420,7 @@ function journalNew() {
       if (opt) this.selectCOA(i, opt);
     },
 
-    // Tab เธเธฒเธเธเธฃเธฃเธ—เธฑเธ”เธชเธธเธ”เธ—เนเธฒเธข โ’ เน€เธเธดเนเธกเธเธฃเธฃเธ—เธฑเธ”เนเธซเธกเน
+    // Tab จากบรรทัดสุดท้าย → เพิ่มบรรทัดใหม่
     onTabLine(i, e) {
       if (i === this.lines.length - 1 && !e.shiftKey) {
         e.preventDefault();
@@ -432,7 +432,7 @@ function journalNew() {
       }
     },
 
-    // เธเธฅเธดเธเธเธฑเธเธเธตเธเนเธญเธขเนเธเน โ’ เนเธชเนเนเธ line เธ—เธตเน focus เธฅเนเธฒเธชเธธเธ”
+    // คลิกบัญชีบ่อยใช้ → ใส่ใน line ที่ focus ล่าสุด
     fillFocusedLine(opt) {
       const i = this._focusedLine;
       if (i >= 0 && i < this.lines.length) {
@@ -440,7 +440,7 @@ function journalNew() {
       }
     },
 
-    // โ”€โ”€ line management โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€
+    // ── line management ───────────────────────────────────────────
     addLine() {
       this.lines.push({ account_code: '', account_name: '', side: 'DR', amount: 0, description: '' });
       this.$nextTick(() => {
@@ -464,12 +464,12 @@ function journalNew() {
         .reduce((s, l) => s + (parseFloat(l.amount) || 0), 0);
     },
 
-    // โ”€โ”€ save โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€
+    // ── save ──────────────────────────────────────────────────────
     async save() {
       if (!this.canSave) return;
       const validLines = this.lines.filter(l => l.account_code && (parseFloat(l.amount) || 0) > 0);
       if (validLines.length < 2) {
-        this.error = 'เธ•เนเธญเธเธกเธตเธฃเธฒเธขเธเธฒเธฃเธญเธขเนเธฒเธเธเนเธญเธข 2 เธเธฃเธฃเธ—เธฑเธ” (Dr เนเธฅเธฐ Cr)'; return;
+        this.error = 'ต้องมีรายการอย่างน้อย 2 บรรทัด (Dr และ Cr)'; return;
       }
       this.saving = true; this.error = '';
       try {
@@ -486,10 +486,10 @@ function journalNew() {
           })),
         });
         const jno = r?.data?.entry_no || '';
-        if (typeof notify !== 'undefined') notify('เธเธฑเธเธ—เธถเธ JE เธชเธณเน€เธฃเนเธ', 'ok');
+        if (typeof notify !== 'undefined') notify('บันทึก JE สำเร็จ', 'ok');
         window.location.href = '/journals' + (jno ? '/' + jno : '');
       } catch(e) {
-        this.error = e.message || 'เน€เธเธดเธ”เธเนเธญเธเธดเธ”เธเธฅเธฒเธ”';
+        this.error = e.message || 'เกิดข้อผิดพลาด';
       } finally {
         this.saving = false;
       }
